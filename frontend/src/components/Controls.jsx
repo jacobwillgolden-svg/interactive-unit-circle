@@ -1,23 +1,28 @@
 import { useState } from 'react'
+import { COMMON_ANGLES } from '../utils/angles'
 
-const COMMON_ANGLES = [
-  { deg: 0, rad: '0' },
-  { deg: 30, rad: 'π/6' },
-  { deg: 45, rad: 'π/4' },
-  { deg: 60, rad: 'π/3' },
-  { deg: 90, rad: 'π/2' },
-  { deg: 120, rad: '2π/3' },
-  { deg: 135, rad: '3π/4' },
-  { deg: 150, rad: '5π/6' },
-  { deg: 180, rad: 'π' },
-  { deg: 210, rad: '7π/6' },
-  { deg: 225, rad: '5π/4' },
-  { deg: 240, rad: '4π/3' },
-  { deg: 270, rad: '3π/2' },
-  { deg: 300, rad: '5π/3' },
-  { deg: 315, rad: '7π/4' },
-  { deg: 330, rad: '11π/6' },
-]
+function SwitchRow({ checked, onChange, disabled, name, desc, swatch }) {
+  return (
+    <label
+      className={`toggle-row${checked ? ' is-on' : ''}${disabled ? ' is-disabled' : ''}`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="toggle-meta">
+        <span className="toggle-name">
+          {swatch && <span className={`toggle-swatch toggle-swatch--${swatch}`} />}
+          {name}
+        </span>
+        {desc && <span className="toggle-desc">{desc}</span>}
+      </span>
+      <span className="switch" aria-hidden="true" />
+    </label>
+  )
+}
 
 export default function Controls({
   angle,
@@ -34,27 +39,48 @@ export default function Controls({
   setLabelsInRadians,
   showCoords,
   setShowCoords,
+  coordsInRadians,
+  setCoordsInRadians,
+  showSohcahtoa,
+  setShowSohcahtoa,
 }) {
   const [showRadians, setShowRadians] = useState(false)
+  const progress = `${(angle / 360) * 100}%`
 
   return (
-    <div className="controls">
-      <div className="control-group">
-        <label>Angle: {angle.toFixed(1)}°</label>
-        <input
-          type="range"
-          min="0"
-          max="360"
-          step="0.1"
-          value={angle}
-          onChange={(e) => onAngleChange(parseFloat(e.target.value))}
-        />
+    <aside className="panel controls">
+      <div className="panel-header" style={{ padding: 0 }}>
+        <span className="panel-title">Controls</span>
       </div>
 
       <div className="control-group">
+        <div className="control-label">
+          <span>Angle</span>
+          <strong>{angle.toFixed(1)}°</strong>
+        </div>
+        <div className="slider-wrap" style={{ '--progress': progress }}>
+          <input
+            type="range"
+            min="0"
+            max="360"
+            step="0.1"
+            value={angle}
+            onChange={(e) => onAngleChange(parseFloat(e.target.value))}
+            aria-label="Angle in degrees"
+          />
+          <div className="slider-ends">
+            <span>0°</span>
+            <span>360°</span>
+          </div>
+        </div>
+      </div>
+
+      <hr className="divider" />
+
+      <div className="control-group">
         <div className="section-header">
-          <label>Jump to common angles</label>
-          <label className="inline-toggle">
+          <span className="control-label">Common angles</span>
+          <label className={`chip-toggle${showRadians ? ' is-on' : ''}`}>
             <input
               type="checkbox"
               checked={showRadians}
@@ -64,45 +90,90 @@ export default function Controls({
           </label>
         </div>
         <div className="angle-buttons">
-          {COMMON_ANGLES.map(({ deg, rad }) => (
-            <button key={deg} onClick={() => onAngleChange(deg)}>
-              {showRadians ? rad : `${deg}°`}
-            </button>
-          ))}
+          {COMMON_ANGLES.filter((a) => a.deg < 360).map(({ deg, rad }) => {
+            const active = Math.abs(((angle % 360) + 360) % 360 - deg) < 0.15
+            return (
+              <button
+                key={deg}
+                type="button"
+                className={active ? 'is-active' : undefined}
+                onClick={() => onAngleChange(deg, { animate: true })}
+              >
+                {showRadians ? rad : `${deg}°`}
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      <div className="control-group toggles">
-        <label>
-          <input type="checkbox" checked={showSin} onChange={(e) => setShowSin(e.target.checked)} />
-          Show Sine (red)
-        </label>
-        <label>
-          <input type="checkbox" checked={showCos} onChange={(e) => setShowCos(e.target.checked)} />
-          Show Cosine (blue)
-        </label>
-        <label>
-          <input type="checkbox" checked={showTan} onChange={(e) => setShowTan(e.target.checked)} />
-          Show Tangent (grey)
-        </label>
-        <label>
-          <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
-          Show Axis Labels
-        </label>
-        <label className={showLabels ? undefined : 'toggle-disabled'}>
-          <input
-            type="checkbox"
-            checked={labelsInRadians}
-            disabled={!showLabels}
-            onChange={(e) => setLabelsInRadians(e.target.checked)}
+      <hr className="divider" />
+
+      <div className="control-group">
+        <span className="control-label">Display</span>
+        <div className="toggles">
+          <SwitchRow
+            checked={showSin}
+            onChange={setShowSin}
+            name="Sine"
+            desc="Vertical component"
+            swatch="sin"
           />
-          Axis Labels in Radians
-        </label>
-        <label>
-          <input type="checkbox" checked={showCoords} onChange={(e) => setShowCoords(e.target.checked)} />
-          Show Coordinates
-        </label>
+          <SwitchRow
+            checked={showCos}
+            onChange={setShowCos}
+            name="Cosine"
+            desc="Horizontal component"
+            swatch="cos"
+          />
+          <SwitchRow
+            checked={showTan}
+            onChange={setShowTan}
+            name="Tangent"
+            desc="Dashed projection"
+            swatch="tan"
+          />
+          <SwitchRow
+            checked={showSohcahtoa}
+            onChange={setShowSohcahtoa}
+            name="SOHCAHTOA"
+            desc="Label opposite, adjacent, hypotenuse"
+          />
+        </div>
       </div>
-    </div>
+
+      <hr className="divider" />
+
+      <div className="control-group">
+        <span className="control-label">Labels</span>
+        <div className="toggles">
+          <SwitchRow
+            checked={showLabels}
+            onChange={setShowLabels}
+            name="Axis labels"
+            desc="Unit scale & cardinal angles"
+          />
+          <SwitchRow
+            checked={labelsInRadians}
+            onChange={setLabelsInRadians}
+            disabled={!showLabels}
+            name="Axis labels in radians"
+            desc="0 · π/2 · π · 3π/2"
+          />
+          <SwitchRow
+            checked={showCoords}
+            onChange={setShowCoords}
+            name="Coordinate labels"
+            desc="Point on canvas & metrics"
+          />
+          <SwitchRow
+            checked={coordsInRadians}
+            onChange={setCoordsInRadians}
+            disabled={!showCoords}
+            name="Coordinates in radians"
+            desc="Exact √ form + θ as π fractions"
+          />
+        </div>
+      </div>
+    </aside>
   )
 }
