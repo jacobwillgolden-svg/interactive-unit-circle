@@ -9,6 +9,8 @@ export default function Controls({
   setShowTan,
   showLabels,
   setShowLabels,
+  showCoords,
+  setShowCoords,
 }) {
   const commonAngles = [0, 30, 45, 60, 90, 120, 135, 150, 180, 210, 225, 240, 270, 300, 315, 330]
 
@@ -53,6 +55,10 @@ export default function Controls({
         <label>
           <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
           Show Axis Labels
+        </label>
+        <label>
+          <input type="checkbox" checked={showCoords} onChange={(e) => setShowCoords(e.target.checked)} />
+          Show Coordinates
         </label>
       </div>
     </div>

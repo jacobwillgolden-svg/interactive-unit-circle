@@ -7,6 +7,7 @@ export default function UnitCircle({
   showCos,
   showTan,
   showLabels,
+  showCoords,
 }) {
   const svgRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -112,6 +113,18 @@ export default function UnitCircle({
             <text x={center - 8} y={center + radius + 30} fontSize="14" fill="#666">-1</text>
           </>
         )}
+
+        {showCoords && (
+          <text
+            x={pointX + (x >= 0 ? 14 : -14)}
+            y={pointY + (y >= 0 ? -12 : 18)}
+            fontSize="13"
+            fill="#111"
+            textAnchor={x >= 0 ? 'start' : 'end'}
+          >
+            ({cos.toFixed(2)}, {sin.toFixed(2)})
+          </text>
+        )}
       </svg>
 
       <div className="values">
@@ -132,10 +145,12 @@ export default function UnitCircle({
           <span className="label">tan θ:</span>
           <span>{tan === Infinity ? 'undefined' : tan.toFixed(4)}</span>
         </div>
-        <div className="value-row">
-          <span className="label">Point:</span>
-          <span>({cos.toFixed(3)}, {sin.toFixed(3)})</span>
-        </div>
+        {showCoords && (
+          <div className="value-row">
+            <span className="label">Point:</span>
+            <span>({cos.toFixed(3)}, {sin.toFixed(3)})</span>
+          </div>
+        )}
       </div>
     </div>
   )

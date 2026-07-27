@@ -9,6 +9,7 @@ function App() {
   const [showCos, setShowCos] = useState(true)
   const [showTan, setShowTan] = useState(true)
   const [showLabels, setShowLabels] = useState(true)
+  const [showCoords, setShowCoords] = useState(true)
 
   return (
     <div className="app">
@@ -25,6 +26,7 @@ function App() {
           showCos={showCos}
           showTan={showTan}
           showLabels={showLabels}
+          showCoords={showCoords}
         />
 
         <Controls
@@ -38,6 +40,8 @@ function App() {
           setShowTan={setShowTan}
           showLabels={showLabels}
           setShowLabels={setShowLabels}
+          showCoords={showCoords}
+          setShowCoords={setShowCoords}
         />
       </main>
     </div>
