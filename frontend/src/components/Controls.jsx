@@ -1,3 +1,24 @@
+import { useState } from 'react'
+
+const COMMON_ANGLES = [
+  { deg: 0, rad: '0' },
+  { deg: 30, rad: 'π/6' },
+  { deg: 45, rad: 'π/4' },
+  { deg: 60, rad: 'π/3' },
+  { deg: 90, rad: 'π/2' },
+  { deg: 120, rad: '2π/3' },
+  { deg: 135, rad: '3π/4' },
+  { deg: 150, rad: '5π/6' },
+  { deg: 180, rad: 'π' },
+  { deg: 210, rad: '7π/6' },
+  { deg: 225, rad: '5π/4' },
+  { deg: 240, rad: '4π/3' },
+  { deg: 270, rad: '3π/2' },
+  { deg: 300, rad: '5π/3' },
+  { deg: 315, rad: '7π/4' },
+  { deg: 330, rad: '11π/6' },
+]
+
 export default function Controls({
   angle,
   onAngleChange,
@@ -12,7 +33,7 @@ export default function Controls({
   showCoords,
   setShowCoords,
 }) {
-  const commonAngles = [0, 30, 45, 60, 90, 120, 135, 150, 180, 210, 225, 240, 270, 300, 315, 330]
+  const [showRadians, setShowRadians] = useState(false)
 
   return (
     <div className="controls">
@@ -29,11 +50,21 @@ export default function Controls({
       </div>
 
       <div className="control-group">
-        <label>Jump to common angles</label>
+        <div className="section-header">
+          <label>Jump to common angles</label>
+          <label className="inline-toggle">
+            <input
+              type="checkbox"
+              checked={showRadians}
+              onChange={(e) => setShowRadians(e.target.checked)}
+            />
+            Radians
+          </label>
+        </div>
         <div className="angle-buttons">
-          {commonAngles.map((a) => (
-            <button key={a} onClick={() => onAngleChange(a)}>
-              {a}°
+          {COMMON_ANGLES.map(({ deg, rad }) => (
+            <button key={deg} onClick={() => onAngleChange(deg)}>
+              {showRadians ? rad : `${deg}°`}
             </button>
           ))}
         </div>
