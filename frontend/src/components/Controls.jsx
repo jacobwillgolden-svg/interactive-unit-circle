@@ -30,6 +30,8 @@ export default function Controls({
   setShowTan,
   showLabels,
   setShowLabels,
+  labelsInRadians,
+  setLabelsInRadians,
   showCoords,
   setShowCoords,
 }) {
@@ -86,6 +88,15 @@ export default function Controls({
         <label>
           <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
           Show Axis Labels
+        </label>
+        <label className={showLabels ? undefined : 'toggle-disabled'}>
+          <input
+            type="checkbox"
+            checked={labelsInRadians}
+            disabled={!showLabels}
+            onChange={(e) => setLabelsInRadians(e.target.checked)}
+          />
+          Axis Labels in Radians
         </label>
         <label>
           <input type="checkbox" checked={showCoords} onChange={(e) => setShowCoords(e.target.checked)} />

@@ -9,6 +9,7 @@ function App() {
   const [showCos, setShowCos] = useState(true)
   const [showTan, setShowTan] = useState(true)
   const [showLabels, setShowLabels] = useState(true)
+  const [labelsInRadians, setLabelsInRadians] = useState(false)
   const [showCoords, setShowCoords] = useState(true)
 
   return (
@@ -26,6 +27,7 @@ function App() {
           showCos={showCos}
           showTan={showTan}
           showLabels={showLabels}
+          labelsInRadians={labelsInRadians}
           showCoords={showCoords}
         />
 
@@ -40,6 +42,8 @@ function App() {
           setShowTan={setShowTan}
           showLabels={showLabels}
           setShowLabels={setShowLabels}
+          labelsInRadians={labelsInRadians}
+          setLabelsInRadians={setLabelsInRadians}
           showCoords={showCoords}
           setShowCoords={setShowCoords}
         />

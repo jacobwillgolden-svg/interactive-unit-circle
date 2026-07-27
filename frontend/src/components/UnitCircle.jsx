@@ -7,6 +7,7 @@ export default function UnitCircle({
   showCos,
   showTan,
   showLabels,
+  labelsInRadians,
   showCoords,
 }) {
   const svgRef = useRef(null)
@@ -107,10 +108,24 @@ export default function UnitCircle({
 
         {showLabels && (
           <>
-            <text x={center + radius + 28} y={center + 5} fontSize="14" fill="#666">1</text>
-            <text x={center - radius - 38} y={center + 5} fontSize="14" fill="#666">-1</text>
-            <text x={center - 5} y={center - radius - 25} fontSize="14" fill="#666">1</text>
-            <text x={center - 8} y={center + radius + 30} fontSize="14" fill="#666">-1</text>
+            {/* Unit scale */}
+            <text x={center + radius + 12} y={center - 10} fontSize="13" fill="#666">1</text>
+            <text x={center - radius - 28} y={center - 10} fontSize="13" fill="#666">-1</text>
+            <text x={center + 10} y={center - radius - 10} fontSize="13" fill="#666">1</text>
+            <text x={center + 10} y={center + radius + 18} fontSize="13" fill="#666">-1</text>
+            {/* Cardinal angle labels */}
+            <text x={center + radius + 28} y={center + 5} fontSize="14" fill="#334155">
+              {labelsInRadians ? '0' : '0°'}
+            </text>
+            <text x={center} y={center - radius - 28} fontSize="14" fill="#334155" textAnchor="middle">
+              {labelsInRadians ? 'π/2' : '90°'}
+            </text>
+            <text x={center - radius - 28} y={center + 5} fontSize="14" fill="#334155" textAnchor="end">
+              {labelsInRadians ? 'π' : '180°'}
+            </text>
+            <text x={center} y={center + radius + 36} fontSize="14" fill="#334155" textAnchor="middle">
+              {labelsInRadians ? '3π/2' : '270°'}
+            </text>
           </>
         )}
 
