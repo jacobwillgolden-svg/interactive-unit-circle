@@ -70,8 +70,11 @@ export function snapCommonAngle(deg, tolerance = 0.15) {
   return hit ? hit.deg % 360 : null
 }
 
-export function formatRadLabel(deg) {
-  const snapped = snapCommonAngle(deg)
+/** Display tolerance (°) so scrubbing near common angles shows π / exact forms */
+const DISPLAY_SNAP = 1.5
+
+export function formatRadLabel(deg, tolerance = DISPLAY_SNAP) {
+  const snapped = snapCommonAngle(deg, tolerance)
   if (snapped !== null) {
     const entry = COMMON_ANGLES.find((a) => a.deg === snapped || (snapped === 0 && a.deg === 0))
     // prefer 0 over 2π for zero
@@ -81,9 +84,9 @@ export function formatRadLabel(deg) {
   return `${((deg * Math.PI) / 180).toFixed(3)}`
 }
 
-export function formatCoords(angleDeg, cos, sin, inRadians, decimals = 3) {
+export function formatCoords(angleDeg, cos, sin, inRadians, decimals = 3, tolerance = DISPLAY_SNAP) {
   if (inRadians) {
-    const snapped = snapCommonAngle(angleDeg)
+    const snapped = snapCommonAngle(angleDeg, tolerance)
     if (snapped !== null) {
       const [cx, cy] = EXACT_COORDS[snapped] ?? EXACT_COORDS[0]
       return `(${cx}, ${cy})`
@@ -92,9 +95,9 @@ export function formatCoords(angleDeg, cos, sin, inRadians, decimals = 3) {
   return `(${cos.toFixed(decimals)}, ${sin.toFixed(decimals)})`
 }
 
-export function formatTrig(angleDeg, cos, sin, tan, key, inRadians) {
+export function formatTrig(angleDeg, cos, sin, tan, key, inRadians, tolerance = DISPLAY_SNAP) {
   if (inRadians) {
-    const snapped = snapCommonAngle(angleDeg)
+    const snapped = snapCommonAngle(angleDeg, tolerance)
     if (snapped !== null && EXACT_TRIG[snapped]) {
       return EXACT_TRIG[snapped][key]
     }

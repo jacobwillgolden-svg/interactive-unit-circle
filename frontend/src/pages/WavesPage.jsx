@@ -38,13 +38,14 @@ export default function WavesPage() {
   const grid = isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.1)'
   const panelFill = isLight ? 'rgba(15,23,42,0.02)' : 'rgba(255,255,255,0.02)'
 
-  // Layout: circle left, waves right (shared vertical midline)
-  const W = 920
+  // Layout: circle left (with side buffer for coord labels), waves right
+  const circlePad = 110
+  const W = 920 + circlePad
   const H = 420
-  const cx = 150
+  const cx = 150 + circlePad
   const cy = H / 2
   const R = 100
-  const waveX0 = 290
+  const waveX0 = 290 + circlePad
   const waveW = 560
   const amp = R
 

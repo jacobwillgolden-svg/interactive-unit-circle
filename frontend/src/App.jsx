@@ -3,6 +3,8 @@ import SiteShell from './components/SiteShell'
 import UnitCirclePage from './pages/UnitCirclePage'
 import WavesPage from './pages/WavesPage'
 import HelixPage from './pages/HelixPage'
+import HistoryPage from './pages/HistoryPage'
+import IdentitiesPage from './pages/IdentitiesPage'
 import './App.css'
 
 export default function App() {
@@ -13,6 +15,8 @@ export default function App() {
           <Route index element={<UnitCirclePage />} />
           <Route path="waves" element={<WavesPage />} />
           <Route path="helix" element={<HelixPage />} />
+          <Route path="history" element={<HistoryPage />} />
+          <Route path="identities" element={<IdentitiesPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

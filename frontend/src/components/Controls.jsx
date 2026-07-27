@@ -163,14 +163,14 @@ export default function Controls({
             checked={showCoords}
             onChange={setShowCoords}
             name="Coordinate labels"
-            desc="Point on canvas & metrics"
+            desc="(x, y) and θ on the point"
           />
           <SwitchRow
             checked={coordsInRadians}
             onChange={setCoordsInRadians}
             disabled={!showCoords}
-            name="Coordinates in radians"
-            desc="Exact √ form + θ as π fractions"
+            name="θ in radians"
+            desc="π fractions + exact √ coords at common angles"
           />
         </div>
       </div>

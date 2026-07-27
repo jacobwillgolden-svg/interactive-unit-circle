@@ -31,9 +31,11 @@ export default function UnitCircle({
     return () => clearTimeout(t)
   }, [snapPulse])
 
-  const size = 520
-  const center = size / 2
+  // Extra padding so coord labels + left SOHCAHTOA card are not clipped
   const radius = 175
+  const pad = 190
+  const size = radius * 2 + pad * 2
+  const center = size / 2
 
   const rad = (angle * Math.PI) / 180
   const x = Math.cos(rad)
@@ -48,7 +50,10 @@ export default function UnitCircle({
   const coordsLabel = formatCoords(angle, cos, sin, coordsInRadians, 3)
   const coordsLabelShort = formatCoords(angle, cos, sin, coordsInRadians, 2)
   const radLabel = formatRadLabel(angle)
-  const nearSnap = snapCommonAngle(angle, 1.2) !== null
+  const nearSnap = snapCommonAngle(angle, 1.5) !== null
+  const angleLabel = coordsInRadians
+    ? `θ = ${radLabel}`
+    : `θ = ${angle.toFixed(1)}°`
 
   const isLight = theme === 'light'
   const axisStroke = isLight ? 'rgba(15,23,42,0.14)' : 'rgba(255,255,255,0.12)'
@@ -109,7 +114,8 @@ export default function UnitCircle({
     }
   }
 
-  const labelX = pointX + (x >= 0 ? 16 : -16)
+  // Keep labels inside the padded canvas near 0° / 180°
+  const labelX = pointX + (x >= 0 ? 14 : -14)
   const labelY = pointY + (y >= 0 ? -14 : 20)
   const textAnchor = x >= 0 ? 'start' : 'end'
 
@@ -302,24 +308,60 @@ export default function UnitCircle({
                 >
                   hypotenuse
                 </text>
-                <g transform={`translate(${center - radius - 8}, ${center + radius - 8})`}>
+                {/* SOHCAHTOA card — bottom-left of canvas */}
+                <g transform={`translate(12, ${size - 130})`}>
                   <rect
                     x={0}
                     y={0}
-                    width={118}
-                    height={52}
-                    rx={8}
-                    fill={isLight ? 'rgba(255,255,255,0.9)' : 'rgba(14,16,24,0.85)'}
+                    width={168}
+                    height={118}
+                    rx={10}
+                    fill={isLight ? 'rgba(255,255,255,0.94)' : 'rgba(14,16,24,0.92)'}
                     stroke={isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.1)'}
                   />
-                  <text x={10} y={18} fontSize="10" fill={labelFill} fontFamily="JetBrains Mono, monospace">
-                    SOH · sin = opp/hyp
+                  {/* sin θ = opp / hyp */}
+                  <text x={12} y={28} fontSize="13" fontFamily="Outfit, sans-serif" fontWeight="600" fill="#dc2626">
+                    sin θ
                   </text>
-                  <text x={10} y={32} fontSize="10" fill={labelFill} fontFamily="JetBrains Mono, monospace">
-                    CAH · cos = adj/hyp
+                  <text x={52} y={28} fontSize="13" fontFamily="Outfit, sans-serif" fill={angleLabelFill}>
+                    =
                   </text>
-                  <text x={10} y={46} fontSize="10" fill={labelFill} fontFamily="JetBrains Mono, monospace">
-                    TOA · tan = opp/adj
+                  <text x={100} y={18} fontSize="11" textAnchor="middle" fontFamily="Outfit, sans-serif" fontWeight="600" fill="#dc2626">
+                    opposite
+                  </text>
+                  <line x1={68} y1={22} x2={132} y2={22} stroke={angleLabelFill} strokeWidth="1.25" />
+                  <text x={100} y={36} fontSize="11" textAnchor="middle" fontFamily="Outfit, sans-serif" fontWeight="600" fill={angleLabelFill}>
+                    hypotenuse
+                  </text>
+
+                  {/* cos θ = adj / hyp */}
+                  <text x={12} y={64} fontSize="13" fontFamily="Outfit, sans-serif" fontWeight="600" fill="#2563eb">
+                    cos θ
+                  </text>
+                  <text x={52} y={64} fontSize="13" fontFamily="Outfit, sans-serif" fill={angleLabelFill}>
+                    =
+                  </text>
+                  <text x={100} y={54} fontSize="11" textAnchor="middle" fontFamily="Outfit, sans-serif" fontWeight="600" fill="#2563eb">
+                    adjacent
+                  </text>
+                  <line x1={68} y1={58} x2={132} y2={58} stroke={angleLabelFill} strokeWidth="1.25" />
+                  <text x={100} y={72} fontSize="11" textAnchor="middle" fontFamily="Outfit, sans-serif" fontWeight="600" fill={angleLabelFill}>
+                    hypotenuse
+                  </text>
+
+                  {/* tan θ = opp / adj */}
+                  <text x={12} y={100} fontSize="13" fontFamily="Outfit, sans-serif" fontWeight="600" fill="#94a3b8">
+                    tan θ
+                  </text>
+                  <text x={52} y={100} fontSize="13" fontFamily="Outfit, sans-serif" fill={angleLabelFill}>
+                    =
+                  </text>
+                  <text x={100} y={90} fontSize="11" textAnchor="middle" fontFamily="Outfit, sans-serif" fontWeight="600" fill="#dc2626">
+                    opposite
+                  </text>
+                  <line x1={68} y1={94} x2={132} y2={94} stroke={angleLabelFill} strokeWidth="1.25" />
+                  <text x={100} y={108} fontSize="11" textAnchor="middle" fontFamily="Outfit, sans-serif" fontWeight="600" fill="#2563eb">
+                    adjacent
                   </text>
                 </g>
               </>
@@ -428,19 +470,17 @@ export default function UnitCircle({
                 >
                   {coordsLabelShort}
                 </text>
-                {coordsInRadians && (
-                  <text
-                    x={labelX}
-                    y={labelY + 14}
-                    fontSize="11"
-                    fill={coordFill}
-                    opacity="0.85"
-                    textAnchor={textAnchor}
-                    fontFamily="JetBrains Mono, monospace"
-                  >
-                    θ = {radLabel}
-                  </text>
-                )}
+                <text
+                  x={labelX}
+                  y={labelY + 14}
+                  fontSize="11"
+                  fill={coordFill}
+                  opacity="0.9"
+                  textAnchor={textAnchor}
+                  fontFamily="JetBrains Mono, monospace"
+                >
+                  {angleLabel}
+                </text>
               </>
             )}
           </svg>

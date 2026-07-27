@@ -68,6 +68,12 @@ export default function SiteShell() {
             <NavLink to="/helix" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
               Chain Rule
             </NavLink>
+            <NavLink to="/history" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
+              History
+            </NavLink>
+            <NavLink to="/identities" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
+              Identities
+            </NavLink>
           </div>
 
           <div className="nav-meta">
