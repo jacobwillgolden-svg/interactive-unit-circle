@@ -27,6 +27,43 @@ const EPS = 1e-6
 const ZOOM_MIN = 0.55
 const ZOOM_MAX = 5
 const ZOOM_FACTOR = 1.12
+/** Construction stroke weight (function segments) */
+const GEO_STROKE = 1.5
+/** Wave-plot stroke weights */
+const WAVE_STROKE_MAIN = 1.55
+const WAVE_STROKE_OTHER = 1.35
+
+/** Translucent tip marker; large invisible hit ring for easier left-drag */
+function TipDot({ x, y, color, interactive = true }) {
+  return (
+    <g style={{ cursor: interactive ? 'grab' : 'default' }} pointerEvents={interactive ? 'auto' : 'none'}>
+      {/* Hit target (content units ≈ screen-friendly when not zoomed) */}
+      {interactive && (
+        <circle cx={x} cy={y} r={14} fill="transparent" stroke="none" />
+      )}
+      <circle
+        cx={x}
+        cy={y}
+        r={3.25}
+        fill={color}
+        fillOpacity="0.28"
+        stroke={color}
+        strokeOpacity="0.55"
+        strokeWidth="1.15"
+        pointerEvents="none"
+      />
+    </g>
+  )
+}
+
+/** Degrees from unit coords (u,v), normalized to [0, 360) */
+function degFromUV(u, v, asInt) {
+  let deg = (Math.atan2(v, u) * 180) / Math.PI
+  if (deg < 0) deg += 360
+  if (asInt) deg = Math.round(deg)
+  else deg = Math.round(deg * 1000) / 1000
+  return ((deg % 360) + 360) % 360
+}
 
 function safeTan(s, c) {
   if (Math.abs(c) < EPS) return null
@@ -104,6 +141,8 @@ export default function WavesPage() {
   const [labelsInRadians, setLabelsInRadians] = useState(true)
   /** Color-coded sin/cos/tan/… labels on the construction */
   const [showNames, setShowNames] = useState(false)
+  /** Translucent dots at the free end of each function segment */
+  const [showEndpoints, setShowEndpoints] = useState(true)
   /** true = whole-number θ; false = three decimal places */
   const [angleAsInt, setAngleAsInt] = useState(true)
   const [speed, setSpeed] = useState(1)
@@ -328,24 +367,68 @@ export default function WavesPage() {
     }
   }, [])
 
+  /**
+   * Map pointer → θ.
+   * mode:
+   *  - 'point' / 'ring': direction of ray from origin (P on the unit circle)
+   *  - 'cos': foot on x-axis → cos from x, sin sign from y / previous
+   *  - 'sec': sec intercept on x-axis → cos = 1/u
+   *  - 'csc': csc intercept on y-axis → sin = 1/v
+   */
   const getAngleFromEvent = useCallback(
-    (clientX, clientY) => {
+    (clientX, clientY, mode = 'point') => {
       const svgPt = clientToSvg(clientX, clientY)
       if (!svgPt) return angle
       const { x, y } = svgToContent(svgPt.sx, svgPt.sy)
-      const dx = x - cx
-      const dy = cy - y
-      let deg = (Math.atan2(dy, dx) * 180) / Math.PI
-      if (deg < 0) deg += 360
-      if (angleAsInt) deg = Math.round(deg)
-      else deg = Math.round(deg * 1000) / 1000
-      return deg
+      const u = (x - cx) / R
+      const v = (cy - y) / R
+
+      if (mode === 'point' || mode === 'ring') {
+        return degFromUV(u, v, angleAsInt)
+      }
+
+      if (mode === 'cos') {
+        const c = Math.max(-1, Math.min(1, u))
+        const sSign = Math.abs(v) > 1e-6 ? Math.sign(v) : Math.sign(sin) || 1
+        const s = sSign * Math.sqrt(Math.max(0, 1 - c * c))
+        return degFromUV(c, s, angleAsInt)
+      }
+
+      if (mode === 'sec') {
+        // sec tip at (1/cos, 0); |u| < 1 is inside the circle → clamp to |cos|≈1 edge
+        let c
+        if (Math.abs(u) < 1 + 1e-9) {
+          c = Math.sign(u || cos || 1) * 0.999999
+        } else {
+          c = 1 / u
+        }
+        c = Math.max(-1, Math.min(1, c))
+        const sSign = Math.abs(v) > 1e-6 ? Math.sign(v) : Math.sign(sin) || 1
+        const s = sSign * Math.sqrt(Math.max(0, 1 - c * c))
+        return degFromUV(c, s, angleAsInt)
+      }
+
+      if (mode === 'csc') {
+        let s
+        if (Math.abs(v) < 1 + 1e-9) {
+          s = Math.sign(v || sin || 1) * 0.999999
+        } else {
+          s = 1 / v
+        }
+        s = Math.max(-1, Math.min(1, s))
+        const cSign = Math.abs(u) > 1e-6 ? Math.sign(u) : Math.sign(cos) || 1
+        const c = cSign * Math.sqrt(Math.max(0, 1 - s * s))
+        return degFromUV(c, s, angleAsInt)
+      }
+
+      return degFromUV(u, v, angleAsInt)
     },
-    [angle, angleAsInt, clientToSvg, svgToContent, cx, cy]
+    [angle, angleAsInt, clientToSvg, svgToContent, cx, cy, cos, sin]
   )
 
   const canDrag = !playing || dragging
   const viewIsDefault = view.k === 1 && view.tx === 0 && view.ty === 0
+  const dragModeRef = useRef('point')
 
   const zoomAt = useCallback((sx, sy, factor) => {
     setView((v) => {
@@ -403,19 +486,52 @@ export default function WavesPage() {
       return
     }
 
-    // Left-click only: set θ when paused, near the circle
+    // Left-click: set θ when paused — hit-test endpoints first, then unit-circle ring
     if (e.button !== 0) return
     if (playing) return
     const svgPt = clientToSvg(e.clientX, e.clientY)
     if (!svgPt) return
     const { x, y } = svgToContent(svgPt.sx, svgPt.sy)
-    const hitPad = 40 / (viewRef.current.k || 1)
-    const dist = Math.hypot(x - cx, y - cy)
-    if (dist > R + hitPad) return
+    const k = viewRef.current.k || 1
+    const hitR = 16 / k
+
+    // Build list of draggable tips (mode matches getAngleFromEvent)
+    /** @type {{ mode: string, x: number, y: number }[]} */
+    const tips = []
+    if (showEndpoints) {
+      // Main drag handle at P
+      tips.push({ mode: 'point', x: px, y: py })
+      if (showSin) tips.push({ mode: 'point', x: px, y: py })
+      if (showCos) tips.push({ mode: 'cos', x: footX, y: footY })
+      if (showTanGeo && tanEnd) tips.push({ mode: 'sec', x: tanEnd.x, y: tanEnd.y })
+      if (showSecGeo && secPt) tips.push({ mode: 'sec', x: secPt.x, y: secPt.y })
+      if (showCotGeo && cotEnd) tips.push({ mode: 'csc', x: cotEnd.x, y: cotEnd.y })
+      if (showCscGeo && cscPt) tips.push({ mode: 'csc', x: cscPt.x, y: cscPt.y })
+    }
+
+    let mode = null
+    let bestD = hitR
+    for (const t of tips) {
+      const d = Math.hypot(x - t.x, y - t.y)
+      if (d <= bestD) {
+        bestD = d
+        mode = t.mode
+      }
+    }
+
+    // Fallback: grab near the unit circle ring (works even if Endpoints is off)
+    if (mode == null) {
+      const dist = Math.hypot(x - cx, y - cy)
+      const ringPad = 40 / k
+      if (dist > R + ringPad || dist < Math.max(0, R - ringPad * 1.2)) return
+      mode = 'ring'
+    }
+
+    dragModeRef.current = mode
     pointerModeRef.current = 'angle'
     setDragging(true)
     e.currentTarget.setPointerCapture(e.pointerId)
-    setAngle(getAngleFromEvent(e.clientX, e.clientY))
+    setAngle(getAngleFromEvent(e.clientX, e.clientY, mode))
   }
 
   const handlePointerMove = (e) => {
@@ -433,7 +549,7 @@ export default function WavesPage() {
       return
     }
     if (pointerModeRef.current === 'angle' && dragging) {
-      setAngle(getAngleFromEvent(e.clientX, e.clientY))
+      setAngle(getAngleFromEvent(e.clientX, e.clientY, dragModeRef.current))
     }
   }
 
@@ -959,10 +1075,12 @@ export default function WavesPage() {
                     x2={secPt.x}
                     y2={secPt.y}
                     stroke={FN_COLORS.sec}
-                    strokeWidth="2"
+                    strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
-                  <circle cx={secPt.x} cy={secPt.y} r={3.5} fill={FN_COLORS.sec} />
+                  {showEndpoints && (
+                    <TipDot x={secPt.x} y={secPt.y} color={FN_COLORS.sec} />
+                  )}
                   {showNames && (
                     <text
                       x={(cx + secPt.x) / 2}
@@ -988,10 +1106,12 @@ export default function WavesPage() {
                     x2={cscPt.x}
                     y2={cscPt.y}
                     stroke={FN_COLORS.csc}
-                    strokeWidth="2"
+                    strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
-                  <circle cx={cscPt.x} cy={cscPt.y} r={3.5} fill={FN_COLORS.csc} />
+                  {showEndpoints && (
+                    <TipDot x={cscPt.x} y={cscPt.y} color={FN_COLORS.csc} />
+                  )}
                   {showNames && (
                     <text
                       x={cx - 12}
@@ -1017,9 +1137,12 @@ export default function WavesPage() {
                     x2={cotEnd.x}
                     y2={cotEnd.y}
                     stroke={FN_COLORS.cot}
-                    strokeWidth="2"
+                    strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
+                  {showEndpoints && (
+                    <TipDot x={cotEnd.x} y={cotEnd.y} color={FN_COLORS.cot} />
+                  )}
                   {showNames && (
                     <text
                       x={(px + cotEnd.x) / 2 + 10}
@@ -1044,10 +1167,12 @@ export default function WavesPage() {
                     x2={tanEnd.x}
                     y2={tanEnd.y}
                     stroke={FN_COLORS.tan}
-                    strokeWidth="2"
+                    strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
-                  <circle cx={tanEnd.x} cy={tanEnd.y} r={3.5} fill={FN_COLORS.tan} />
+                  {showEndpoints && (
+                    <TipDot x={tanEnd.x} y={tanEnd.y} color={FN_COLORS.tan} />
+                  )}
                   {showNames && (
                     <text
                       x={(px + tanEnd.x) / 2 + 8}
@@ -1072,9 +1197,12 @@ export default function WavesPage() {
                     x2={footX}
                     y2={footY}
                     stroke={FN_COLORS.cos}
-                    strokeWidth="2"
+                    strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
+                  {showEndpoints && (
+                    <TipDot x={footX} y={footY} color={FN_COLORS.cos} />
+                  )}
                   {showNames && (
                     <text
                       x={(cx + footX) / 2}
@@ -1111,9 +1239,12 @@ export default function WavesPage() {
                     x2={px}
                     y2={py}
                     stroke={FN_COLORS.sin}
-                    strokeWidth="2"
+                    strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
+                  {showEndpoints && (
+                    <TipDot x={px} y={py} color={FN_COLORS.sin} />
+                  )}
                   {showNames && (
                     <text
                       x={px + (cos >= 0 ? 8 : -8)}
@@ -1148,7 +1279,7 @@ export default function WavesPage() {
                 x2={px}
                 y2={py}
                 stroke={ink}
-                strokeWidth="1.6"
+                strokeWidth="1.3"
                 strokeLinecap="round"
               />
 
@@ -1198,23 +1329,29 @@ export default function WavesPage() {
                 />
               )}
 
-              <circle
-                cx={px}
-                cy={py}
-                r={dragging ? 8 : 6}
-                fill={
-                  isLight
-                    ? 'rgba(37, 99, 235, 0.12)'
-                    : 'rgba(125, 211, 252, 0.16)'
-                }
-                stroke={
-                  isLight
-                    ? 'rgba(37, 99, 235, 0.5)'
-                    : 'rgba(125, 211, 252, 0.55)'
-                }
-                strokeWidth="1.75"
-                style={{ cursor: playing ? 'default' : dragging ? 'grabbing' : 'grab' }}
-              />
+              {/* Drag handle at P — same Endpoints toggle as tip dots */}
+              {showEndpoints && (
+                <g style={{ cursor: playing ? 'default' : dragging ? 'grabbing' : 'grab' }}>
+                  <circle cx={px} cy={py} r={14} fill="transparent" stroke="none" />
+                  <circle
+                    cx={px}
+                    cy={py}
+                    r={dragging ? 8 : 6}
+                    fill={
+                      isLight
+                        ? 'rgba(37, 99, 235, 0.12)'
+                        : 'rgba(125, 211, 252, 0.16)'
+                    }
+                    stroke={
+                      isLight
+                        ? 'rgba(37, 99, 235, 0.5)'
+                        : 'rgba(125, 211, 252, 0.55)'
+                    }
+                    strokeWidth="1.75"
+                    pointerEvents="none"
+                  />
+                </g>
+              )}
 
               {showCoords && (
                 <>
@@ -1252,7 +1389,9 @@ export default function WavesPage() {
                     d={f.path}
                     fill="none"
                     stroke={f.color}
-                    strokeWidth={f.key === 'sin' || f.key === 'cos' ? 2 : 1.75}
+                    strokeWidth={
+                      f.key === 'sin' || f.key === 'cos' ? WAVE_STROKE_MAIN : WAVE_STROKE_OTHER
+                    }
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -1431,6 +1570,17 @@ export default function WavesPage() {
                   />
                   Names
                 </label>
+                <label
+                  className={`chip-toggle${showEndpoints ? ' is-on' : ''}`}
+                  title="Show or hide tip dots and the drag handle at P (tips are left-draggable when paused)"
+                >
+                  <input
+                    type="checkbox"
+                    checked={showEndpoints}
+                    onChange={(e) => setShowEndpoints(e.target.checked)}
+                  />
+                  Endpoints
+                </label>
                 <label className={`chip-toggle${showCoords ? ' is-on' : ''}`}>
                   <input
                     type="checkbox"
@@ -1488,7 +1638,8 @@ export default function WavesPage() {
                 Each function is a length on the unit circle and a wave against θ. Toggle sin, cos,
                 tan, csc, sec, and cot — circle segments and graphs stay in sync; unbounded curves
                 break at their asymptotes.
-                {!playing && ' Left-drag the point on the unit circle to set θ.'}
+                {!playing &&
+                  ' Left-drag an endpoint or the unit circle ring to set θ (Endpoints toggle shows tips + P handle).'}
                 {' '}Scroll to zoom, right-drag to pan, Save PNG to export.
               </p>
             </div>
