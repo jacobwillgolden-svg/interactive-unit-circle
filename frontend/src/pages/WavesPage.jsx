@@ -555,8 +555,7 @@ export default function WavesPage() {
       return
     }
 
-    // Right-click, middle-click, or Alt+left: pan the view
-    if (e.button === 2 || e.button === 1 || (e.button === 0 && e.altKey)) {
+    const startPan = () => {
       e.preventDefault()
       pointerModeRef.current = 'pan'
       panStartRef.current = {
@@ -566,43 +565,73 @@ export default function WavesPage() {
         ty: viewRef.current.ty,
       }
       e.currentTarget.setPointerCapture(e.pointerId)
+    }
+
+    // Mouse: right-click, middle-click, or Alt+left → pan
+    if (e.pointerType !== 'touch') {
+      if (e.button === 2 || e.button === 1 || (e.button === 0 && e.altKey)) {
+        startPan()
+        return
+      }
+    }
+
+    // Build tip hit list (shared by mouse left-drag + touch tip-drag)
+    const hitTestTipMode = () => {
+      if (playing) return null
+      const svgPt = clientToSvg(e.clientX, e.clientY)
+      if (!svgPt) return null
+      const { x, y } = svgToContent(svgPt.sx, svgPt.sy)
+      const k = viewRef.current.k || 1
+      const hitR = 16 / k
+
+      /** @type {{ mode: string, x: number, y: number }[]} */
+      const tips = []
+      if (showEndpoints) {
+        tips.push({ mode: 'point', x: px, y: py })
+        if (showSin) tips.push({ mode: 'point', x: px, y: py })
+        if (showCos) tips.push({ mode: 'cos', x: footX, y: footY })
+        if (showTanGeo && tanEnd) tips.push({ mode: 'sec', x: tanEnd.x, y: tanEnd.y })
+        if (showSecGeo && secPt) tips.push({ mode: 'sec', x: secPt.x, y: secPt.y })
+        if (showCotGeo && cotEnd) tips.push({ mode: 'csc', x: cotEnd.x, y: cotEnd.y })
+        if (showCscGeo && cscPt) tips.push({ mode: 'csc', x: cscPt.x, y: cscPt.y })
+      }
+
+      let mode = null
+      let bestD = hitR
+      for (const t of tips) {
+        const d = Math.hypot(x - t.x, y - t.y)
+        if (d <= bestD) {
+          bestD = d
+          mode = t.mode
+        }
+      }
+      return mode
+    }
+
+    // Touch (one finger): pan anywhere, except grab tips/handle for θ when Endpoints is on
+    if (e.pointerType === 'touch') {
+      const tipMode = hitTestTipMode()
+      if (tipMode != null) {
+        dragModeRef.current = tipMode
+        pointerModeRef.current = 'angle'
+        setDragging(true)
+        e.currentTarget.setPointerCapture(e.pointerId)
+        setAngle(getAngleFromEvent(e.clientX, e.clientY, tipMode))
+        return
+      }
+      startPan()
       return
     }
 
-    // Left-click / single touch: set θ when paused — endpoints first, then ring
+    // Mouse left-click: set θ when paused — endpoints first, then unit-circle ring
     if (e.button !== 0) return
     if (playing) return
     const svgPt = clientToSvg(e.clientX, e.clientY)
     if (!svgPt) return
     const { x, y } = svgToContent(svgPt.sx, svgPt.sy)
     const k = viewRef.current.k || 1
-    const hitR = 16 / k
 
-    // Build list of draggable tips (mode matches getAngleFromEvent)
-    /** @type {{ mode: string, x: number, y: number }[]} */
-    const tips = []
-    if (showEndpoints) {
-      // Main drag handle at P
-      tips.push({ mode: 'point', x: px, y: py })
-      if (showSin) tips.push({ mode: 'point', x: px, y: py })
-      if (showCos) tips.push({ mode: 'cos', x: footX, y: footY })
-      if (showTanGeo && tanEnd) tips.push({ mode: 'sec', x: tanEnd.x, y: tanEnd.y })
-      if (showSecGeo && secPt) tips.push({ mode: 'sec', x: secPt.x, y: secPt.y })
-      if (showCotGeo && cotEnd) tips.push({ mode: 'csc', x: cotEnd.x, y: cotEnd.y })
-      if (showCscGeo && cscPt) tips.push({ mode: 'csc', x: cscPt.x, y: cscPt.y })
-    }
-
-    let mode = null
-    let bestD = hitR
-    for (const t of tips) {
-      const d = Math.hypot(x - t.x, y - t.y)
-      if (d <= bestD) {
-        bestD = d
-        mode = t.mode
-      }
-    }
-
-    // Fallback: grab near the unit circle ring (works even if Endpoints is off)
+    let mode = hitTestTipMode()
     if (mode == null) {
       const dist = Math.hypot(x - cx, y - cy)
       const ringPad = 40 / k
@@ -918,8 +947,8 @@ export default function WavesPage() {
             <span className="panel-title">Unit circle → trig graphs</span>
             <span className="panel-hint">
               {playing
-                ? 'Space = pause · scroll/pinch = zoom · right-drag = pan'
-                : 'Space = play · left-drag tips · scroll/pinch = zoom · right-drag = pan'}
+                ? 'Space = pause · scroll/pinch = zoom · one-finger or right-drag = pan'
+                : 'Space = play · drag tips for θ · one-finger / right-drag = pan · pinch = zoom'}
             </span>
           </div>
 
@@ -1752,7 +1781,8 @@ export default function WavesPage() {
                 break at their asymptotes.
                 {!playing &&
                   ' Left-drag an endpoint or the unit circle ring to set θ (Endpoints toggle shows tips + P handle).'}
-                {' '}Scroll or pinch to zoom, right-drag / two-finger drag to pan, Save PNG to export.
+                {' '}Scroll or pinch to zoom; one-finger drag (touch) or right-drag (mouse) to pan;
+                Save PNG to export.
               </p>
             </div>
           </div>
