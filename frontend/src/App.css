@@ -1166,6 +1166,30 @@ html[data-theme='light'] .waves-svg {
   gap: 0.75rem;
 }
 
+.zoom-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+html[data-theme='light'] .zoom-controls {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.zoom-readout {
+  min-width: 3.25rem;
+  text-align: center;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  user-select: none;
+}
+
 .btn-primary,
 .btn-ghost {
   padding: 0.5rem 1rem;
@@ -1191,9 +1215,22 @@ html[data-theme='light'] .waves-svg {
   background: transparent;
 }
 
-.btn-ghost:hover {
+.btn-ghost:hover:not(:disabled) {
   border-color: var(--border-hover);
   color: var(--text);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-ghost.btn-icon {
+  min-width: 2rem;
+  padding: 0.4rem 0.55rem;
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 600;
 }
 
 .inline-slider {

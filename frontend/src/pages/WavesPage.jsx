@@ -24,6 +24,9 @@ function softFill(hex, light) {
 }
 
 const EPS = 1e-6
+const ZOOM_MIN = 0.55
+const ZOOM_MAX = 5
+const ZOOM_FACTOR = 1.12
 
 function safeTan(s, c) {
   if (Math.abs(c) < EPS) return null
@@ -99,13 +102,21 @@ export default function WavesPage() {
   const [coordsInRadians, setCoordsInRadians] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
   const [labelsInRadians, setLabelsInRadians] = useState(true)
+  /** Color-coded sin/cos/tan/… labels on the construction */
+  const [showNames, setShowNames] = useState(false)
   /** true = whole-number θ; false = three decimal places */
   const [angleAsInt, setAngleAsInt] = useState(true)
   const [speed, setSpeed] = useState(1)
   const [dragging, setDragging] = useState(false)
   /** Free-text field for the top-right angle card (degrees or radians by mode) */
   const [angleInput, setAngleInput] = useState('0')
+  /** View transform: screen = k * content + (tx, ty) */
+  const [view, setView] = useState({ k: 1, tx: 0, ty: 0 })
   const svgRef = useRef(null)
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const pointerModeRef = useRef(null) // 'angle' | 'pan' | null
+  const panStartRef = useRef(null)
 
   // Keep the input in sync when angle changes from play/drag/slider (not while typing focus)
   const angleInputFocused = useRef(false)
@@ -175,6 +186,7 @@ export default function WavesPage() {
   const muted = isLight ? '#64748b' : '#8b92a5'
   const grid = isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.1)'
   const panelFill = isLight ? 'rgba(15,23,42,0.02)' : 'rgba(255,255,255,0.02)'
+  const svgBg = isLight ? '#f4f6fa' : '#0b0d12'
 
   // Layout: circle left (room for sec/csc axis intercepts), waves right.
   // Geometry matches mathsisfun circle-unit.js (Rod Pierce) “Names” mode:
@@ -295,58 +307,236 @@ export default function WavesPage() {
   const labelX = px + (cos >= 0 ? 12 : -12)
   const labelY = py + (sin >= 0 ? -10 : 16)
 
-  const getAngleFromEvent = useCallback(
+  const clientToSvg = useCallback(
     (clientX, clientY) => {
       const svg = svgRef.current
-      if (!svg) return angle
+      if (!svg) return null
       const rect = svg.getBoundingClientRect()
-      const scaleX = W / rect.width
-      const scaleY = H / rect.height
-      const sx = (clientX - rect.left) * scaleX
-      const sy = (clientY - rect.top) * scaleY
-      const dx = sx - cx
-      const dy = cy - sy
+      if (rect.width < 1 || rect.height < 1) return null
+      return {
+        sx: ((clientX - rect.left) * W) / rect.width,
+        sy: ((clientY - rect.top) * H) / rect.height,
+      }
+    },
+    [W, H]
+  )
+
+  const svgToContent = useCallback((sx, sy, v = viewRef.current) => {
+    const k = v.k || 1
+    return {
+      x: (sx - v.tx) / k,
+      y: (sy - v.ty) / k,
+    }
+  }, [])
+
+  const getAngleFromEvent = useCallback(
+    (clientX, clientY) => {
+      const svgPt = clientToSvg(clientX, clientY)
+      if (!svgPt) return angle
+      const { x, y } = svgToContent(svgPt.sx, svgPt.sy)
+      const dx = x - cx
+      const dy = cy - y
       let deg = (Math.atan2(dy, dx) * 180) / Math.PI
       if (deg < 0) deg += 360
       if (angleAsInt) deg = Math.round(deg)
       else deg = Math.round(deg * 1000) / 1000
       return deg
     },
-    [angle, angleAsInt]
+    [angle, angleAsInt, clientToSvg, svgToContent, cx, cy]
   )
 
   const canDrag = !playing || dragging
+  const viewIsDefault = view.k === 1 && view.tx === 0 && view.ty === 0
 
-  const handlePointerDown = (e) => {
-    if (playing) return
+  const zoomAt = useCallback((sx, sy, factor) => {
+    setView((v) => {
+      const k2 = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v.k * factor))
+      if (k2 === v.k) return v
+      const f = k2 / v.k
+      return {
+        k: k2,
+        tx: sx - f * (sx - v.tx),
+        ty: sy - f * (sy - v.ty),
+      }
+    })
+  }, [])
+
+  const zoomByButton = useCallback(
+    (factor) => {
+      zoomAt(W / 2, H / 2, factor)
+    },
+    [zoomAt, W, H]
+  )
+
+  const resetView = useCallback(() => {
+    setView({ k: 1, tx: 0, ty: 0 })
+  }, [])
+
+  // Wheel zoom on the diagram (non-passive so page doesn't scroll)
+  useEffect(() => {
     const svg = svgRef.current
     if (!svg) return
-    const rect = svg.getBoundingClientRect()
-    const scaleX = W / rect.width
-    const scaleY = H / rect.height
-    const sx = (e.clientX - rect.left) * scaleX
-    const sy = (e.clientY - rect.top) * scaleY
-    const dist = Math.hypot(sx - cx, sy - cy)
-    if (dist > R + 40) return
+    const onWheel = (e) => {
+      e.preventDefault()
+      const rect = svg.getBoundingClientRect()
+      if (rect.width < 1 || rect.height < 1) return
+      const sx = ((e.clientX - rect.left) * W) / rect.width
+      const sy = ((e.clientY - rect.top) * H) / rect.height
+      const factor = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR
+      zoomAt(sx, sy, factor)
+    }
+    svg.addEventListener('wheel', onWheel, { passive: false })
+    return () => svg.removeEventListener('wheel', onWheel)
+  }, [W, H, zoomAt])
+
+  const handlePointerDown = (e) => {
+    // Right-click, middle-click, or Alt+left: pan the view
+    if (e.button === 2 || e.button === 1 || (e.button === 0 && e.altKey)) {
+      e.preventDefault()
+      pointerModeRef.current = 'pan'
+      panStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        tx: viewRef.current.tx,
+        ty: viewRef.current.ty,
+      }
+      e.currentTarget.setPointerCapture(e.pointerId)
+      return
+    }
+
+    // Left-click only: set θ when paused, near the circle
+    if (e.button !== 0) return
+    if (playing) return
+    const svgPt = clientToSvg(e.clientX, e.clientY)
+    if (!svgPt) return
+    const { x, y } = svgToContent(svgPt.sx, svgPt.sy)
+    const hitPad = 40 / (viewRef.current.k || 1)
+    const dist = Math.hypot(x - cx, y - cy)
+    if (dist > R + hitPad) return
+    pointerModeRef.current = 'angle'
     setDragging(true)
     e.currentTarget.setPointerCapture(e.pointerId)
     setAngle(getAngleFromEvent(e.clientX, e.clientY))
   }
 
   const handlePointerMove = (e) => {
-    if (!dragging) return
-    setAngle(getAngleFromEvent(e.clientX, e.clientY))
+    if (pointerModeRef.current === 'pan' && panStartRef.current) {
+      const rect = svgRef.current?.getBoundingClientRect()
+      if (!rect || rect.width < 1) return
+      const start = panStartRef.current
+      const dx = ((e.clientX - start.x) * W) / rect.width
+      const dy = ((e.clientY - start.y) * H) / rect.height
+      setView((v) => ({
+        ...v,
+        tx: start.tx + dx,
+        ty: start.ty + dy,
+      }))
+      return
+    }
+    if (pointerModeRef.current === 'angle' && dragging) {
+      setAngle(getAngleFromEvent(e.clientX, e.clientY))
+    }
   }
 
   const handlePointerUp = (e) => {
-    if (!dragging) return
-    setDragging(false)
+    if (pointerModeRef.current === 'angle') {
+      setDragging(false)
+    }
+    pointerModeRef.current = null
+    panStartRef.current = null
     try {
       e.currentTarget.releasePointerCapture(e.pointerId)
     } catch {
       /* */
     }
   }
+
+  // Suppress browser menu so right-drag can pan
+  const handleContextMenu = (e) => {
+    e.preventDefault()
+  }
+
+  const downloadPng = useCallback(async () => {
+    const svg = svgRef.current
+    if (!svg) return
+    try {
+      const clone = svg.cloneNode(true)
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      clone.setAttribute('width', String(W))
+      clone.setAttribute('height', String(H))
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+      bg.setAttribute('x', '0')
+      bg.setAttribute('y', '0')
+      bg.setAttribute('width', String(W))
+      bg.setAttribute('height', String(H))
+      bg.setAttribute('fill', svgBg)
+      clone.insertBefore(bg, clone.firstChild)
+
+      const xml = new XMLSerializer().serializeToString(clone)
+      const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const scale = 2
+      const img = new Image()
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = reject
+        img.src = url
+      })
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(W * scale)
+      canvas.height = Math.round(H * scale)
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        URL.revokeObjectURL(url)
+        return
+      }
+      ctx.fillStyle = svgBg
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(url)
+      const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+      if (!pngBlob) return
+
+      const fnKeys = [
+        ['sin', showSin],
+        ['cos', showCos],
+        ['tan', showTan],
+        ['csc', showCsc],
+        ['sec', showSec],
+        ['cot', showCot],
+      ]
+        .filter(([, on]) => on)
+        .map(([name]) => name)
+      const anglePart = angleAsInt
+        ? String(Math.round(angle))
+        : String(Math.round(angle * 1000) / 1000)
+      const base =
+        fnKeys.length > 0 ? `${fnKeys.join('_')}_${anglePart}` : `trig_${anglePart}`
+
+      const a = document.createElement('a')
+      const out = URL.createObjectURL(pngBlob)
+      a.href = out
+      a.download = `${base}.png`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(out), 2000)
+    } catch (err) {
+      console.error('PNG export failed', err)
+    }
+  }, [
+    W,
+    H,
+    svgBg,
+    showSin,
+    showCos,
+    showTan,
+    showCsc,
+    showSec,
+    showCot,
+    angle,
+    angleAsInt,
+  ])
+
+  const viewTransform = `matrix(${view.k} 0 0 ${view.k} ${view.tx} ${view.ty})`
 
   // Wave history: θ from 0 → current
   const history = useMemo(() => {
@@ -476,8 +666,8 @@ export default function WavesPage() {
             <span className="panel-title">Unit circle → trig graphs</span>
             <span className="panel-hint">
               {playing
-                ? 'Space = pause · type θ in the card to snap'
-                : 'Space = play · drag the point or type θ to snap'}
+                ? 'Space = pause · scroll = zoom · right-drag = pan'
+                : 'Space = play · left-drag point · scroll = zoom · right-drag = pan'}
             </span>
           </div>
 
@@ -492,7 +682,9 @@ export default function WavesPage() {
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
+              onContextMenu={handleContextMenu}
             >
+              <g transform={viewTransform}>
               {/* Wave axes — extended vertically for unbounded functions */}
               <line x1={waveX0} y1={cy} x2={waveX0 + waveW} y2={cy} stroke={grid} strokeWidth="1" />
               <line
@@ -743,21 +935,23 @@ export default function WavesPage() {
                     x2={secPt.x}
                     y2={secPt.y}
                     stroke={FN_COLORS.sec}
-                    strokeWidth="2.75"
+                    strokeWidth="2"
                     strokeLinecap="round"
                   />
                   <circle cx={secPt.x} cy={secPt.y} r={3.5} fill={FN_COLORS.sec} />
-                  <text
-                    x={(cx + secPt.x) / 2}
-                    y={cy + 16}
-                    fontSize="12"
-                    fill={FN_COLORS.sec}
-                    fontFamily="JetBrains Mono, monospace"
-                    fontWeight="600"
-                    textAnchor="middle"
-                  >
-                    sec
-                  </text>
+                  {showNames && (
+                    <text
+                      x={(cx + secPt.x) / 2}
+                      y={cy + 16}
+                      fontSize="12"
+                      fill={FN_COLORS.sec}
+                      fontFamily="JetBrains Mono, monospace"
+                      fontWeight="600"
+                      textAnchor="middle"
+                    >
+                      sec
+                    </text>
+                  )}
                 </g>
               )}
 
@@ -770,21 +964,23 @@ export default function WavesPage() {
                     x2={cscPt.x}
                     y2={cscPt.y}
                     stroke={FN_COLORS.csc}
-                    strokeWidth="2.75"
+                    strokeWidth="2"
                     strokeLinecap="round"
                   />
                   <circle cx={cscPt.x} cy={cscPt.y} r={3.5} fill={FN_COLORS.csc} />
-                  <text
-                    x={cx - 12}
-                    y={Math.max(TOP_PAD + 14, (cy + cscPt.y) / 2)}
-                    fontSize="12"
-                    fill={FN_COLORS.csc}
-                    fontFamily="JetBrains Mono, monospace"
-                    fontWeight="600"
-                    textAnchor="end"
-                  >
-                    csc
-                  </text>
+                  {showNames && (
+                    <text
+                      x={cx - 12}
+                      y={Math.max(TOP_PAD + 14, (cy + cscPt.y) / 2)}
+                      fontSize="12"
+                      fill={FN_COLORS.csc}
+                      fontFamily="JetBrains Mono, monospace"
+                      fontWeight="600"
+                      textAnchor="end"
+                    >
+                      csc
+                    </text>
+                  )}
                 </g>
               )}
 
@@ -797,19 +993,21 @@ export default function WavesPage() {
                     x2={cotEnd.x}
                     y2={cotEnd.y}
                     stroke={FN_COLORS.cot}
-                    strokeWidth="2.75"
+                    strokeWidth="2"
                     strokeLinecap="round"
                   />
-                  <text
-                    x={(px + cotEnd.x) / 2 + 10}
-                    y={Math.max(TOP_PAD + 14, (py + cotEnd.y) / 2 - 4)}
-                    fontSize="12"
-                    fill={FN_COLORS.cot}
-                    fontFamily="JetBrains Mono, monospace"
-                    fontWeight="600"
-                  >
-                    cot
-                  </text>
+                  {showNames && (
+                    <text
+                      x={(px + cotEnd.x) / 2 + 10}
+                      y={Math.max(TOP_PAD + 14, (py + cotEnd.y) / 2 - 4)}
+                      fontSize="12"
+                      fill={FN_COLORS.cot}
+                      fontFamily="JetBrains Mono, monospace"
+                      fontWeight="600"
+                    >
+                      cot
+                    </text>
+                  )}
                 </g>
               )}
 
@@ -822,20 +1020,22 @@ export default function WavesPage() {
                     x2={tanEnd.x}
                     y2={tanEnd.y}
                     stroke={FN_COLORS.tan}
-                    strokeWidth="2.75"
+                    strokeWidth="2"
                     strokeLinecap="round"
                   />
                   <circle cx={tanEnd.x} cy={tanEnd.y} r={3.5} fill={FN_COLORS.tan} />
-                  <text
-                    x={(px + tanEnd.x) / 2 + 8}
-                    y={(py + tanEnd.y) / 2}
-                    fontSize="12"
-                    fill={FN_COLORS.tan}
-                    fontFamily="JetBrains Mono, monospace"
-                    fontWeight="600"
-                  >
-                    tan
-                  </text>
+                  {showNames && (
+                    <text
+                      x={(px + tanEnd.x) / 2 + 8}
+                      y={(py + tanEnd.y) / 2}
+                      fontSize="12"
+                      fill={FN_COLORS.tan}
+                      fontFamily="JetBrains Mono, monospace"
+                      fontWeight="600"
+                    >
+                      tan
+                    </text>
+                  )}
                 </g>
               )}
 
@@ -848,20 +1048,22 @@ export default function WavesPage() {
                     x2={footX}
                     y2={footY}
                     stroke={FN_COLORS.cos}
-                    strokeWidth="2.75"
+                    strokeWidth="2"
                     strokeLinecap="round"
                   />
-                  <text
-                    x={(cx + footX) / 2}
-                    y={cy - 8}
-                    fontSize="12"
-                    fill={FN_COLORS.cos}
-                    fontFamily="JetBrains Mono, monospace"
-                    fontWeight="600"
-                    textAnchor="middle"
-                  >
-                    cos
-                  </text>
+                  {showNames && (
+                    <text
+                      x={(cx + footX) / 2}
+                      y={cy - 8}
+                      fontSize="12"
+                      fill={FN_COLORS.cos}
+                      fontFamily="JetBrains Mono, monospace"
+                      fontWeight="600"
+                      textAnchor="middle"
+                    >
+                      cos
+                    </text>
+                  )}
                   {cosScanY != null && (
                     <line
                       x1={px}
@@ -885,20 +1087,22 @@ export default function WavesPage() {
                     x2={px}
                     y2={py}
                     stroke={FN_COLORS.sin}
-                    strokeWidth="2.75"
+                    strokeWidth="2"
                     strokeLinecap="round"
                   />
-                  <text
-                    x={px + (cos >= 0 ? 8 : -8)}
-                    y={(footY + py) / 2}
-                    fontSize="12"
-                    fill={FN_COLORS.sin}
-                    fontFamily="JetBrains Mono, monospace"
-                    fontWeight="600"
-                    textAnchor={cos >= 0 ? 'start' : 'end'}
-                  >
-                    sin
-                  </text>
+                  {showNames && (
+                    <text
+                      x={px + (cos >= 0 ? 8 : -8)}
+                      y={(footY + py) / 2}
+                      fontSize="12"
+                      fill={FN_COLORS.sin}
+                      fontFamily="JetBrains Mono, monospace"
+                      fontWeight="600"
+                      textAnchor={cos >= 0 ? 'start' : 'end'}
+                    >
+                      sin
+                    </text>
+                  )}
                   {sinScanY != null && (
                     <line
                       x1={px}
@@ -920,7 +1124,7 @@ export default function WavesPage() {
                 x2={px}
                 y2={py}
                 stroke={ink}
-                strokeWidth="2"
+                strokeWidth="1.6"
                 strokeLinecap="round"
               />
 
@@ -973,10 +1177,18 @@ export default function WavesPage() {
               <circle
                 cx={px}
                 cy={py}
-                r={dragging ? 9 : 7}
-                fill={isLight ? '#fff' : '#07080c'}
-                stroke="#7dd3fc"
-                strokeWidth="2"
+                r={dragging ? 8 : 6}
+                fill={
+                  isLight
+                    ? 'rgba(37, 99, 235, 0.12)'
+                    : 'rgba(125, 211, 252, 0.16)'
+                }
+                stroke={
+                  isLight
+                    ? 'rgba(37, 99, 235, 0.5)'
+                    : 'rgba(125, 211, 252, 0.55)'
+                }
+                strokeWidth="1.75"
                 style={{ cursor: playing ? 'default' : dragging ? 'grabbing' : 'grab' }}
               />
 
@@ -1016,7 +1228,7 @@ export default function WavesPage() {
                     d={f.path}
                     fill="none"
                     stroke={f.color}
-                    strokeWidth={f.key === 'sin' || f.key === 'cos' ? 2.5 : 2.15}
+                    strokeWidth={f.key === 'sin' || f.key === 'cos' ? 2 : 1.75}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -1060,6 +1272,7 @@ export default function WavesPage() {
               >
                 TRIG GRAPHS
               </text>
+              </g>
             </svg>
 
             <div className="waves-controls">
@@ -1068,8 +1281,51 @@ export default function WavesPage() {
                   {playing ? 'Pause' : 'Play'}
                 </button>
                 <button type="button" className="btn-ghost" onClick={() => setAngle(0)}>
-                  Reset
+                  Reset θ
                 </button>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={downloadPng}
+                  title="Download diagram as PNG"
+                >
+                  Save PNG
+                </button>
+                <div className="zoom-controls" role="group" aria-label="Diagram zoom">
+                  <button
+                    type="button"
+                    className="btn-ghost btn-icon"
+                    onClick={() => zoomByButton(1 / ZOOM_FACTOR)}
+                    title="Zoom out"
+                    aria-label="Zoom out"
+                  >
+                    −
+                  </button>
+                  <span
+                    className="zoom-readout"
+                    title="Scroll to zoom · right-drag (or Alt-drag / middle-drag) to pan"
+                  >
+                    {Math.round(view.k * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-icon"
+                    onClick={() => zoomByButton(ZOOM_FACTOR)}
+                    title="Zoom in"
+                    aria-label="Zoom in"
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={resetView}
+                    disabled={viewIsDefault}
+                    title="Reset zoom and pan"
+                  >
+                    Reset view
+                  </button>
+                </div>
                 <label className="inline-slider">
                   <span>Speed</span>
                   <input
@@ -1140,6 +1396,17 @@ export default function WavesPage() {
                       <span className="metric-value">{formatTrigValue(f.value)}</span>
                     </div>
                   ))}
+                <label
+                  className={`chip-toggle${showNames ? ' is-on' : ''}`}
+                  title="Show or hide sin / cos / tan / … labels on the unit circle"
+                >
+                  <input
+                    type="checkbox"
+                    checked={showNames}
+                    onChange={(e) => setShowNames(e.target.checked)}
+                  />
+                  Names
+                </label>
                 <label className={`chip-toggle${showCoords ? ' is-on' : ''}`}>
                   <input
                     type="checkbox"
@@ -1197,7 +1464,8 @@ export default function WavesPage() {
                 Each function is a length on the unit circle and a wave against θ. Toggle sin, cos,
                 tan, csc, sec, and cot — circle segments and graphs stay in sync; unbounded curves
                 break at their asymptotes.
-                {!playing && ' Drag the point on the unit circle to set θ.'}
+                {!playing && ' Left-drag the point on the unit circle to set θ.'}
+                {' '}Scroll to zoom, right-drag to pan, Save PNG to export.
               </p>
             </div>
           </div>
