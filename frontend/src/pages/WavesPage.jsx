@@ -154,8 +154,12 @@ export default function WavesPage() {
   const svgRef = useRef(null)
   const viewRef = useRef(view)
   viewRef.current = view
-  const pointerModeRef = useRef(null) // 'angle' | 'pan' | null
+  const pointerModeRef = useRef(null) // 'angle' | 'pan' | 'pinch' | null
   const panStartRef = useRef(null)
+  /** Active pointers for multi-touch pinch: id → { x, y } client coords */
+  const pointersRef = useRef(new Map())
+  /** Pinch session: baseline distance, midpoint, view */
+  const pinchRef = useRef(null)
 
   // Keep the input in sync when angle changes from play/drag/slider (not while typing focus)
   const angleInputFocused = useRef(false)
@@ -471,7 +475,86 @@ export default function WavesPage() {
     return () => svg.removeEventListener('wheel', onWheel)
   }, [W, H, zoomAt])
 
+  const clientMidToSvg = useCallback(
+    (x0, y0, x1, y1) => {
+      const svg = svgRef.current
+      if (!svg) return null
+      const rect = svg.getBoundingClientRect()
+      if (rect.width < 1 || rect.height < 1) return null
+      const mx = (x0 + x1) / 2
+      const my = (y0 + y1) / 2
+      return {
+        sx: ((mx - rect.left) * W) / rect.width,
+        sy: ((my - rect.top) * H) / rect.height,
+        scaleX: W / rect.width,
+        scaleY: H / rect.height,
+      }
+    },
+    [W, H]
+  )
+
+  const beginPinch = useCallback(() => {
+    const pts = [...pointersRef.current.values()]
+    if (pts.length < 2) return
+    const [a, b] = pts
+    const dist = Math.hypot(a.x - b.x, a.y - b.y)
+    if (!(dist > 8)) return
+    const mid = clientMidToSvg(a.x, a.y, b.x, b.y)
+    if (!mid) return
+    const v = viewRef.current
+    pinchRef.current = {
+      dist0: dist,
+      k0: v.k,
+      tx0: v.tx,
+      ty0: v.ty,
+      midSx: mid.sx,
+      midSy: mid.sy,
+      // content under midpoint at pinch start (stays fixed while pinching)
+      contentX: (mid.sx - v.tx) / v.k,
+      contentY: (mid.sy - v.ty) / v.k,
+    }
+    pointerModeRef.current = 'pinch'
+    setDragging(false)
+    panStartRef.current = null
+  }, [clientMidToSvg])
+
+  const updatePinch = useCallback(() => {
+    const pinch = pinchRef.current
+    if (!pinch) return
+    const pts = [...pointersRef.current.values()]
+    if (pts.length < 2) return
+    const [a, b] = pts
+    const dist = Math.hypot(a.x - b.x, a.y - b.y)
+    if (!(dist > 4) || !(pinch.dist0 > 4)) return
+
+    const mid = clientMidToSvg(a.x, a.y, b.x, b.y)
+    if (!mid) return
+
+    let k2 = pinch.k0 * (dist / pinch.dist0)
+    k2 = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, k2))
+
+    // Keep the content point under the moving midpoint (zoom + two-finger pan)
+    const tx = mid.sx - k2 * pinch.contentX
+    const ty = mid.sy - k2 * pinch.contentY
+    setView({ k: k2, tx, ty })
+  }, [clientMidToSvg])
+
   const handlePointerDown = (e) => {
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    // Two or more contacts → pinch-to-zoom (touch screens / trackpads that send pointers)
+    if (pointersRef.current.size >= 2) {
+      e.preventDefault()
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId)
+      } catch {
+        /* */
+      }
+      // Release any prior single-finger capture
+      beginPinch()
+      return
+    }
+
     // Right-click, middle-click, or Alt+left: pan the view
     if (e.button === 2 || e.button === 1 || (e.button === 0 && e.altKey)) {
       e.preventDefault()
@@ -486,7 +569,7 @@ export default function WavesPage() {
       return
     }
 
-    // Left-click: set θ when paused — hit-test endpoints first, then unit-circle ring
+    // Left-click / single touch: set θ when paused — endpoints first, then ring
     if (e.button !== 0) return
     if (playing) return
     const svgPt = clientToSvg(e.clientX, e.clientY)
@@ -535,6 +618,17 @@ export default function WavesPage() {
   }
 
   const handlePointerMove = (e) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    }
+
+    if (pointersRef.current.size >= 2) {
+      e.preventDefault()
+      if (pointerModeRef.current !== 'pinch') beginPinch()
+      updatePinch()
+      return
+    }
+
     if (pointerModeRef.current === 'pan' && panStartRef.current) {
       const rect = svgRef.current?.getBoundingClientRect()
       if (!rect || rect.width < 1) return
@@ -554,11 +648,29 @@ export default function WavesPage() {
   }
 
   const handlePointerUp = (e) => {
+    pointersRef.current.delete(e.pointerId)
+
+    if (pointersRef.current.size >= 2) {
+      // Still pinching with remaining fingers — re-baseline
+      beginPinch()
+      return
+    }
+
+    if (pointersRef.current.size === 1 && pointerModeRef.current === 'pinch') {
+      // One finger left after pinch — stop pinch; don't auto-start angle drag
+      pinchRef.current = null
+      pointerModeRef.current = null
+      setDragging(false)
+      panStartRef.current = null
+      return
+    }
+
     if (pointerModeRef.current === 'angle') {
       setDragging(false)
     }
     pointerModeRef.current = null
     panStartRef.current = null
+    pinchRef.current = null
     try {
       e.currentTarget.releasePointerCapture(e.pointerId)
     } catch {
@@ -806,8 +918,8 @@ export default function WavesPage() {
             <span className="panel-title">Unit circle → trig graphs</span>
             <span className="panel-hint">
               {playing
-                ? 'Space = pause · scroll = zoom · right-drag = pan'
-                : 'Space = play · left-drag point · scroll = zoom · right-drag = pan'}
+                ? 'Space = pause · scroll/pinch = zoom · right-drag = pan'
+                : 'Space = play · left-drag tips · scroll/pinch = zoom · right-drag = pan'}
             </span>
           </div>
 
@@ -1466,7 +1578,7 @@ export default function WavesPage() {
                   </button>
                   <span
                     className="zoom-readout"
-                    title="Scroll to zoom · right-drag (or Alt-drag / middle-drag) to pan"
+                    title="Scroll or pinch to zoom · right-drag / Alt-drag / two-finger drag to pan"
                   >
                     {Math.round(view.k * 100)}%
                   </span>
@@ -1640,7 +1752,7 @@ export default function WavesPage() {
                 break at their asymptotes.
                 {!playing &&
                   ' Left-drag an endpoint or the unit circle ring to set θ (Endpoints toggle shows tips + P handle).'}
-                {' '}Scroll to zoom, right-drag to pan, Save PNG to export.
+                {' '}Scroll or pinch to zoom, right-drag / two-finger drag to pan, Save PNG to export.
               </p>
             </div>
           </div>
