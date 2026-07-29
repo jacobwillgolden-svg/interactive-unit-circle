@@ -2,9 +2,87 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { formatCoords, formatRadLabel, snapCommonAngle } from '../utils/angles'
 
+/** Neon-leaning stroke colors for each function */
+const FN_COLORS = {
+  sin: '#dc2626',
+  cos: '#2563eb',
+  tan: '#ff9f1c', // neon orange
+  csc: '#39ff14', // neon green
+  sec: '#bf5af2', // neon violet
+  cot: '#f5e642', // neon yellow
+}
+
+/** Soft triangle fill matching a stroke color (light theme slightly stronger) */
+function softFill(hex, light) {
+  const h = hex.replace('#', '')
+  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  const a = light ? 0.14 : 0.12
+  return `rgba(${r},${g},${b},${a})`
+}
+
+const EPS = 1e-6
+
+function safeTan(s, c) {
+  if (Math.abs(c) < EPS) return null
+  return s / c
+}
+
+function safeCsc(s) {
+  if (Math.abs(s) < EPS) return null
+  return 1 / s
+}
+
+function safeSec(c) {
+  if (Math.abs(c) < EPS) return null
+  return 1 / c
+}
+
+function safeCot(s, c) {
+  if (Math.abs(s) < EPS) return null
+  return c / s
+}
+
+function formatTrigValue(v) {
+  if (v == null || !Number.isFinite(v)) return '∞'
+  if (Math.abs(v) > 1e4) return '∞'
+  return v.toFixed(4)
+}
+
+/** Angle display: int = whole numbers; float = three decimal places */
+function formatAngleNumber(n, asInt) {
+  if (!Number.isFinite(n)) return '—'
+  return asInt ? String(Math.round(n)) : n.toFixed(3)
+}
+
 /**
- * Classic derivation view: unit circle with sine & cosine waves
- * “unwrapped” and superimposed as the angle advances.
+ * Build an SVG path that breaks at vertical asymptotes / clipped extremes.
+ * getValue(point) → number | null
+ */
+function buildClippedPath(pts, getValue, cy, amp, yClip) {
+  let d = ''
+  let drawing = false
+  for (const p of pts) {
+    const v = getValue(p)
+    if (v == null || !Number.isFinite(v) || Math.abs(v) > yClip) {
+      drawing = false
+      continue
+    }
+    const y = cy - v * amp
+    if (!drawing) {
+      d += `M ${p.x} ${y} `
+      drawing = true
+    } else {
+      d += `L ${p.x} ${y} `
+    }
+  }
+  return d.trim()
+}
+
+/**
+ * Unit circle + unwrapped trig graphs (sin, cos, tan, csc, sec, cot).
  */
 export default function WavesPage() {
   const { theme } = useOutletContext()
@@ -12,11 +90,58 @@ export default function WavesPage() {
   const [playing, setPlaying] = useState(true)
   const [showSin, setShowSin] = useState(true)
   const [showCos, setShowCos] = useState(true)
+  const [showTan, setShowTan] = useState(false)
+  const [showCsc, setShowCsc] = useState(false)
+  const [showSec, setShowSec] = useState(false)
+  const [showCot, setShowCot] = useState(false)
+  // Defaults match design screenshot: coords on (θ in °), axis labels + radians on
   const [showCoords, setShowCoords] = useState(true)
   const [coordsInRadians, setCoordsInRadians] = useState(false)
+  const [showLabels, setShowLabels] = useState(true)
+  const [labelsInRadians, setLabelsInRadians] = useState(true)
+  /** true = whole-number θ; false = three decimal places */
+  const [angleAsInt, setAngleAsInt] = useState(true)
   const [speed, setSpeed] = useState(1)
   const [dragging, setDragging] = useState(false)
+  /** Free-text field for the top-right angle card (degrees or radians by mode) */
+  const [angleInput, setAngleInput] = useState('0')
   const svgRef = useRef(null)
+
+  // Keep the input in sync when angle changes from play/drag/slider (not while typing focus)
+  const angleInputFocused = useRef(false)
+  useEffect(() => {
+    if (angleInputFocused.current) return
+    if (coordsInRadians) {
+      const r = (angle * Math.PI) / 180
+      setAngleInput(formatAngleNumber(r, angleAsInt))
+    } else {
+      setAngleInput(formatAngleNumber(angle, angleAsInt))
+    }
+  }, [angle, coordsInRadians, angleAsInt])
+
+  // Switching to int snaps θ to the nearest whole degree
+  useEffect(() => {
+    if (!angleAsInt) return
+    setAngle((a) => {
+      const snapped = ((Math.round(a) % 360) + 360) % 360
+      return snapped === a ? a : snapped
+    })
+  }, [angleAsInt])
+
+  const applyAngleInput = useCallback(() => {
+    const raw = String(angleInput).trim().replace(/°/g, '')
+    if (raw === '' || raw === '.' || raw === '-') return
+    let n = parseFloat(raw)
+    if (!Number.isFinite(n)) return
+    // Radians mode: user typed radians → convert to degrees for internal state
+    let deg = coordsInRadians ? (n * 180) / Math.PI : n
+    if (angleAsInt) deg = Math.round(deg)
+    else deg = Math.round(deg * 1000) / 1000
+    // Normalize to [0, 360)
+    deg = ((deg % 360) + 360) % 360
+    setPlaying(false)
+    setAngle(deg)
+  }, [angleInput, coordsInRadians, angleAsInt])
 
   useEffect(() => {
     if (!playing || dragging) return
@@ -32,28 +157,114 @@ export default function WavesPage() {
     return () => cancelAnimationFrame(raf)
   }, [playing, speed, dragging])
 
+  // Spacebar toggles play/pause (skip when typing in an input/textarea)
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.code !== 'Space' && e.key !== ' ') return
+      const tag = (e.target && e.target.tagName) || ''
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return
+      e.preventDefault()
+      setPlaying((p) => !p)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   const isLight = theme === 'light'
   const ink = isLight ? '#0f172a' : '#e8eaf0'
   const muted = isLight ? '#64748b' : '#8b92a5'
   const grid = isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.1)'
   const panelFill = isLight ? 'rgba(15,23,42,0.02)' : 'rgba(255,255,255,0.02)'
 
-  // Layout: circle left (with side buffer for coord labels), waves right
-  const circlePad = 110
-  const W = 920 + circlePad
-  const H = 420
-  const cx = 150 + circlePad
-  const cy = H / 2
-  const R = 100
-  const waveX0 = 290 + circlePad
-  const waveW = 560
+  // Layout: circle left (room for sec/csc axis intercepts), waves right.
+  // Geometry matches mathsisfun circle-unit.js (Rod Pierce) “Names” mode:
+  //   cos: O → (cos,0)     sin: (cos,0) → P
+  //   sec: O → (sec,0)     csc: O → (0,csc)
+  //   tan: P → (sec,0)     cot: P → (0,csc)   [tangent line at P]
+  // Tall canvas: csc/cot intercepts stay on-screen; top pad keeps titles clear of tips
+  const R = 90
+  const MAX_GEO = 4.2 // |sec|/|csc| draw extent in unit lengths
+  const TOP_PAD = 44 // room for UNIT CIRCLE / TRIG GRAPHS above max intercept
+  const BOTTOM_PAD = 40
+  const H = Math.ceil(2 * MAX_GEO * R + TOP_PAD + BOTTOM_PAD)
+  // Center so ±MAX_GEO fits with title band above the top intercept
+  const cy = TOP_PAD + MAX_GEO * R
+  const cx = 40 + MAX_GEO * R
+  const constructZone = 40
+  const waveX0 = cx + MAX_GEO * R + constructZone
+  const waveW = 520
+  const W = waveX0 + waveW + 40
   const amp = R
+  const yClip = Math.min(MAX_GEO - 0.05, (cy - 12) / amp)
 
   const rad = (angle * Math.PI) / 180
   const cos = Math.cos(rad)
   const sin = Math.sin(rad)
+  const tan = safeTan(sin, cos)
+  const csc = safeCsc(sin)
+  const sec = safeSec(cos)
+  const cot = safeCot(sin, cos)
   const px = cx + cos * R
   const py = cy - sin * R
+  // Foot of perpendicular from P to x-axis (screen)
+  const footX = px
+  const footY = cy
+
+  /**
+   * Clip a unit-plane point so |u|,|v| ≤ MAX_GEO (keeps intercepts on canvas).
+   * Returns null if the value is undefined/infinite.
+   */
+  const clipPt = (u, v) => {
+    if (u == null || v == null || !Number.isFinite(u) || !Number.isFinite(v)) return null
+    const cu = Math.max(-MAX_GEO, Math.min(MAX_GEO, u))
+    const cv = Math.max(-MAX_GEO, Math.min(MAX_GEO, v))
+    return { u: cu, v: cv, x: cx + cu * R, y: cy - cv * R }
+  }
+
+  // Axis intercepts of the tangent line at P: x·cos + y·sin = 1
+  //   x-intercept (sec, 0),  y-intercept (0, csc)
+  // Same formulas as mathsisfun: secWd = R/cos, cscHt = R/sin (with y flip)
+  const secPt = sec != null ? clipPt(sec, 0) : null
+  const cscPt = csc != null ? clipPt(0, csc) : null
+
+  // When intercepts are clipped, still draw tan/cot along the ray from P toward the intercept
+  const toward = (fromU, fromV, toU, toV) => {
+    if (toU == null || toV == null || !Number.isFinite(toU) || !Number.isFinite(toV)) return null
+    // If target is inside box, use it; else intersect ray P→target with the MAX_GEO box
+    if (Math.abs(toU) <= MAX_GEO && Math.abs(toV) <= MAX_GEO) {
+      return { u: toU, v: toV, x: cx + toU * R, y: cy - toV * R }
+    }
+    const du = toU - fromU
+    const dv = toV - fromV
+    let tMax = 1
+    if (du !== 0) {
+      const t1 = (MAX_GEO - fromU) / du
+      const t2 = (-MAX_GEO - fromU) / du
+      if (t1 > 0) tMax = Math.min(tMax, t1)
+      if (t2 > 0) tMax = Math.min(tMax, t2)
+    }
+    if (dv !== 0) {
+      const t1 = (MAX_GEO - fromV) / dv
+      const t2 = (-MAX_GEO - fromV) / dv
+      if (t1 > 0) tMax = Math.min(tMax, t1)
+      if (t2 > 0) tMax = Math.min(tMax, t2)
+    }
+    if (!(tMax > 0) || !Number.isFinite(tMax)) return null
+    const u = fromU + du * tMax
+    const v = fromV + dv * tMax
+    return { u, v, x: cx + u * R, y: cy - v * R }
+  }
+
+  const tanEnd =
+    tan != null && sec != null ? toward(cos, sin, sec, 0) : null
+  const cotEnd =
+    cot != null && csc != null ? toward(cos, sin, 0, csc) : null
+
+  const showTanGeo = showTan && tanEnd != null && Math.abs(tan) > 1e-8
+  const showSecGeo = showSec && secPt != null && Math.abs(sec) > 1e-8
+  const showCotGeo = showCot && cotEnd != null && Math.abs(cot) > 1e-8
+  const showCscGeo = showCsc && cscPt != null && Math.abs(csc) > 1e-8
+  const anyRecip = showTanGeo || showSecGeo || showCotGeo || showCscGeo
 
   // Wider snap so exact √ forms show while scrubbing near common angles
   const nearCommon = snapCommonAngle(angle, 1.5)
@@ -62,20 +273,24 @@ export default function WavesPage() {
       return formatCoords(nearCommon, cos, sin, true, 2)
     }
     if (coordsInRadians) {
-      // Always distinct from degrees: show values as cos/sin of θ with rad emphasis
       return `(${cos.toFixed(2)}, ${sin.toFixed(2)})`
     }
     return `(${cos.toFixed(2)}, ${sin.toFixed(2)})`
   })()
   const radLabel = formatRadLabel(nearCommon !== null ? nearCommon : angle)
-  // Degrees mode: θ in ° · Radians mode: θ as π fraction or decimal rad
+  // Prefer exact π forms at common angles in radians mode; otherwise int/float precision
   const angleLabel = coordsInRadians
-    ? nearCommon !== null
+    ? nearCommon !== null && !angleAsInt
       ? `θ = ${radLabel}`
-      : `θ = ${rad.toFixed(3)}`
-    : `θ = ${angle.toFixed(1)}°`
+      : nearCommon !== null && angleAsInt
+        ? `θ = ${formatAngleNumber(rad, true)}`
+        : `θ = ${formatAngleNumber(rad, angleAsInt)}`
+    : `θ = ${formatAngleNumber(angle, angleAsInt)}°`
 
   const coordFill = isLight ? '#b45309' : '#f0d9a8'
+  const angleLabelFill = isLight ? '#334155' : '#c8cdd9'
+  const tickStroke = isLight ? 'rgba(15,23,42,0.28)' : 'rgba(255,255,255,0.2)'
+  const labelFill = muted
   const labelAnchor = cos >= 0 ? 'start' : 'end'
   const labelX = px + (cos >= 0 ? 12 : -12)
   const labelY = py + (sin >= 0 ? -10 : 16)
@@ -93,15 +308,16 @@ export default function WavesPage() {
       const dy = cy - sy
       let deg = (Math.atan2(dy, dx) * 180) / Math.PI
       if (deg < 0) deg += 360
+      if (angleAsInt) deg = Math.round(deg)
+      else deg = Math.round(deg * 1000) / 1000
       return deg
     },
-    [angle]
+    [angle, angleAsInt]
   )
 
   const canDrag = !playing || dragging
 
   const handlePointerDown = (e) => {
-    // Only allow circle dragging when paused
     if (playing) return
     const svg = svgRef.current
     if (!svg) return
@@ -111,7 +327,6 @@ export default function WavesPage() {
     const sx = (e.clientX - rect.left) * scaleX
     const sy = (e.clientY - rect.top) * scaleY
     const dist = Math.hypot(sx - cx, sy - cy)
-    // Hit-test near the circle (or anywhere in circle region)
     if (dist > R + 40) return
     setDragging(true)
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -136,54 +351,121 @@ export default function WavesPage() {
   // Wave history: θ from 0 → current
   const history = useMemo(() => {
     const pts = []
-    const steps = 360
+    const steps = 720 // denser sampling for vertical asymptotes
+    const end = Math.min(angle, 360)
     for (let i = 0; i <= steps; i++) {
-      const t = (i / steps) * Math.min(angle, 360)
+      const t = (i / steps) * end
       const tr = (t * Math.PI) / 180
+      const s = Math.sin(tr)
+      const c = Math.cos(tr)
       pts.push({
         t,
         x: waveX0 + (t / 360) * waveW,
-        sinY: cy - Math.sin(tr) * amp,
-        cosY: cy - Math.cos(tr) * amp,
+        sin: s,
+        cos: c,
+        tan: safeTan(s, c),
+        csc: safeCsc(s),
+        sec: safeSec(c),
+        cot: safeCot(s, c),
       })
     }
     return pts
-  }, [angle, amp, cy, waveW, waveX0])
+  }, [angle, waveW, waveX0])
 
-  const sinPath = history.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.sinY}`).join(' ')
-  const cosPath = history.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.cosY}`).join(' ')
+  const sinPath = useMemo(
+    () => buildClippedPath(history, (p) => p.sin, cy, amp, yClip),
+    [history, cy, amp, yClip]
+  )
+  const cosPath = useMemo(
+    () => buildClippedPath(history, (p) => p.cos, cy, amp, yClip),
+    [history, cy, amp, yClip]
+  )
+  const tanPath = useMemo(
+    () => buildClippedPath(history, (p) => p.tan, cy, amp, yClip),
+    [history, cy, amp, yClip]
+  )
+  const cscPath = useMemo(
+    () => buildClippedPath(history, (p) => p.csc, cy, amp, yClip),
+    [history, cy, amp, yClip]
+  )
+  const secPath = useMemo(
+    () => buildClippedPath(history, (p) => p.sec, cy, amp, yClip),
+    [history, cy, amp, yClip]
+  )
+  const cotPath = useMemo(
+    () => buildClippedPath(history, (p) => p.cot, cy, amp, yClip),
+    [history, cy, amp, yClip]
+  )
 
   const scanX = waveX0 + (angle / 360) * waveW
-  const sinScanY = cy - sin * amp
-  const cosScanY = cy - cos * amp
+
+  const scanY = (v) => {
+    if (v == null || !Number.isFinite(v) || Math.abs(v) > yClip) return null
+    return cy - v * amp
+  }
+
+  const sinScanY = scanY(sin)
+  const cosScanY = scanY(cos)
+  const tanScanY = scanY(tan)
+  const cscScanY = scanY(csc)
+  const secScanY = scanY(sec)
+  const cotScanY = scanY(cot)
+
+  const functions = [
+    { key: 'sin', label: 'sin x', short: 'sin θ', show: showSin, setShow: setShowSin, value: sin, path: sinPath, scanY: sinScanY, color: FN_COLORS.sin },
+    { key: 'cos', label: 'cos x', short: 'cos θ', show: showCos, setShow: setShowCos, value: cos, path: cosPath, scanY: cosScanY, color: FN_COLORS.cos },
+    { key: 'tan', label: 'tan x', short: 'tan θ', show: showTan, setShow: setShowTan, value: tan, path: tanPath, scanY: tanScanY, color: FN_COLORS.tan },
+    { key: 'csc', label: 'csc x', short: 'csc θ', show: showCsc, setShow: setShowCsc, value: csc, path: cscPath, scanY: cscScanY, color: FN_COLORS.csc },
+    { key: 'sec', label: 'sec x', short: 'sec θ', show: showSec, setShow: setShowSec, value: sec, path: secPath, scanY: secScanY, color: FN_COLORS.sec },
+    { key: 'cot', label: 'cot x', short: 'cot θ', show: showCot, setShow: setShowCot, value: cot, path: cotPath, scanY: cotScanY, color: FN_COLORS.cot },
+  ]
 
   return (
     <>
       <header className="hero hero--compact">
         <div>
-          <p className="hero-eyebrow">Derivation</p>
-          <h1>
-            Sine & cosine <em>from the circle</em>
+          <p className="hero-eyebrow">Graphs</p>
+          <h1 className="hero-title--wrap">
+            Trigonometric <em>functions</em>
           </h1>
-          <p className="hero-copy">
-            As the point travels around the unit circle, its height unrolls into a sine wave
-            and its x-coordinate into a cosine wave — same θ, two projections.
-          </p>
+
         </div>
         <div className="hero-stats">
-          <div className="live-angle">
-            <span className="label">θ</span>
-            {coordsInRadians ? (
-              <>
-                <div className="value">{nearCommon !== null ? radLabel : rad.toFixed(3)}</div>
-                <div className="sub">{angle.toFixed(1)}° · {rad.toFixed(4)} rad</div>
-              </>
-            ) : (
-              <>
-                <div className="value">{angle.toFixed(1)}°</div>
-                <div className="sub">{rad.toFixed(3)} rad</div>
-              </>
-            )}
+          <div className="live-angle live-angle--input">
+            <span className="label">θ — type to snap</span>
+            <div className="value value--input">
+              <input
+                type="text"
+                inputMode="decimal"
+                className={`angle-input${angleAsInt ? ' angle-input--int' : ' angle-input--float'}`}
+                value={angleInput}
+                aria-label={coordsInRadians ? 'Angle in radians' : 'Angle in degrees'}
+                title={
+                  coordsInRadians
+                    ? 'Enter θ in radians, then Enter or leave the field'
+                    : 'Enter θ in degrees, then Enter or leave the field'
+                }
+                onFocus={() => {
+                  angleInputFocused.current = true
+                }}
+                onChange={(e) => setAngleInput(e.target.value)}
+                onBlur={() => {
+                  angleInputFocused.current = false
+                  applyAngleInput()
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur()
+                  }
+                }}
+              />
+              <span className="angle-input-unit">{coordsInRadians ? 'rad' : '°'}</span>
+            </div>
+            <div className="sub">
+              {coordsInRadians
+                ? `${formatAngleNumber(angle, angleAsInt)}° · ${angleAsInt ? 'int' : 'float'} mode`
+                : `${formatAngleNumber(rad, angleAsInt)} rad · ${angleAsInt ? 'int' : 'float'} mode`}
+            </div>
           </div>
         </div>
       </header>
@@ -191,9 +473,11 @@ export default function WavesPage() {
       <main className="workspace workspace--single">
         <section className="panel">
           <div className="panel-header">
-            <span className="panel-title">Unit circle → waves</span>
+            <span className="panel-title">Unit circle → trig graphs</span>
             <span className="panel-hint">
-              {playing ? 'Pause to drag the point on the circle' : 'Drag the point on the unit circle'}
+              {playing
+                ? 'Space = pause · type θ in the card to snap'
+                : 'Space = play · drag the point or type θ to snap'}
             </span>
           </div>
 
@@ -203,29 +487,36 @@ export default function WavesPage() {
               viewBox={`0 0 ${W} ${H}`}
               className={`waves-svg${canDrag && !playing ? ' is-draggable' : ''}`}
               role="img"
-              aria-label="Unit circle with sine and cosine waves"
+              aria-label="Unit circle with trigonometric function graphs"
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
             >
-              {/* Wave axes */}
+              {/* Wave axes — extended vertically for unbounded functions */}
               <line x1={waveX0} y1={cy} x2={waveX0 + waveW} y2={cy} stroke={grid} strokeWidth="1" />
-              <line x1={waveX0} y1={cy - amp} x2={waveX0} y2={cy + amp} stroke={grid} strokeWidth="1" />
+              <line
+                x1={waveX0}
+                y1={20}
+                x2={waveX0}
+                y2={H - 20}
+                stroke={grid}
+                strokeWidth="1"
+              />
               {[0.25, 0.5, 0.75, 1].map((f) => (
                 <g key={f}>
                   <line
                     x1={waveX0 + f * waveW}
-                    y1={cy - amp}
+                    y1={20}
                     x2={waveX0 + f * waveW}
-                    y2={cy + amp}
+                    y2={H - 36}
                     stroke={grid}
                     strokeWidth="1"
                     strokeDasharray="3 4"
                   />
                   <text
                     x={waveX0 + f * waveW}
-                    y={cy + amp + 22}
+                    y={H - 14}
                     textAnchor="middle"
                     fontSize="11"
                     fill={muted}
@@ -235,16 +526,48 @@ export default function WavesPage() {
                   </text>
                 </g>
               ))}
-              <text x={waveX0 - 8} y={cy - amp + 4} textAnchor="end" fontSize="11" fill={muted} fontFamily="JetBrains Mono, monospace">
+              <text
+                x={waveX0 - 8}
+                y={cy - amp + 4}
+                textAnchor="end"
+                fontSize="11"
+                fill={muted}
+                fontFamily="JetBrains Mono, monospace"
+              >
                 1
               </text>
-              <text x={waveX0 - 8} y={cy + amp + 4} textAnchor="end" fontSize="11" fill={muted} fontFamily="JetBrains Mono, monospace">
+              <text
+                x={waveX0 - 8}
+                y={cy + amp + 4}
+                textAnchor="end"
+                fontSize="11"
+                fill={muted}
+                fontFamily="JetBrains Mono, monospace"
+              >
                 −1
               </text>
+              {/* faint ±1 guides across the wave plot */}
+              <line
+                x1={waveX0}
+                y1={cy - amp}
+                x2={waveX0 + waveW}
+                y2={cy - amp}
+                stroke={grid}
+                strokeWidth="1"
+                strokeDasharray="2 5"
+              />
+              <line
+                x1={waveX0}
+                y1={cy + amp}
+                x2={waveX0 + waveW}
+                y2={cy + amp}
+                stroke={grid}
+                strokeWidth="1"
+                strokeDasharray="2 5"
+              />
 
               {/* Circle */}
               <circle cx={cx} cy={cy} r={R} fill={panelFill} stroke={ink} strokeOpacity="0.35" strokeWidth="1.5" />
-              {/* Invisible hit area for easier dragging */}
               {!playing && (
                 <circle
                   cx={cx}
@@ -255,24 +578,398 @@ export default function WavesPage() {
                   style={{ cursor: 'grab' }}
                 />
               )}
-              <line x1={cx - R - 16} y1={cy} x2={cx + R + 16} y2={cy} stroke={grid} />
-              <line x1={cx} y1={cy - R - 16} x2={cx} y2={cy + R + 16} stroke={grid} />
+              {/* Axes — full construction extent when recip functions are on */}
+              <line
+                x1={cx - R * (showCotGeo || showCscGeo ? MAX_GEO + 0.25 : 1.15)}
+                y1={cy}
+                x2={cx + R * (showTanGeo || showSecGeo ? MAX_GEO + 0.25 : 1.15)}
+                y2={cy}
+                stroke={grid}
+              />
+              <line
+                x1={cx}
+                y1={cy - R * (showTanGeo || showSecGeo || showCotGeo || showCscGeo ? MAX_GEO + 0.25 : 1.15)}
+                x2={cx}
+                y2={cy + R * (showTanGeo || showSecGeo || showCotGeo || showCscGeo ? MAX_GEO + 0.25 : 1.15)}
+                stroke={grid}
+              />
 
-              {/* Guide lines from circle to waves */}
-              {showSin && (
-                <>
-                  <line x1={px} y1={py} x2={scanX} y2={sinScanY} stroke="#dc2626" strokeOpacity="0.25" strokeDasharray="4 4" />
-                  <line x1={px} y1={py} x2={px} y2={cy} stroke="#dc2626" strokeWidth="2.5" />
-                </>
+              {[0, 90, 180, 270].map((a) => {
+                const tr = (a * Math.PI) / 180
+                const tx = Math.cos(tr)
+                const ty = Math.sin(tr)
+                return (
+                  <line
+                    key={a}
+                    x1={cx + tx * (R - 6)}
+                    y1={cy - ty * (R - 6)}
+                    x2={cx + tx * (R + 6)}
+                    y2={cy - ty * (R + 6)}
+                    stroke={tickStroke}
+                    strokeWidth="1.5"
+                    opacity={showLabels ? 1 : 0.55}
+                  />
+                )
+              })}
+
+              {showLabels && (
+                <g className="circle-axis-labels" aria-hidden="true">
+                  <text x={cx + R + 12} y={cy - 10} fontSize="10" fill={labelFill} fontFamily="JetBrains Mono, monospace">
+                    1
+                  </text>
+                  <text x={cx - R - 26} y={cy - 10} fontSize="10" fill={labelFill} fontFamily="JetBrains Mono, monospace">
+                    −1
+                  </text>
+                  <text x={cx + 10} y={cy - R - 10} fontSize="10" fill={labelFill} fontFamily="JetBrains Mono, monospace">
+                    1
+                  </text>
+                  <text x={cx + 10} y={cy + R + 16} fontSize="10" fill={labelFill} fontFamily="JetBrains Mono, monospace">
+                    −1
+                  </text>
+                  <text x={cx + R + 22} y={cy + 4} fontSize="11" fill={angleLabelFill} fontFamily="JetBrains Mono, monospace">
+                    {labelsInRadians ? '0' : '0°'}
+                  </text>
+                  <text
+                    x={cx}
+                    y={cy - R - 22}
+                    fontSize="11"
+                    fill={angleLabelFill}
+                    textAnchor="middle"
+                    fontFamily="JetBrains Mono, monospace"
+                  >
+                    {labelsInRadians ? 'π/2' : '90°'}
+                  </text>
+                  <text
+                    x={cx - R - 22}
+                    y={cy + 4}
+                    fontSize="11"
+                    fill={angleLabelFill}
+                    textAnchor="end"
+                    fontFamily="JetBrains Mono, monospace"
+                  >
+                    {labelsInRadians ? 'π' : '180°'}
+                  </text>
+                  <text
+                    x={cx}
+                    y={cy + R + 30}
+                    fontSize="11"
+                    fill={angleLabelFill}
+                    textAnchor="middle"
+                    fontFamily="JetBrains Mono, monospace"
+                  >
+                    {labelsInRadians ? '3π/2' : '270°'}
+                  </text>
+                </g>
               )}
+
+              {/*
+                Segment geometry — port of mathsisfun.com circle-unit.js (Names mode):
+                  sec: O → (sec, 0) on the x-axis
+                  csc: O → (0, csc) on the y-axis
+                  cot: P → (0, csc) along the tangent at P
+                  tan: P → (sec, 0) along the tangent at P
+                  sin: (cos, 0) → P   cos: O → (cos, 0)
+
+                Shaded triangles (one per toggled function, same hue as the stroke):
+                  cos / sin → O–foot–P
+                  tan / sec → O–P–(sec,0)
+                  cot / csc → O–P–(0,csc)
+              */}
+
+              {/* ── Soft fills (under strokes) ── */}
               {showCos && (
-                <>
-                  <line x1={px} y1={py} x2={scanX} y2={cosScanY} stroke="#2563eb" strokeOpacity="0.2" strokeDasharray="4 4" />
-                  <line x1={cx} y1={cy} x2={px} y2={cy} stroke="#2563eb" strokeWidth="2.5" />
-                </>
+                <polygon
+                  points={`${cx},${cy} ${footX},${footY} ${px},${py}`}
+                  fill={softFill(FN_COLORS.cos, isLight)}
+                  stroke="none"
+                />
+              )}
+              {showSin && (
+                <polygon
+                  points={`${cx},${cy} ${footX},${footY} ${px},${py}`}
+                  fill={softFill(FN_COLORS.sin, isLight)}
+                  stroke="none"
+                />
+              )}
+              {showSecGeo && secPt && (
+                <polygon
+                  points={`${cx},${cy} ${px},${py} ${secPt.x},${secPt.y}`}
+                  fill={softFill(FN_COLORS.sec, isLight)}
+                  stroke="none"
+                />
+              )}
+              {showTanGeo && tanEnd && (
+                <polygon
+                  points={`${cx},${cy} ${px},${py} ${tanEnd.x},${tanEnd.y}`}
+                  fill={softFill(FN_COLORS.tan, isLight)}
+                  stroke="none"
+                />
+              )}
+              {showCscGeo && cscPt && (
+                <polygon
+                  points={`${cx},${cy} ${px},${py} ${cscPt.x},${cscPt.y}`}
+                  fill={softFill(FN_COLORS.csc, isLight)}
+                  stroke="none"
+                />
+              )}
+              {showCotGeo && cotEnd && (
+                <polygon
+                  points={`${cx},${cy} ${px},${py} ${cotEnd.x},${cotEnd.y}`}
+                  fill={softFill(FN_COLORS.cot, isLight)}
+                  stroke="none"
+                />
               )}
 
-              <line x1={cx} y1={cy} x2={px} y2={py} stroke={ink} strokeWidth="2" />
+              {/* Full tangent line guide (through P, intercepts axes) */}
+              {anyRecip && secPt && cscPt && (
+                <line
+                  x1={cscPt.x}
+                  y1={cscPt.y}
+                  x2={secPt.x}
+                  y2={secPt.y}
+                  stroke={ink}
+                  strokeOpacity="0.15"
+                  strokeWidth="1"
+                  strokeDasharray="3 5"
+                />
+              )}
+
+              {/* sec — O → (sec, 0)  [mathsisfun: fnLineDraw(0,1, secWd, 0)] */}
+              {showSecGeo && secPt && (
+                <g>
+                  <line
+                    x1={cx}
+                    y1={cy}
+                    x2={secPt.x}
+                    y2={secPt.y}
+                    stroke={FN_COLORS.sec}
+                    strokeWidth="2.75"
+                    strokeLinecap="round"
+                  />
+                  <circle cx={secPt.x} cy={secPt.y} r={3.5} fill={FN_COLORS.sec} />
+                  <text
+                    x={(cx + secPt.x) / 2}
+                    y={cy + 16}
+                    fontSize="12"
+                    fill={FN_COLORS.sec}
+                    fontFamily="JetBrains Mono, monospace"
+                    fontWeight="600"
+                    textAnchor="middle"
+                  >
+                    sec
+                  </text>
+                </g>
+              )}
+
+              {/* csc — O → (0, csc)  [mathsisfun: fnLineDraw(0,0, 0, cscHt)] */}
+              {showCscGeo && cscPt && (
+                <g>
+                  <line
+                    x1={cx}
+                    y1={cy}
+                    x2={cscPt.x}
+                    y2={cscPt.y}
+                    stroke={FN_COLORS.csc}
+                    strokeWidth="2.75"
+                    strokeLinecap="round"
+                  />
+                  <circle cx={cscPt.x} cy={cscPt.y} r={3.5} fill={FN_COLORS.csc} />
+                  <text
+                    x={cx - 12}
+                    y={Math.max(TOP_PAD + 14, (cy + cscPt.y) / 2)}
+                    fontSize="12"
+                    fill={FN_COLORS.csc}
+                    fontFamily="JetBrains Mono, monospace"
+                    fontWeight="600"
+                    textAnchor="end"
+                  >
+                    csc
+                  </text>
+                </g>
+              )}
+
+              {/* cot — P → (0, csc)  [mathsisfun: fnLineDraw(cX,cY, -cX, -cY+cscHt)] */}
+              {showCotGeo && cotEnd && (
+                <g>
+                  <line
+                    x1={px}
+                    y1={py}
+                    x2={cotEnd.x}
+                    y2={cotEnd.y}
+                    stroke={FN_COLORS.cot}
+                    strokeWidth="2.75"
+                    strokeLinecap="round"
+                  />
+                  <text
+                    x={(px + cotEnd.x) / 2 + 10}
+                    y={Math.max(TOP_PAD + 14, (py + cotEnd.y) / 2 - 4)}
+                    fontSize="12"
+                    fill={FN_COLORS.cot}
+                    fontFamily="JetBrains Mono, monospace"
+                    fontWeight="600"
+                  >
+                    cot
+                  </text>
+                </g>
+              )}
+
+              {/* tan — P → (sec, 0)  [mathsisfun: fnLineDraw(cX,cY, -tanLen*sin, -cY)] */}
+              {showTanGeo && tanEnd && (
+                <g>
+                  <line
+                    x1={px}
+                    y1={py}
+                    x2={tanEnd.x}
+                    y2={tanEnd.y}
+                    stroke={FN_COLORS.tan}
+                    strokeWidth="2.75"
+                    strokeLinecap="round"
+                  />
+                  <circle cx={tanEnd.x} cy={tanEnd.y} r={3.5} fill={FN_COLORS.tan} />
+                  <text
+                    x={(px + tanEnd.x) / 2 + 8}
+                    y={(py + tanEnd.y) / 2}
+                    fontSize="12"
+                    fill={FN_COLORS.tan}
+                    fontFamily="JetBrains Mono, monospace"
+                    fontWeight="600"
+                  >
+                    tan
+                  </text>
+                </g>
+              )}
+
+              {/* cos — O → (cos, 0) */}
+              {showCos && (
+                <g>
+                  <line
+                    x1={cx}
+                    y1={cy}
+                    x2={footX}
+                    y2={footY}
+                    stroke={FN_COLORS.cos}
+                    strokeWidth="2.75"
+                    strokeLinecap="round"
+                  />
+                  <text
+                    x={(cx + footX) / 2}
+                    y={cy - 8}
+                    fontSize="12"
+                    fill={FN_COLORS.cos}
+                    fontFamily="JetBrains Mono, monospace"
+                    fontWeight="600"
+                    textAnchor="middle"
+                  >
+                    cos
+                  </text>
+                  {cosScanY != null && (
+                    <line
+                      x1={px}
+                      y1={py}
+                      x2={scanX}
+                      y2={cosScanY}
+                      stroke={FN_COLORS.cos}
+                      strokeOpacity="0.18"
+                      strokeDasharray="4 4"
+                    />
+                  )}
+                </g>
+              )}
+
+              {/* sin — (cos, 0) → P */}
+              {showSin && (
+                <g>
+                  <line
+                    x1={footX}
+                    y1={footY}
+                    x2={px}
+                    y2={py}
+                    stroke={FN_COLORS.sin}
+                    strokeWidth="2.75"
+                    strokeLinecap="round"
+                  />
+                  <text
+                    x={px + (cos >= 0 ? 8 : -8)}
+                    y={(footY + py) / 2}
+                    fontSize="12"
+                    fill={FN_COLORS.sin}
+                    fontFamily="JetBrains Mono, monospace"
+                    fontWeight="600"
+                    textAnchor={cos >= 0 ? 'start' : 'end'}
+                  >
+                    sin
+                  </text>
+                  {sinScanY != null && (
+                    <line
+                      x1={px}
+                      y1={py}
+                      x2={scanX}
+                      y2={sinScanY}
+                      stroke={FN_COLORS.sin}
+                      strokeOpacity="0.22"
+                      strokeDasharray="4 4"
+                    />
+                  )}
+                </g>
+              )}
+
+              {/* Radius OP */}
+              <line
+                x1={cx}
+                y1={cy}
+                x2={px}
+                y2={py}
+                stroke={ink}
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+
+              {/* Dashed links construction tips → wave markers */}
+              {showTanGeo && tanEnd && tanScanY != null && (
+                <line
+                  x1={tanEnd.x}
+                  y1={tanEnd.y}
+                  x2={scanX}
+                  y2={tanScanY}
+                  stroke={FN_COLORS.tan}
+                  strokeOpacity="0.2"
+                  strokeDasharray="4 4"
+                />
+              )}
+              {showSecGeo && secPt && secScanY != null && (
+                <line
+                  x1={secPt.x}
+                  y1={secPt.y}
+                  x2={scanX}
+                  y2={secScanY}
+                  stroke={FN_COLORS.sec}
+                  strokeOpacity="0.2"
+                  strokeDasharray="4 4"
+                />
+              )}
+              {showCotGeo && cotEnd && cotScanY != null && (
+                <line
+                  x1={cotEnd.x}
+                  y1={cotEnd.y}
+                  x2={scanX}
+                  y2={cotScanY}
+                  stroke={FN_COLORS.cot}
+                  strokeOpacity="0.2"
+                  strokeDasharray="4 4"
+                />
+              )}
+              {showCscGeo && cscPt && cscScanY != null && (
+                <line
+                  x1={cscPt.x}
+                  y1={cscPt.y}
+                  x2={scanX}
+                  y2={cscScanY}
+                  stroke={FN_COLORS.csc}
+                  strokeOpacity="0.2"
+                  strokeDasharray="4 4"
+                />
+              )}
+
               <circle
                 cx={px}
                 cy={py}
@@ -310,25 +1007,58 @@ export default function WavesPage() {
                 </>
               )}
 
-              {/* Waves */}
-              {showCos && (
-                <path d={cosPath} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" />
-              )}
-              {showSin && (
-                <path d={sinPath} fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
-              )}
+              {/* Function graphs (draw order: unbounded first, then sin/cos on top) */}
+              {functions
+                .filter((f) => f.show && f.path)
+                .map((f) => (
+                  <path
+                    key={f.key}
+                    d={f.path}
+                    fill="none"
+                    stroke={f.color}
+                    strokeWidth={f.key === 'sin' || f.key === 'cos' ? 2.5 : 2.15}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
 
               {/* Scan line + markers */}
-              <line x1={scanX} y1={cy - amp - 8} x2={scanX} y2={cy + amp + 8} stroke={muted} strokeOpacity="0.5" strokeDasharray="3 3" />
-              {showSin && <circle cx={scanX} cy={sinScanY} r={5} fill="#dc2626" />}
-              {showCos && <circle cx={scanX} cy={cosScanY} r={5} fill="#2563eb" />}
+              <line
+                x1={scanX}
+                y1={20}
+                x2={scanX}
+                y2={H - 36}
+                stroke={muted}
+                strokeOpacity="0.5"
+                strokeDasharray="3 3"
+              />
+              {functions.map(
+                (f) =>
+                  f.show &&
+                  f.scanY != null && (
+                    <circle key={`scan-${f.key}`} cx={scanX} cy={f.scanY} r={5} fill={f.color} />
+                  )
+              )}
 
-              {/* Labels */}
-              <text x={cx} y={28} textAnchor="middle" fontSize="12" fill={muted} letterSpacing="0.12em">
+              <text
+                x={cx}
+                y={18}
+                textAnchor="middle"
+                fontSize="11"
+                fill={muted}
+                letterSpacing="0.12em"
+              >
                 UNIT CIRCLE
               </text>
-              <text x={waveX0 + waveW / 2} y={28} textAnchor="middle" fontSize="12" fill={muted} letterSpacing="0.12em">
-                UNWRAPPED WAVES
+              <text
+                x={waveX0 + waveW / 2}
+                y={18}
+                textAnchor="middle"
+                fontSize="11"
+                fill={muted}
+                letterSpacing="0.12em"
+              >
+                TRIG GRAPHS
               </text>
             </svg>
 
@@ -357,35 +1087,65 @@ export default function WavesPage() {
                     type="range"
                     min="0"
                     max="360"
-                    step="0.5"
+                    step={angleAsInt ? 1 : 0.001}
                     value={angle}
                     onChange={(e) => {
                       setPlaying(false)
-                      setAngle(parseFloat(e.target.value))
+                      let v = parseFloat(e.target.value)
+                      if (angleAsInt) v = Math.round(v)
+                      setAngle(v)
                     }}
                   />
                 </label>
+                <label
+                  className={`chip-toggle${angleAsInt ? ' is-on' : ''}`}
+                  title={
+                    angleAsInt
+                      ? 'Angle as whole numbers (int) — click for 3 decimal places'
+                      : 'Angle with 3 decimal places (float) — click for whole numbers'
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={angleAsInt}
+                    onChange={(e) => setAngleAsInt(e.target.checked)}
+                  />
+                  {angleAsInt ? 'θ: int' : 'θ: float'}
+                </label>
+              </div>
+
+              <div className="fn-toggles">
+                {functions.map((f) => (
+                  <label
+                    key={f.key}
+                    className={`chip-toggle chip--${f.key}${f.show ? ' is-on' : ''}`}
+                    title={`Toggle ${f.label}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={f.show}
+                      onChange={(e) => f.setShow(e.target.checked)}
+                    />
+                    {f.label}
+                  </label>
+                ))}
               </div>
 
               <div className="metrics metrics--inline">
-                <div className="metric metric--sin">
-                  <span className="metric-label">sin θ</span>
-                  <span className="metric-value">{sin.toFixed(4)}</span>
-                </div>
-                <div className="metric metric--cos">
-                  <span className="metric-label">cos θ</span>
-                  <span className="metric-value">{cos.toFixed(4)}</span>
-                </div>
-                <label className={`chip-toggle${showSin ? ' is-on' : ''}`}>
-                  <input type="checkbox" checked={showSin} onChange={(e) => setShowSin(e.target.checked)} />
-                  Sine
-                </label>
-                <label className={`chip-toggle${showCos ? ' is-on' : ''}`}>
-                  <input type="checkbox" checked={showCos} onChange={(e) => setShowCos(e.target.checked)} />
-                  Cosine
-                </label>
+                {functions
+                  .filter((f) => f.show)
+                  .map((f) => (
+                    <div key={f.key} className={`metric metric--${f.key}`}>
+                      <span className="metric-label">{f.short}</span>
+                      <span className="metric-value">{formatTrigValue(f.value)}</span>
+                    </div>
+                  ))}
                 <label className={`chip-toggle${showCoords ? ' is-on' : ''}`}>
-                  <input type="checkbox" checked={showCoords} onChange={(e) => setShowCoords(e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={showCoords}
+                    onChange={(e) => setShowCoords(e.target.checked)}
+                  />
                   Coordinates
                 </label>
                 <label
@@ -404,11 +1164,39 @@ export default function WavesPage() {
                   />
                   {coordsInRadians ? 'θ in radians' : 'θ in degrees'}
                 </label>
+                <label
+                  className={`chip-toggle${showLabels ? ' is-on' : ''}`}
+                  title="Unit scale (±1) and cardinal angles on the unit circle"
+                >
+                  <input
+                    type="checkbox"
+                    checked={showLabels}
+                    onChange={(e) => setShowLabels(e.target.checked)}
+                  />
+                  Axis labels
+                </label>
+                <label
+                  className={`chip-toggle${labelsInRadians ? ' is-on' : ''}${!showLabels ? ' is-disabled' : ''}`}
+                  title={
+                    labelsInRadians
+                      ? 'Axis angles: 0 · π/2 · π · 3π/2'
+                      : 'Axis angles: 0° · 90° · 180° · 270°'
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={labelsInRadians}
+                    disabled={!showLabels}
+                    onChange={(e) => setLabelsInRadians(e.target.checked)}
+                  />
+                  {labelsInRadians ? 'Axis labels in radians' : 'Axis labels in degrees'}
+                </label>
               </div>
 
               <p className="derive-note">
-                <strong>Idea:</strong> plot height vs θ for sine, and x vs θ for cosine. One full trip
-                around the circle is one full period of each wave (0 → 2π).
+                Each function is a length on the unit circle and a wave against θ. Toggle sin, cos,
+                tan, csc, sec, and cot — circle segments and graphs stay in sync; unbounded curves
+                break at their asymptotes.
                 {!playing && ' Drag the point on the unit circle to set θ.'}
               </p>
             </div>

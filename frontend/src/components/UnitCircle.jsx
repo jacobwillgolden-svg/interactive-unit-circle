@@ -47,6 +47,29 @@ export default function UnitCircle({
   const cos = x
   const sin = y
   const tan = Math.abs(cos) < 0.0001 ? Infinity : sin / cos
+  // True tangent at P: line x·cos + y·sin = 1 (unit plane).
+  // Segment P → x-intercept (sec, 0) lies on that tangent (MathIsFun geometry).
+  const TAN_MAX = 3.5 // clip far intercepts so the segment stays on-canvas
+  let tanSeg = null
+  if (Math.abs(cos) > 0.01 && Number.isFinite(tan)) {
+    const secU = 1 / cos
+    // Clip toward (sec, 0) if |sec| is huge
+    let endU = secU
+    let endV = 0
+    if (Math.abs(endU) > TAN_MAX) {
+      const du = endU - cos
+      const dv = endV - sin
+      const t = (Math.sign(endU) * TAN_MAX - cos) / du
+      endU = cos + du * t
+      endV = sin + dv * t
+    }
+    tanSeg = {
+      x1: pointX,
+      y1: pointY,
+      x2: center + endU * radius,
+      y2: center - endV * radius,
+    }
+  }
   const coordsLabel = formatCoords(angle, cos, sin, coordsInRadians, 3)
   const coordsLabelShort = formatCoords(angle, cos, sin, coordsInRadians, 2)
   const radLabel = formatRadLabel(angle)
@@ -367,14 +390,14 @@ export default function UnitCircle({
               </>
             )}
 
-            {showTan && Math.abs(cos) > 0.01 && (
+            {showTan && tanSeg && (
               <line
-                x1={pointX}
-                y1={pointY}
-                x2={center + radius * Math.sign(cos)}
-                y2={pointY}
-                stroke="#94a3b8"
-                strokeWidth="2"
+                x1={tanSeg.x1}
+                y1={tanSeg.y1}
+                x2={tanSeg.x2}
+                y2={tanSeg.y2}
+                stroke="#ff9f1c"
+                strokeWidth="2.25"
                 strokeDasharray="6 4"
                 strokeLinecap="round"
               />

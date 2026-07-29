@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 
 export default function SiteShell() {
+  const location = useLocation()
   const [theme, setTheme] = useState(() => {
     if (typeof window === 'undefined') return 'dark'
     return localStorage.getItem('radian-theme') || 'dark'
@@ -54,8 +55,50 @@ export default function SiteShell() {
       <div className="shell">
         <nav className="nav">
           <Link to="/" className="brand">
-            <div className="brand-mark" aria-hidden="true" />
-            <span className="brand-name">Radian</span>
+            {/* key=pathname remounts the mark so the moon wipe replays on every route change */}
+            <svg
+              key={location.pathname}
+              className="brand-mark"
+              viewBox="0 0 36 36"
+              width="58"
+              height="58"
+              aria-hidden="true"
+            >
+              <defs>
+                {/* Soft lunar fill — ids unique per mount via path key remount */}
+                <radialGradient id="brand-moon-fill" cx="62%" cy="38%" r="70%">
+                  <stop offset="0%" stopColor="#f4f7fb" />
+                  <stop offset="55%" stopColor="#d8e0ea" />
+                  <stop offset="100%" stopColor="#a8b4c4" />
+                </radialGradient>
+                {/* Top→bottom wipe of the lit half */}
+                <clipPath id="brand-moon-wipe">
+                  <rect
+                    className="brand-mark-wipe"
+                    x="4"
+                    y="4"
+                    width="28"
+                    height="28"
+                  />
+                </clipPath>
+              </defs>
+              {/* Glow disc (behind, full circle soft) */}
+              <circle className="brand-mark-glow" cx="18" cy="18" r="14" />
+              {/* Lit half (right semicircle) — revealed top→bottom */}
+              <g clipPath="url(#brand-moon-wipe)">
+                <path
+                  className="brand-mark-fill"
+                  d="M 18 5 A 13 13 0 0 1 18 31 Z"
+                />
+                {/* Subtle crater hints */}
+                <circle className="brand-mark-crater" cx="24" cy="14" r="1.6" />
+                <circle className="brand-mark-crater" cx="27" cy="20" r="1.1" />
+                <circle className="brand-mark-crater" cx="22" cy="24" r="0.9" />
+              </g>
+            </svg>
+            <span className="brand-name">
+              RADIAN<span className="brand-name-t">T</span>
+            </span>
           </Link>
 
           <div className="nav-links">
@@ -63,7 +106,7 @@ export default function SiteShell() {
               Unit Circle
             </NavLink>
             <NavLink to="/waves" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
-              Sin & Cos Waves
+              Trigonometric Functions
             </NavLink>
             <NavLink to="/helix" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
               Chain Rule

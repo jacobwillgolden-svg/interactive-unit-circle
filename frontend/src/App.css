@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   Radian — premium design system
+   RADIANT — premium design system
    Inspired by Awwwards SOTD patterns:
    dark atmosphere, editorial type, glass depth
    ═══════════════════════════════════════════ */
@@ -25,8 +25,14 @@
   --sin-soft: rgba(220, 38, 38, 0.16);
   --cos: #2563eb;
   --cos-soft: rgba(37, 99, 235, 0.16);
-  --tan: #a8b0c4;
-  --tan-soft: rgba(168, 176, 196, 0.12);
+  --tan: #ff9f1c;
+  --tan-soft: rgba(255, 159, 28, 0.16);
+  --csc: #39ff14;
+  --csc-soft: rgba(57, 255, 20, 0.14);
+  --sec: #bf5af2;
+  --sec-soft: rgba(191, 90, 242, 0.16);
+  --cot: #f5e642;
+  --cot-soft: rgba(245, 230, 66, 0.14);
   --gold: #f0d9a8;
 
   --font-sans: 'Outfit', system-ui, sans-serif;
@@ -178,7 +184,7 @@ html[data-theme='light'] .cursor-glow {
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.85rem;
   text-decoration: none;
   color: inherit;
 }
@@ -217,35 +223,63 @@ html[data-theme='light'] .cursor-glow {
   background: var(--accent-soft);
 }
 
+/* Half-moon logo: filled right half, 15° tilt */
 .brand-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1.5px solid var(--border-accent);
-  background:
-    radial-gradient(circle at 30% 30%, var(--accent-soft), transparent 60%),
-    var(--bg-elevated);
-  box-shadow: 0 0 24px var(--accent-glow);
-  position: relative;
+  width: 58px;
+  height: 58px;
+  flex-shrink: 0;
+  display: block;
+  overflow: visible;
+  transform: rotate(15deg);
 }
 
-.brand-mark::after {
-  content: '';
-  position: absolute;
-  inset: 8px;
-  border-radius: 50%;
-  border: 1px solid rgba(125, 211, 252, 0.45);
-  border-top-color: transparent;
-  border-left-color: transparent;
-  transform: rotate(-35deg);
+.brand-mark-glow {
+  fill: rgba(125, 211, 252, 0.14);
+  filter: blur(1.5px);
+}
+
+.brand-mark-fill {
+  fill: url(#brand-moon-fill);
+  stroke: none;
+}
+
+.brand-mark-crater {
+  fill: rgba(80, 100, 120, 0.18);
+  stroke: none;
+}
+
+/* Top → bottom reveal of the lit half */
+.brand-mark-wipe {
+  height: 0;
+  animation: brand-moon-wipe 3.2s var(--ease-out) 0.2s forwards;
+}
+
+@keyframes brand-moon-wipe {
+  to {
+    height: 28px;
+  }
+}
+
+/* Light theme: slightly cooler moon glow */
+html[data-theme='light'] .brand-mark-glow {
+  fill: rgba(2, 132, 199, 0.12);
 }
 
 .brand-name {
-  font-size: 0.95rem;
+  font-size: 1.45rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text);
+}
+
+/* Midpoint between crater grey (#506478) and light grey (#c5ced8) */
+.brand-name-t {
+  color: #8b99a8;
+}
+
+html[data-theme='light'] .brand-name-t {
+  color: #8b99a8;
 }
 
 .nav-meta {
@@ -312,12 +346,12 @@ html[data-theme='light'] .cursor-glow {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.72rem;
+  font-size: 0.65rem;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--accent);
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.55rem;
 }
 
 .hero-eyebrow::before {
@@ -330,12 +364,13 @@ html[data-theme='light'] .cursor-glow {
 
 .hero h1 {
   font-family: var(--font-serif);
-  font-size: clamp(2.6rem, 5.5vw, 4.25rem);
+  font-size: clamp(1.55rem, 3.2vw, 2.25rem);
   font-weight: 400;
-  line-height: 1.05;
+  line-height: 1.15;
   letter-spacing: -0.02em;
   color: var(--text);
-  max-width: 12ch;
+  max-width: none;
+  white-space: nowrap;
 }
 
 .hero h1 em {
@@ -345,11 +380,11 @@ html[data-theme='light'] .cursor-glow {
 
 .hero-copy {
   color: var(--text-muted);
-  font-size: 1.02rem;
+  font-size: 0.92rem;
   font-weight: 300;
-  line-height: 1.65;
-  max-width: 34ch;
-  margin-top: 1rem;
+  line-height: 1.6;
+  max-width: 40ch;
+  margin-top: 0.75rem;
 }
 
 .hero-stats {
@@ -381,7 +416,7 @@ html[data-theme='light'] .cursor-glow {
 
 .live-angle .value {
   font-family: var(--font-mono);
-  font-size: 2rem;
+  font-size: 1.55rem;
   font-weight: 500;
   letter-spacing: -0.03em;
   color: var(--text);
@@ -393,6 +428,66 @@ html[data-theme='light'] .cursor-glow {
   font-size: 0.8rem;
   color: var(--text-muted);
   margin-top: 0.25rem;
+}
+
+.live-angle--input {
+  min-width: 0;
+}
+
+.live-angle .value--input {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.angle-input {
+  min-width: 0;
+  box-sizing: content-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--metric-bg);
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  line-height: 1.15;
+  padding: 0.2rem 0.28rem;
+  outline: none;
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    width 0.2s var(--ease);
+}
+
+/* Float: room for ###.### ; int: ~3 digits narrower (no decimal + 3 places) */
+.angle-input--float {
+  width: 7.85ch;
+}
+
+.angle-input--int {
+  width: 4.1ch;
+}
+
+.angle-input:hover {
+  border-color: var(--border-hover);
+}
+
+.angle-input:focus {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.angle-input-unit {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  line-height: 1;
+  /* Raise ° / rad to sit near the top of the number field */
+  margin-top: 0.15rem;
+  transform: translateY(-0.05em);
 }
 
 /* ── Workspace ── */
@@ -570,6 +665,9 @@ html[data-theme='light'] .panel {
 .metric--cos .metric-value { color: var(--cos); }
 .metric--sin .metric-value { color: var(--sin); }
 .metric--tan .metric-value { color: var(--tan); }
+.metric--csc .metric-value { color: var(--csc); }
+.metric--sec .metric-value { color: var(--sec); }
+.metric--cot .metric-value { color: var(--cot); }
 .metric--point .metric-value { color: var(--gold); font-size: 0.95rem; }
 
 .metric--wide {
@@ -862,6 +960,37 @@ html[data-theme='light'] .panel {
   color: var(--accent);
 }
 
+.chip-toggle.chip--sin.is-on {
+  border-color: color-mix(in srgb, var(--sin) 55%, transparent);
+  background: var(--sin-soft);
+  color: var(--sin);
+}
+.chip-toggle.chip--cos.is-on {
+  border-color: color-mix(in srgb, var(--cos) 55%, transparent);
+  background: var(--cos-soft);
+  color: var(--cos);
+}
+.chip-toggle.chip--tan.is-on {
+  border-color: color-mix(in srgb, var(--tan) 55%, transparent);
+  background: var(--tan-soft);
+  color: var(--tan);
+}
+.chip-toggle.chip--csc.is-on {
+  border-color: color-mix(in srgb, var(--csc) 55%, transparent);
+  background: var(--csc-soft);
+  color: var(--csc);
+}
+.chip-toggle.chip--sec.is-on {
+  border-color: color-mix(in srgb, var(--sec) 55%, transparent);
+  background: var(--sec-soft);
+  color: var(--sec);
+}
+.chip-toggle.chip--cot.is-on {
+  border-color: color-mix(in srgb, var(--cot) 55%, transparent);
+  background: var(--cot-soft);
+  color: var(--cot);
+}
+
 .chip-toggle.is-disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -873,6 +1002,13 @@ html[data-theme='light'] .panel {
   opacity: 0;
   width: 0;
   height: 0;
+}
+
+.fn-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 /* Divider */
@@ -944,6 +1080,8 @@ html[data-theme='light'] .panel {
 
   .hero h1 {
     max-width: none;
+    white-space: nowrap;
+    font-size: clamp(1.25rem, 4.5vw, 1.85rem);
   }
 
   .metrics {
@@ -971,7 +1109,15 @@ html[data-theme='light'] .panel {
 }
 
 .hero--compact h1 {
-  max-width: 16ch;
+  max-width: none;
+  white-space: nowrap;
+}
+
+/* Allow multi-line titles where needed (e.g. Trigonometric functions) */
+.hero h1.hero-title--wrap,
+.hero--compact h1.hero-title--wrap {
+  white-space: normal;
+  max-width: 14ch; /* "Trigonometric" on first line, "functions" on second */
 }
 
 .workspace--single {
@@ -1317,9 +1463,9 @@ html[data-theme='light'] .waves-svg {
 
 .tl-title {
   font-family: var(--font-serif);
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   font-weight: 400;
-  line-height: 1.25;
+  line-height: 1.3;
   color: var(--text);
   margin: 0 0 0.3rem;
   max-width: 38ch;
@@ -1440,13 +1586,13 @@ html[data-theme='light'] .tl-diagram {
   align-items: center;
   justify-content: center;
   font-family: var(--font-serif);
-  font-size: 3rem;
+  font-size: 2.15rem;
   color: var(--accent);
   background: var(--accent-soft);
 }
 
 .hist-slide-name {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 500;
   color: var(--text);
   margin: 0 0 0.25rem;
@@ -1602,6 +1748,96 @@ html[data-theme='light'] .hist-slide-katex .katex {
   width: 100%;
 }
 
+/* Number-type primer on Identities */
+.num-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.num-type-card {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--metric-bg);
+}
+
+.num-type-card--accent {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: var(--accent-soft);
+}
+
+.num-type-card--warn {
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--border));
+  background: rgba(240, 217, 168, 0.08);
+}
+
+.num-type-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.num-type-examples {
+  margin: 0 0 0.55rem !important;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--gold);
+  line-height: 1.45;
+}
+
+.num-type-card p:last-child {
+  margin-bottom: 0;
+  font-size: 0.88rem;
+}
+
+.id-list--types li {
+  margin-bottom: 0.55rem;
+}
+
+.id-list--types strong {
+  color: var(--text);
+}
+
+.num-type-ladder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--metric-bg);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.num-ladder-step {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.num-ladder-arrow {
+  color: var(--text-faint);
+  opacity: 0.85;
+}
+
+@media (max-width: 900px) {
+  .num-type-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .num-type-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .id-formula--yellow {
   color: #f0d9a8;
 }
@@ -1728,10 +1964,93 @@ html[data-theme='light'] .hist-slide-katex .katex {
   display: inline-flex;
 }
 
+/* Keep stacked fractions + subscripts readable inside flex formula rows */
+.id-formula--ratio {
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.id-formula--ratio .id-frac {
+  min-width: 2.75rem;
+  padding: 0.1rem 0.2rem;
+}
+
+.id-formula--ratio .id-num,
+.id-formula--ratio .id-den {
+  font-size: 1rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.id-formula--ratio .id-num sub,
+.id-formula--ratio .id-den sub,
+.id-formula--ratio sub {
+  font-size: 0.72em;
+  vertical-align: sub;
+  line-height: 0;
+}
+
+.id-formula--ratio .id-big {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.id-formula--ratio .id-num-plain {
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.id-formula--phi-rad {
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+}
+
+.id-list--ratios {
+  list-style: none;
+  margin-left: 0;
+  display: grid;
+  gap: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.id-list--ratios li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.55rem;
+  margin-bottom: 0;
+  padding: 0.2rem 0;
+}
+
+.id-ratio-pair {
+  color: var(--text);
+  min-width: 4.5rem;
+}
+
+.id-subhead {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.id-body--phi-angle {
+  border-top: 1px solid var(--border);
+  padding-top: 1.15rem;
+  margin-top: -0.35rem;
+}
+
 .id-formula--hero {
   justify-content: center;
-  font-size: 1.35rem;
-  padding: 1.25rem 1rem;
+  font-size: 1.15rem;
+  padding: 1.1rem 0.95rem;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-accent);
   background: var(--accent-soft);
@@ -1746,7 +2065,7 @@ html[data-theme='light'] .hist-slide-katex .katex {
 }
 
 .id-big {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 500;
 }
 

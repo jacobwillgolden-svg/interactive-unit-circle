@@ -129,7 +129,7 @@ export default function Controls({
             checked={showTan}
             onChange={setShowTan}
             name="Tangent"
-            desc="Dashed projection"
+            desc="True tangent at P (orange)"
             swatch="tan"
           />
           <SwitchRow

@@ -7,13 +7,14 @@ import { animateAngle, formatRadLabel, playSnapSound, snapCommonAngle } from '..
 export default function UnitCirclePage() {
   const { theme, soundOn } = useOutletContext()
   const [angle, setAngle] = useState(45)
+  // Defaults match design: sin/cos on; tan & SOHCAHTOA off; all label options on
   const [showSin, setShowSin] = useState(true)
   const [showCos, setShowCos] = useState(true)
-  const [showTan, setShowTan] = useState(true)
+  const [showTan, setShowTan] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
-  const [labelsInRadians, setLabelsInRadians] = useState(false)
+  const [labelsInRadians, setLabelsInRadians] = useState(true)
   const [showCoords, setShowCoords] = useState(true)
-  const [coordsInRadians, setCoordsInRadians] = useState(false)
+  const [coordsInRadians, setCoordsInRadians] = useState(true)
   const [showSohcahtoa, setShowSohcahtoa] = useState(false)
   const [snapPulse, setSnapPulse] = useState(0)
   const angleRef = useRef(angle)

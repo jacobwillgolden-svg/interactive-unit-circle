@@ -34,7 +34,7 @@ export default function IdentitiesPage() {
           </h1>
           <p className="hero-copy">
             Golden ratio, Euler’s number, forbidden divisions, and the formulas that sew together
-            e, i, π, sine, and cosine — the ideas on the board, explained.
+            e, i, π, sine, and cosine — plus what kind of number each one is.
           </p>
         </div>
       </header>
@@ -51,6 +51,137 @@ export default function IdentitiesPage() {
             Reference board — φ, e, undefined & indeterminate forms, and Euler’s formulas explained below.
           </figcaption>
         </figure>
+
+        {/* Number types primer */}
+        <section className="panel content-panel id-card id-card--wide">
+          <div className="panel-header">
+            <span className="panel-title">What kind of number is that?</span>
+            <span className="panel-hint">Rational · irrational · imaginary · complex</span>
+          </div>
+          <div className="id-body">
+            <p>
+              On this page you will see decimals that never settle down (π, φ, √2), a “unit” for
+              rotating into a second dimension (i), and ordinary fractions. They are not all the
+              same kind of number. Here is the map in plain language.
+            </p>
+
+            <div className="num-type-grid">
+              <article className="num-type-card">
+                <h3 className="num-type-title">Counting &amp; whole numbers</h3>
+                <p className="num-type-examples">1, 2, 3… · 0 · −1, −2…</p>
+                <p>
+                  The numbers you use to count, plus zero and negatives. These are the{' '}
+                  <strong>integers</strong>. Nothing fractional or “between” yet.
+                </p>
+              </article>
+
+              <article className="num-type-card">
+                <h3 className="num-type-title">Rational numbers</h3>
+                <p className="num-type-examples">½ · ¾ · −7 · 0.25 · 0.333… = ⅓</p>
+                <p>
+                  Any number that can be written as a <strong>fraction of two integers</strong>{' '}
+                  (denominator not zero). As a decimal, a rational either <em>stops</em> (0.25) or{' '}
+                  <em>repeats forever in a loop</em> (0.333…, 0.142857 repeating). Integers count as
+                  rational too (7 = 7/1).
+                </p>
+              </article>
+
+              <article className="num-type-card num-type-card--accent">
+                <h3 className="num-type-title">Irrational numbers</h3>
+                <p className="num-type-examples">π · φ · e · √2 · √5 · most √n</p>
+                <p>
+                  Real numbers that <strong>cannot</strong> be written as a simple fraction of
+                  integers. Their decimals go on forever <em>without</em> a repeating block. You can
+                  approximate them (3.14159…, 1.61803…) but you never “finish” the digits. That does{' '}
+                  <em>not</em> make them imaginary — they still sit on the ordinary number line.
+                </p>
+              </article>
+
+              <article className="num-type-card">
+                <h3 className="num-type-title">Real numbers</h3>
+                <p className="num-type-examples">All rationals + all irrationals</p>
+                <p>
+                  Everything on the continuous number line: positives, negatives, zero, fractions,
+                  and irrationals. If you can mark it as a distance left or right from 0, it is real.
+                </p>
+              </article>
+
+              <article className="num-type-card num-type-card--warn">
+                <h3 className="num-type-title">Imaginary numbers</h3>
+                <p className="num-type-examples">
+                  i · 2i · −i · √−1 · √−4 = 2i
+                </p>
+                <p>
+                  Built from the unit <strong>i</strong> defined by <strong>i² = −1</strong>. There
+                  is no real number whose square is negative, so we invent a new direction off the
+                  real line. “Imaginary” is a historical name — they are as precise as any other
+                  number, just not on the usual line by themselves.
+                </p>
+              </article>
+
+              <article className="num-type-card num-type-card--accent">
+                <h3 className="num-type-title">Complex numbers</h3>
+                <p className="num-type-examples">3 + 2i · cos θ + i sin θ · e^{'{iθ}'}</p>
+                <p>
+                  Numbers of the form <strong>a + bi</strong> (real part a, imaginary part b). The
+                  unit circle in this site is the set of complex numbers with length 1. Euler’s
+                  formula writes points on that circle as e^{'{iθ}'}.
+                </p>
+              </article>
+            </div>
+
+            <h3 className="id-subhead" style={{ marginTop: '1.25rem' }}>
+              How this shows up on the chalkboard
+            </h3>
+            <ul className="id-list id-list--types">
+              <li>
+                <strong>π (pi)</strong> — circumference ÷ diameter. <em>Irrational</em> (and
+                transcendental: not the root of a simple whole-number polynomial). Decimals never
+                repeat; 22/7 is only an approximation.
+              </li>
+              <li>
+                <strong>φ (golden ratio)</strong> — (1 + √5)/2 ≈ 1.61803… <em>Irrational</em>{' '}
+                because √5 is irrational. The related <strong>golden angle</strong> ≈ 137.5° is just
+                360°/φ² — still built from irrationals, still a real angle on the circle.
+              </li>
+              <li>
+                <strong>e</strong> — base of natural growth ≈ 2.71828… <em>Irrational</em> (and
+                transcendental), like π.
+              </li>
+              <li>
+                <strong>√2, √3, √5, …</strong> — square roots of non-perfect squares are{' '}
+                <em>irrational</em>. They look like “messy decimals” (1.41421…, 2.23606…) for the
+                same reason as π: the digit string never becomes a repeating cycle and never ends.
+                By contrast √4 = 2 and √9 = 3 are ordinary integers (rational).
+              </li>
+              <li>
+                <strong>√−1 = i</strong> — <em>imaginary unit</em>, not irrational. Irrationals are
+                still real; i is not real. You need it for √(negative) and for rotating the plane
+                (the “i” in e^{'{iθ}'} and in cos θ + i sin θ).
+              </li>
+              <li>
+                <strong>Decimals that look long</strong> — length alone does not decide the type.
+                ⅓ = 0.333… is rational (repeating). √2 = 1.414213… is irrational (non-repeating). A
+                calculator’s rounded display can hide which is which.
+              </li>
+            </ul>
+
+            <div className="num-type-ladder" aria-label="Nesting of number systems">
+              <span className="num-ladder-step">Integers</span>
+              <span className="num-ladder-arrow">⊂</span>
+              <span className="num-ladder-step">Rationals</span>
+              <span className="num-ladder-arrow">⊂</span>
+              <span className="num-ladder-step">Reals</span>
+              <span className="num-ladder-arrow">⊂</span>
+              <span className="num-ladder-step">Complex (a + bi)</span>
+            </div>
+            <p className="id-caption" style={{ marginTop: '0.75rem' }}>
+              Irrationals live inside the reals (beside the rationals). Imaginaries and complexes
+              extend sideways off that line — that is how the unit circle gets an “up” direction for
+              sine.
+            </p>
+          </div>
+        </section>
 
         <div className="id-grid">
           {/* Golden ratio */}
@@ -324,22 +455,122 @@ export default function IdentitiesPage() {
                   square: you get the <strong>golden spiral</strong> (approximate logarithmic spiral).
                   Successive ratios approach φ:
                 </p>
-                <div className="id-formula id-formula--sm">
-                  F<sub>n+1</sub> / F<sub>n</sub> → φ ≈ {PHI.toFixed(6)}…
+                <div
+                  className="id-formula id-formula--sm id-formula--ratio"
+                  aria-label={`F sub n plus 1 over F sub n approaches phi approximately ${PHI.toFixed(6)}`}
+                >
+                  <span className="id-frac">
+                    <span className="id-num">
+                      F<sub>n+1</sub>
+                    </span>
+                    <span className="id-bar" />
+                    <span className="id-den">
+                      F<sub>n</sub>
+                    </span>
+                  </span>
+                  <span className="id-eq">→</span>
+                  <span className="id-big">φ</span>
+                  <span className="id-eq">≈</span>
+                  <span className="id-num-plain">{PHI.toFixed(6)}…</span>
                 </div>
-                <ul className="id-list">
-                  <li>2/1 = 2</li>
-                  <li>3/2 = 1.5</li>
-                  <li>5/3 ≈ 1.666…</li>
-                  <li>8/5 = 1.6</li>
-                  <li>13/8 = 1.625</li>
-                  <li>… → φ = (1+√5)/2</li>
+                <ul className="id-list id-list--ratios">
+                  <li>
+                    <span className="id-ratio-pair">2 / 1</span>
+                    <span className="id-eq">=</span>
+                    <span>2</span>
+                  </li>
+                  <li>
+                    <span className="id-ratio-pair">3 / 2</span>
+                    <span className="id-eq">=</span>
+                    <span>1.5</span>
+                  </li>
+                  <li>
+                    <span className="id-ratio-pair">5 / 3</span>
+                    <span className="id-eq">≈</span>
+                    <span>1.666…</span>
+                  </li>
+                  <li>
+                    <span className="id-ratio-pair">8 / 5</span>
+                    <span className="id-eq">=</span>
+                    <span>1.6</span>
+                  </li>
+                  <li>
+                    <span className="id-ratio-pair">13 / 8</span>
+                    <span className="id-eq">=</span>
+                    <span>1.625</span>
+                  </li>
+                  <li>
+                    <span className="id-ratio-pair">…</span>
+                    <span className="id-eq">→</span>
+                    <span>
+                      φ = (1 + √5) / 2
+                    </span>
+                  </li>
                 </ul>
                 <p>
                   Each square in the diagram is labeled with its Fibonacci side length.
                 </p>
               </div>
               <FibonacciSpiral />
+            </div>
+
+            <div className="id-body id-body--phi-angle">
+              <h3 className="id-subhead">The golden angle · φ on the circle</h3>
+              <div
+                className="id-formula id-formula--sm id-formula--ratio"
+                aria-label="Golden angle equals 360 degrees over phi squared, approximately 137.5 degrees"
+              >
+                <span className="id-big">ψ</span>
+                <span className="id-eq">=</span>
+                <span className="id-frac">
+                  <span className="id-num">360°</span>
+                  <span className="id-bar" />
+                  <span className="id-den">φ²</span>
+                </span>
+                <span className="id-eq">=</span>
+                <span className="id-frac">
+                  <span className="id-num">360°</span>
+                  <span className="id-bar" />
+                  <span className="id-den">φ + 1</span>
+                </span>
+                <span className="id-eq">≈</span>
+                <span className="id-num-plain">137.508°</span>
+              </div>
+              <p>
+                Cut a full turn of a circle in the <strong>golden ratio</strong>: the two arcs stand in
+                the same proportion as whole ∶ longer = longer ∶ shorter — exactly the rule that
+                defines φ. Because 1/φ = φ − 1 ≈ 0.618, the smaller arc is a fraction 1/φ² of the
+                circle (since 1/φ² = 1 − 1/φ). That smaller arc is the <strong>golden angle</strong>{' '}
+                ψ ≈ 137.5°.
+              </p>
+              <ul className="id-list">
+                <li>
+                  Full circle = 360° · split so the parts obey the golden ratio
+                </li>
+                <li>
+                  Larger arc ≈ 360° / φ ≈ 222.5° · smaller arc ≈ 360° / φ² ≈ 137.5°
+                </li>
+                <li>
+                  Using φ² = φ + 1, the golden angle is also 360° / (φ + 1)
+                </li>
+              </ul>
+              <p>
+                In nature this angle packs successive leaves, seeds, or florets around a stem so that
+                no two land on the same ray — the most even covering of a circle you get from a fixed
+                turn. The same φ that makes F<sub>n+1</sub> / F<sub>n</sub> → φ in the Fibonacci spiral
+                therefore appears as a <em>rotation</em> on the unit circle: the golden angle is the
+                golden ratio written in degrees.
+              </p>
+              <div className="id-formula id-formula--sm id-formula--ratio id-formula--phi-rad">
+                <span className="id-eq">in radians:</span>
+                <span className="id-frac">
+                  <span className="id-num">2π</span>
+                  <span className="id-bar" />
+                  <span className="id-den">φ²</span>
+                </span>
+                <span className="id-eq">≈</span>
+                <span className="id-num-plain">{( (2 * Math.PI) / (PHI * PHI) ).toFixed(4)}…</span>
+              </div>
             </div>
           </section>
         </div>

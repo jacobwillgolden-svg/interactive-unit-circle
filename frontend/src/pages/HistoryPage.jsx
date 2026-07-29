@@ -21,17 +21,17 @@ const EVENTS = [
     portrait: '/portraits/pythagoras.jpg',
     latex: String.raw`a^{2} + b^{2} = c^{2}`,
     formulaNote: 'Ratio · harmony · the right triangle',
-    body: `The Pythagoreans treated number as the key to nature: ratios of string lengths, harmonic intervals, and geometric figures. The theorem that still bears Pythagoras’s name — relating the sides of a right triangle — is only the most famous piece of a broader program. By insisting that magnitudes can be compared through proportion, they made continuous quantity thinkable as something structured, not merely drawn. Later calculus would need exactly that: a language for relating changing lengths, areas, and rates.`,
+    body: `Pythagoras ran what was basically a secret math cult: members shared property, kept vows of silence, and treated numbers as holy. Legend says they forbade eating beans, and that he discovered musical harmony by listening to blacksmiths’ hammers. The famous right-triangle theorem is only the best-known piece of a bigger idea — that ratios and proportions can describe the world. Calculus later needs that same habit: comparing changing lengths and rates, not just drawing pretty pictures.`,
   },
   {
     year: 'c. 300 BCE',
     title: 'Euclid’s Elements as the template',
     figure: 'Euclid of Alexandria',
     centralFigure: 'Euclid',
-    portrait: null,
+    portrait: '/portraits/euclid.jpg',
     latex: String.raw`\text{Elements} \;\vdash\; \text{geometry}`,
     formulaNote: 'Axioms · deduction · the classical standard',
-    body: `Euclid’s Elements organized geometry into definitions, postulates, and theorems — the gold standard of mathematical writing for centuries. Book XII preserves exhaustion arguments for circles, pyramids, and cones. Anyone who later wanted to prove a result about areas or tangents was writing in Euclid’s shadow: start from clear assumptions, proceed by deduction, and treat diagrams as controlled objects. Analytic geometry and calculus would eventually loosen the purely geometric frame, but they inherited Euclid’s demand for structure.`,
+    body: `Almost nothing is known about Euclid the person — he is mostly a name attached to a masterpiece. One old story says a student asked what geometry was “good for,” and Euclid told a servant to give the boy a coin, “since he must make a profit from learning.” His Elements built geometry from clear starting rules and careful proofs. Later calculus writers still followed that style: state what you assume, then deduce. Book XII even squeezes areas of circles with finer and finer shapes — a cousin of ideas calculus would formalize.`,
   },
   {
     year: 'c. 276–194 BCE',
@@ -44,7 +44,7 @@ const EVENTS = [
       'Eratosthenes’ measurement of Earth: sunlight at Alexandria and Syene, 7.2° shadow angle, well at Syene',
     latex: String.raw`C = 2\pi r \quad\cdot\quad \text{sieve}`,
     formulaNote: 'Circumference · latitude · prime numbers',
-    body: `Eratosthenes of Cyrene, chief librarian at Alexandria, estimated the circumference of the Earth from the angle of the noonday sun at two cities a known distance apart — geometry applied to a curved world. He also devised the sieve that still bears his name: strike out multiples to leave the primes. His work fused measurement, astronomy, and pure number. Like the exhaustion methods of his age, it treated continuous magnitude and discrete counting as tools that could be made precise — a spirit calculus would later inherit when rates and totals became calculable.`,
+    body: `Eratosthenes ran the great library at Alexandria and was nicknamed “Beta” — second-best at everything — and also “Pentathlos,” a five-event all-rounder. With a stick’s shadow in one city and a deep well in another, he estimated the size of the whole Earth, shockingly well for the age. He also invented the prime-number “sieve”: cross out multiples until only primes remain. He mixed measurement, maps, and pure number — the same mix calculus would use when rates and totals had to become precise.`,
   },
   {
     year: 'c. 250 BCE',
@@ -54,7 +54,7 @@ const EVENTS = [
     portrait: '/portraits/archimedes.jfif',
     latex: String.raw`A = \lim_{n \to \infty} A_n`,
     formulaNote: 'Exhaustion · areas by refinement',
-    body: `Long before “calculus” had a name, Archimedes computed areas and volumes by squeezing curved shapes between polygons that got finer and finer — the method of exhaustion. He found the area of a parabolic segment, bounds on π, and volumes of spheres and cylinders with astonishing precision. In a private “Method,” he also used mechanical thought-experiments with infinitesimals, then re-proved results rigorously. These ideas foreshadow integration: infinite refinement of finite approximations, plus a hunger for exact theorems about curves.`,
+    body: `Archimedes is the “Eureka!” guy who (story goes) jumped from his bath and ran naked through Syracuse after spotting a density trick for a king’s crown. He also built wild war machines and, when a Roman soldier finally killed him, was supposedly still drawing figures in the sand and snapping, “Do not disturb my circles.” Long before calculus had a name, he squeezed curved areas between shapes that got finer and finer — and in a private notebook played with “tiny bits” of area, then re-proved results carefully. That double move is pure calculus spirit: invent freely, then make it solid.`,
   },
   {
     year: '14th–16th c.',
@@ -64,7 +64,7 @@ const EVENTS = [
     portrait: '/portraits/kepler.jfif',
     latex: String.raw`\sum \text{indivisibles}`,
     formulaNote: 'Areas as sums of thin slices',
-    body: `Nicole Oresme studied rates of change graphically, sketching how a quality might vary over time — a visual cousin of a function. Kepler estimated volumes of solids of revolution (including wine barrels) with clever slicing. Bonaventura Cavalieri’s “indivisibles” treated areas as sums of infinitely thin lines — controversial among purists, but a bold step toward integration. Across these centuries the Greek ideal of exhaustion met a more freewheeling European appetite for calculation. The stage was set for a systematic language of change.`,
+    body: `Kepler’s life was messy: poverty, war, and a mother accused of witchcraft whom he spent years defending in court. Between crises he tracked the planets into ellipses and even wrote a booklet on the best way to measure wine barrels. Nicole Oresme had earlier sketched how a quantity might change over time — like a hand-drawn graph. Cavalieri treated areas as stacks of infinitely thin slices, which shocked purists. Together they pushed Europe toward a freer language of change, ready for a real calculus.`,
   },
   {
     year: '1637',
@@ -74,7 +74,7 @@ const EVENTS = [
     portrait: '/portraits/descartes.jpg',
     latex: String.raw`y = f(x)`,
     formulaNote: 'Curves as equations · coordinates',
-    body: `Descartes united algebra and geometry: curves became equations in coordinates, and geometric problems could be attacked with symbols. Without the Cartesian plane, the later idea of a derivative as the slope of a tangent would have been far harder to formalize. Analytic geometry is the canvas on which differentiation is painted — each point a pair of numbers, each curve a relation waiting for a rate of change. Fermat and others worked in the same spirit; together they moved mathematics from pure figure to figure-plus-formula.`,
+    body: `Descartes loved to sleep in — he claimed his best thinking happened in a warm bed until noon. As a young man he soldiered around Europe; as a philosopher he built everything on “I think, therefore I am.” He died after harsh early-morning lessons for Queen Christina of Sweden in a freezing palace. In math he glued algebra to geometry: curves became equations on a plane. Without that grid, “slope of a tangent” would be much harder to say. The Cartesian plane is still the stage where derivatives play.`,
   },
   {
     year: 'c. 1630s–1660s',
@@ -85,7 +85,7 @@ const EVENTS = [
       'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Pierre_de_Fermat.jpg/320px-Pierre_de_Fermat.jpg',
     latex: String.raw`\frac{\Delta y}{\Delta x} \;\to\; \text{slope}`,
     formulaNote: 'Maxima · minima · tangents',
-    body: `Fermat developed methods to find maxima, minima, and tangents by comparing nearby values of a function — close in spirit to taking a difference quotient and discarding higher-order terms. His “adequality” looked informal by later standards, yet it captured the core maneuver of differential calculus: study an increment, cancel what vanishes, and read off a slope or extremum. He did not publish a full calculus, but his techniques influenced everyone who followed, including Newton’s circle and the continental geometers.`,
+    body: `By day Fermat was a lawyer and judge in Toulouse; math was his after-hours obsession. He hated publishing polished books, preferring clever letters and notes in margins — including the famous claim of a “marvelous proof” for what we now call Fermat’s Last Theorem (which took centuries to finish properly). His tricks for maxima, minima, and tangents already smelled like derivatives: compare nearby values, drop what vanishes, read off a slope. Newton’s generation studied those moves carefully.`,
   },
   {
     year: '1660s',
@@ -96,7 +96,7 @@ const EVENTS = [
       'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Isaac_Barrow_by_Claude_Lefebvre.jpg/320px-Isaac_Barrow_by_Claude_Lefebvre.jpg',
     latex: String.raw`\displaystyle \frac{d}{dx}\int_a^x f(t)\,dt = f(x)`,
     formulaNote: 'Area and tangent as inverses',
-    body: `Isaac Barrow, Newton’s teacher at Cambridge, proved results connecting the area under a curve to the tangent problem — a geometric form of what we now call the Fundamental Theorem of Calculus. In lectures and diagrams he showed that differentiation and integration are two faces of one relationship. He passed the Lucasian chair to Newton in 1669, handing on both a post and a cluster of ideas ripe for a more algebraic, algorithmic treatment.`,
+    body: `Isaac Barrow was a preacher as well as a mathematician — known for sharp sermons and sharper geometry lectures. He held the first Lucasian chair at Cambridge, then stepped aside in 1669 so his extraordinary student Isaac Newton could take it. In class he showed that finding an area under a curve and finding a tangent are inverse jobs — the heart of the Fundamental Theorem of Calculus, drawn with diagrams before it had modern symbols. He handed Newton both a title and a pile of ripe ideas.`,
   },
   {
     year: '1665–1666',
@@ -107,7 +107,7 @@ const EVENTS = [
     highlight: true,
     latex: String.raw`\dot{x} = \dfrac{dx}{dt}`,
     formulaNote: 'Fluxions · fluents · Principia',
-    body: `During the plague years, Newton developed his “method of fluxions.” A fluent is a flowing quantity (like position); a fluxion is its rate of flow (like velocity) — the derivative. He connected differentiation and integration as inverse operations and used infinite series freely. Much of this stayed in manuscripts for years; a full public fluxional account came later. Newton’s calculus powered the Principia (1687) and celestial mechanics, turning instantaneous rate into the language of force, orbit, and natural philosophy.`,
+    body: `During the plague years Newton worked in isolation and invented his “fluxions” — calculus in motion language. A fluent is something flowing (like position); a fluxion is how fast it flows (like velocity). Off the clock he was stranger still: he poured years into alchemy and into hunting secret codes and prophecies in the Bible, filling notebooks with timelines of kingdoms and hidden meanings. He later ran the Royal Mint and hounded counterfeiters. Publicly he gave the world the Principia and a calculus of force and orbit; privately he was a restless decoder of both nature and scripture.`,
   },
   {
     year: '1673–1684',
@@ -118,7 +118,7 @@ const EVENTS = [
     highlight: true,
     latex: String.raw`\dfrac{dy}{dx}\quad\cdot\quad \displaystyle\int y\,dx`,
     formulaNote: 'dx, dy, ∫ — notation we still use',
-    body: `Working independently in Paris and beyond, Leibniz built a calculus of differentials. He introduced the notation still used worldwide: dx, dy, and the elongated S for the integral, ∫. His 1684 paper Nova Methodus pro Maximis et Minimis was the first published account of differential calculus. Clear rules and symbols made the subject teachable and extensible across Europe — a deliberate design for a “universal characteristic” of thought, not only a private computing trick.`,
+    body: `Leibniz was a diplomat, librarian, and professional letter-writer who never married and seemed to live on correspondence. He dreamed of a “universal language” of thought and even built early calculating machines. Working independently of Newton, he invented a calculus of differentials and gave us the symbols we still teach: dx, dy, and the long S for the integral, ∫. His 1684 paper was the first published account of differential calculus. He wanted tools anyone could learn — not a private code for one genius.`,
   },
   {
     year: '1690s–1710s',
@@ -128,29 +128,27 @@ const EVENTS = [
     portrait: '/portraits/newton.jpg',
     latex: String.raw`\dot{x}\;\;\longleftrightarrow\;\; \dfrac{dy}{dx}`,
     formulaNote: 'Independent invention · shared legacy',
-    body: `Who invented calculus first? Newton’s ideas were earlier; Leibniz published first. Accusations of plagiarism poisoned British–Continental relations for decades and pushed English mathematics toward fluxional notation while Europe adopted differentials. Modern historians conclude they developed calculus independently, from shared problems and partial precursors. Today we keep Newton’s physical intuition and Leibniz’s notation — the best of both lineages.`,
+    body: `Who invented calculus first? Newton’s ideas came earlier; Leibniz published first. The fight got ugly. Newton, as president of the Royal Society, stacked a “neutral” committee that quietly ruled in his favor. Friends on both sides traded insults for decades; British math clung to Newton’s dots while Europe used Leibniz’s d’s. Historians now say they found calculus independently. We kept the best of both: Newton’s physics instincts and Leibniz’s notation. Even geniuses can be petty.`,
   },
   {
     year: '1690s–1730s',
     title: 'The Bernoulli circle & l’Hôpital',
     figure: 'Jacob & Johann Bernoulli · Guillaume de l’Hôpital',
     centralFigure: 'Jacob Bernoulli',
-    portrait:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Jakob_Bernoulli.jpg/440px-Jakob_Bernoulli.jpg',
+    portrait: '/portraits/bernoulli.jpg',
     latex: String.raw`\lim_{x \to a}\frac{f(x)}{g(x)} = \lim_{x \to a}\frac{f'(x)}{g'(x)}`,
     formulaNote: '0/0 forms · brachistochrone',
-    body: `The Bernoulli brothers advanced Leibnizian calculus, coined “integral,” and solved the brachistochrone and other variational problems that linked differentials to optimization. L’Hôpital’s textbook (1696) spread the new methods through Europe; the famous limit rule for 0/0 forms bears his name (from Johann Bernoulli’s teaching). In a generation, calculus left the notebooks of a few geniuses and entered the toolkit of working mathematicians.`,
+    body: `The Bernoullis were brilliant — and famously hard to live with. Brothers Jacob and Johann fought bitterly over credit; Johann later feuded with his own son Daniel over hydrodynamics. They pushed Leibniz’s calculus hard, coined the word “integral,” and posed prize challenges like the brachistochrone (the curve of fastest descent). The Marquis de l’Hôpital paid Johann for private lessons and published a textbook; the famous 0/0 limit rule still bears l’Hôpital’s name even though the ideas were largely Bernoulli’s. Calculus left the loners’ notebooks and entered the classroom — family drama and all.`,
   },
   {
     year: '18th century',
     title: 'Analysis becomes a language',
     figure: 'Leonhard Euler',
     centralFigure: 'Leonhard Euler',
-    portrait:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Leonhard_Euler.jpg/440px-Leonhard_Euler.jpg',
+    portrait: '/portraits/euler.jpg',
     latex: String.raw`e^{ix} = \cos x + i\sin x`,
     formulaNote: 'Functions · series · constant e',
-    body: `Euler made calculus the universal toolkit of science: functions, series, differential equations, and the constant e. He wrote with unmatched productivity and standardized much of modern mathematical prose — f(x), Σ, and a calm confidence that formal manipulation could reveal structure. Differentiation was no longer a niche method; it was the engine of analysis, applied to mechanics, astronomy, and pure number theory alike.`,
+    body: `Euler was cheerfully unstoppable. He drank coffee by the pot, raised a huge family, and kept writing math even after going blind in one eye and later nearly both — dictating papers from memory while children climbed on him. Contemporaries said he could calculate as easily as other people breathe. He standardized symbols we still use (f(x), e, Σ), flooded every field with papers, and made calculus the everyday language of science. If Newton and Leibniz built the engine, Euler drove it everywhere.`,
   },
   {
     year: '19th century',
@@ -161,7 +159,7 @@ const EVENTS = [
       'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Augustin-Louis_Cauchy_1901.jpg/440px-Augustin-Louis_Cauchy_1901.jpg',
     latex: String.raw`f'(x) = \lim_{h \to 0}\dfrac{f(x+h)-f(x)}{h}`,
     formulaNote: 'ε–δ limits · rigorous derivative',
-    body: `Critics had long worried about “ghosts of departed quantities” (Berkeley’s jab at infinitesimals). Cauchy, Weierstrass, and others rebuilt limits, derivatives, and continuity with ε–δ precision. Riemann refined integration. Differentiation gained a rock-solid definition: the limit of a difference quotient, when it exists. The computational power of the 17th century finally rested on foundations the Greeks might have recognized as careful exhaustion — written in modern symbols.`,
+    body: `Bishop Berkeley had mocked early calculus as “ghosts of departed quantities.” Cauchy — a devout, stubborn royalist who sometimes fled political storms — helped rebuild limits and continuity with careful ε–δ language so the ghosts had to check in at the front desk. Weierstrass, a late-blooming teacher who once worked as a secondary-school instructor, made that precision standard. Riemann, who died young of tuberculosis, rethought integration itself. Differentiation finally got a rock-solid definition: a limit of a difference quotient, when it exists.`,
   },
   {
     year: '20th century →',
@@ -172,7 +170,7 @@ const EVENTS = [
       'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Lebesgue.jpg/440px-Lebesgue.jpg',
     latex: String.raw`\nabla f \;\cdot\; \text{AD}`,
     formulaNote: 'Weak derivatives · automatic differentiation',
-    body: `Lebesgue integration, weak derivatives, and distribution theory extended calculus to rougher functions that classical pointwise derivatives cannot handle. Automatic differentiation and numerical methods put derivatives inside every physics engine and machine-learning stack. The idea Newton and Leibniz crystallized — measuring instantaneous change — still runs the modern world, from orbital mechanics to backprop. The Greek questions about infinity, proportion, and continuous magnitude never really left; they only changed notation.`,
+    body: `Henri Lebesgue reworked integration so it could handle rougher, wilder functions — the kind that make classical derivatives sulk. Later “distribution” theory and weak derivatives stretched calculus again. Then computers arrived: automatic differentiation now sits inside physics engines and machine-learning stacks, computing rates of change billions of times a second. Lebesgue himself was a quiet academic through world wars, not a celebrity — but the idea Newton and Leibniz crystallized, measuring instantaneous change, still runs the modern world.`,
   },
 ]
 
@@ -417,18 +415,17 @@ export default function HistoryPage() {
           <h1>
             A timeline of <em>calculus</em>
           </h1>
-          <p className="hero-copy">
-            Scroll the story on the left — the glow travels the rail. Portraits and formulas on the
-            right stay fixed and fade with each era.
-          </p>
           {/* Intro lives in the hero so it never sits above the first rail marker
               (that orphan block was throwing off Pythagoras’s circle). */}
           <p className="tl-intro">
-            <strong>Differentiation</strong> asks: how fast does something change at an instant?
-            The answer grew slowly — from Greek ratio and exhaustion, through coordinates, to
-            systematic rules for slopes and areas. Isaac Newton and Gottfried Wilhelm Leibniz
-            independently forged calculus in the 17th century; centuries of precursors and
-            successors made it rigorous and universal.
+            <strong>Calculus</strong> is the math of change. Think of a moving object:{' '}
+            <strong>position</strong> is where it is; the <strong>first derivative</strong> of
+            position is <strong>velocity</strong> (how fast that place is changing); the{' '}
+            <strong>second derivative</strong> is <strong>acceleration</strong> (how fast the
+            speed is changing). A <strong>third derivative</strong> would be how acceleration
+            itself changes — but the main idea is already there: each derivative asks “how quickly
+            is the thing before it changing?” That simple habit — tracking change, then change of
+            change — is what this timeline is about.
           </p>
         </div>
         <div className="hero-stats">
