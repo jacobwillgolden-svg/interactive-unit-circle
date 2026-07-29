@@ -290,13 +290,12 @@ export default function WavesPage() {
     return `(${cos.toFixed(2)}, ${sin.toFixed(2)})`
   })()
   const radLabel = formatRadLabel(nearCommon !== null ? nearCommon : angle)
-  // Prefer exact π forms at common angles in radians mode; otherwise int/float precision
+  // Prefer exact π forms at common angles in radians mode; otherwise int/float precision.
+  // Never round radians to a whole number (that produced “θ = 2” at 135°).
   const angleLabel = coordsInRadians
-    ? nearCommon !== null && !angleAsInt
+    ? nearCommon !== null
       ? `θ = ${radLabel}`
-      : nearCommon !== null && angleAsInt
-        ? `θ = ${formatAngleNumber(rad, true)}`
-        : `θ = ${formatAngleNumber(rad, angleAsInt)}`
+      : `θ = ${formatAngleNumber(rad, false)}`
     : `θ = ${formatAngleNumber(angle, angleAsInt)}°`
 
   const coordFill = isLight ? '#b45309' : '#f0d9a8'
@@ -461,9 +460,12 @@ export default function WavesPage() {
     if (!svg) return
     try {
       const clone = svg.cloneNode(true)
+      // Standalone SVG for rasterization (blob URLs often fail without full namespace + size)
       clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink')
       clone.setAttribute('width', String(W))
       clone.setAttribute('height', String(H))
+      clone.setAttribute('viewBox', `0 0 ${W} ${H}`)
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
       bg.setAttribute('x', '0')
       bg.setAttribute('y', '0')
@@ -473,29 +475,39 @@ export default function WavesPage() {
       clone.insertBefore(bg, clone.firstChild)
 
       const xml = new XMLSerializer().serializeToString(clone)
-      const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
+      // data: URL is more reliable than blob: for SVG→canvas in Chromium
+      const dataUrl =
+        'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml)
       const scale = 2
       const img = new Image()
       await new Promise((resolve, reject) => {
-        img.onload = resolve
-        img.onerror = reject
-        img.src = url
+        const t = setTimeout(() => reject(new Error('PNG export timed out loading SVG')), 8000)
+        img.onload = () => {
+          clearTimeout(t)
+          resolve()
+        }
+        img.onerror = () => {
+          clearTimeout(t)
+          reject(new Error('Browser failed to decode SVG for PNG export'))
+        }
+        img.src = dataUrl
       })
+
       const canvas = document.createElement('canvas')
       canvas.width = Math.round(W * scale)
       canvas.height = Math.round(H * scale)
       const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        URL.revokeObjectURL(url)
-        return
-      }
+      if (!ctx) return
       ctx.fillStyle = svgBg
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      URL.revokeObjectURL(url)
-      const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
-      if (!pngBlob) return
+
+      const pngBlob = await new Promise((resolve, reject) => {
+        canvas.toBlob((b) => {
+          if (b) resolve(b)
+          else reject(new Error('canvas.toBlob returned null'))
+        }, 'image/png')
+      })
 
       const fnKeys = [
         ['sin', showSin],
@@ -517,10 +529,22 @@ export default function WavesPage() {
       const out = URL.createObjectURL(pngBlob)
       a.href = out
       a.download = `${base}.png`
+      a.rel = 'noopener'
+      document.body.appendChild(a)
       a.click()
+      a.remove()
       setTimeout(() => URL.revokeObjectURL(out), 2000)
     } catch (err) {
       console.error('PNG export failed', err)
+      // Surface a non-fatal notice; never rethrow (rethrows crash the UI if the click handler is async)
+      try {
+        window.alert(
+          'Could not export PNG. Try Reset view, then Save PNG again.\n\n' +
+            (err && err.message ? err.message : String(err))
+        )
+      } catch {
+        /* */
+      }
     }
   }, [
     W,
