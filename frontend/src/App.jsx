@@ -16,7 +16,8 @@ export default function App() {
           <Route path="waves" element={<WavesPage />} />
           <Route path="helix" element={<HelixPage />} />
           <Route path="history" element={<HistoryPage />} />
-          <Route path="identities" element={<IdentitiesPage />} />
+          <Route path="cheat-sheet" element={<IdentitiesPage />} />
+          <Route path="identities" element={<Navigate to="/cheat-sheet" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

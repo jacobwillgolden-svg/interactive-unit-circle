@@ -12,6 +12,7 @@ export default function SiteShell() {
     return localStorage.getItem('radian-sound') !== 'off'
   })
   const [cursor, setCursor] = useState({ x: 0.5, y: 0.3 })
+  const [showScrollTop, setShowScrollTop] = useState(false)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -32,6 +33,32 @@ export default function SiteShell() {
     window.addEventListener('pointermove', onMove, { passive: true })
     return () => window.removeEventListener('pointermove', onMove)
   }, [])
+
+  // Show ↑ after scrolling ~1/5 of the way down the page
+  useEffect(() => {
+    const onScroll = () => {
+      const doc = document.documentElement
+      const threshold = Math.max(doc.scrollHeight, document.body.scrollHeight) / 5
+      setShowScrollTop(window.scrollY >= threshold)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [location.pathname])
+
+  // New route / page: start at top; re-check scroll affordance
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    setShowScrollTop(false)
+  }, [location.pathname])
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   return (
     <div className="app">
@@ -114,8 +141,8 @@ export default function SiteShell() {
             <NavLink to="/history" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
               History
             </NavLink>
-            <NavLink to="/identities" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
-              Identities
+            <NavLink to="/cheat-sheet" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
+              Cheat Sheet
             </NavLink>
           </div>
 
@@ -147,6 +174,18 @@ export default function SiteShell() {
           <span>Designed for clarity</span>
           <span>Interactive trigonometry studio</span>
         </footer>
+
+        <button
+          type="button"
+          className={`scroll-top-btn${showScrollTop ? ' is-visible' : ''}`}
+          onClick={scrollToTop}
+          aria-label="Scroll to top"
+          title="Back to top"
+        >
+          <span className="scroll-top-arrow" aria-hidden="true">
+            ↑
+          </span>
+        </button>
       </div>
     </div>
   )

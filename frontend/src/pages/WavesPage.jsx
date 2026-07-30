@@ -233,7 +233,7 @@ export default function WavesPage() {
 
   // Layout: circle left (room for sec/csc axis intercepts), waves right.
   // Geometry matches mathsisfun circle-unit.js (Rod Pierce) “Names” mode:
-  //   cos: O → (cos,0)     sin: (cos,0) → P
+  //   cos: elevated (0,sin)→(cos,sin)   sin: (cos,0)→P
   //   sec: O → (sec,0)     csc: O → (0,csc)
   //   tan: P → (sec,0)     cot: P → (0,csc)   [tangent line at P]
   // Tall canvas: csc/cot intercepts stay on-screen; top pad keeps titles clear of tips
@@ -589,7 +589,9 @@ export default function WavesPage() {
       if (showEndpoints) {
         tips.push({ mode: 'point', x: px, y: py })
         if (showSin) tips.push({ mode: 'point', x: px, y: py })
-        if (showCos) tips.push({ mode: 'cos', x: footX, y: footY })
+        // Cos is drawn elevated at height sin (not on the x-axis with sec);
+        // drag handle sits on the free end at (0, sin) in unit coords.
+        if (showCos) tips.push({ mode: 'cos', x: cx, y: py })
         if (showTanGeo && tanEnd) tips.push({ mode: 'sec', x: tanEnd.x, y: tanEnd.y })
         if (showSecGeo && secPt) tips.push({ mode: 'sec', x: secPt.x, y: secPt.y })
         if (showCotGeo && cotEnd) tips.push({ mode: 'csc', x: cotEnd.x, y: cotEnd.y })
@@ -1141,10 +1143,12 @@ export default function WavesPage() {
                   csc: O → (0, csc) on the y-axis
                   cot: P → (0, csc) along the tangent at P
                   tan: P → (sec, 0) along the tangent at P
-                  sin: (cos, 0) → P   cos: O → (cos, 0)
+                  sin: (cos, 0) → P   cos: elevated (0,sin) → (cos,sin)
 
-                Shaded triangles (one per toggled function, same hue as the stroke):
-                  cos / sin → O–foot–P
+                Soft fills (same hue as the stroke):
+                  cos → rectangle under elevated cos: (0,sin)–(cos,sin)–(cos,0)–(0,0)
+                        matches the elevated x-component at height of P
+                  sin → right-triangle strip O–foot–P (vertical opp side)
                   tan / sec → O–P–(sec,0)
                   cot / csc → O–P–(0,csc)
               */}
@@ -1152,7 +1156,8 @@ export default function WavesPage() {
               {/* ── Soft fills (under strokes) ── */}
               {showCos && (
                 <polygon
-                  points={`${cx},${cy} ${footX},${footY} ${px},${py}`}
+                  /* Under elevated cos (0,sin)→(cos,sin) down to the x-axis */
+                  points={`${cx},${py} ${px},${py} ${footX},${footY} ${cx},${cy}`}
                   fill={softFill(FN_COLORS.cos, isLight)}
                   stroke="none"
                 />
@@ -1329,25 +1334,27 @@ export default function WavesPage() {
                 </g>
               )}
 
-              {/* cos — O → (cos, 0) */}
+              {/* cos — elevated x-component: (0, sin) → (cos, sin)
+                  Drawn at the height of P so the segment does not paint on top
+                  of sec along the x-axis (same ray O → (sec, 0) in Q1). */}
               {showCos && (
                 <g>
                   <line
                     x1={cx}
-                    y1={cy}
-                    x2={footX}
-                    y2={footY}
+                    y1={py}
+                    x2={px}
+                    y2={py}
                     stroke={FN_COLORS.cos}
                     strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
                   {showEndpoints && (
-                    <TipDot x={footX} y={footY} color={FN_COLORS.cos} />
+                    <TipDot x={cx} y={py} color={FN_COLORS.cos} />
                   )}
                   {showNames && (
                     <text
-                      x={(cx + footX) / 2}
-                      y={cy - 8}
+                      x={(cx + px) / 2}
+                      y={py + (sin >= 0 ? -10 : 16)}
                       fontSize="12"
                       fill={FN_COLORS.cos}
                       fontFamily="JetBrains Mono, monospace"

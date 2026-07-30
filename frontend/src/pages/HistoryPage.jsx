@@ -14,6 +14,17 @@ import 'katex/dist/katex.min.css'
 
 const EVENTS = [
   {
+    year: 'c. 624–546 BCE',
+    title: 'Thales of Miletus — geometry before proofs had a name',
+    figure: 'Thales of Miletus',
+    centralFigure: 'Thales of Miletus',
+    portrait: '/portraits/thales.jpg',
+    portraitPullBack: true,
+    latex: String.raw`x^{2}=(\pi r)\cdot r=\pi r^{2}`,
+    formulaNote: 'Semicircle · right angle · geometric mean',
+    body: `Thales of Miletus is often called the first Greek philosopher and one of the first people history remembers for treating geometry as something you can reason about, not only measure with a rope. He lived on the Ionian coast (today’s Turkey), traded and traveled — stories say he predicted an eclipse, cornered the olive-press market after a good harvest forecast, and fell into a well while staring at the stars. In math his name sticks to Thales’ theorem: an angle inscribed in a semicircle is a right angle. From that right triangle comes the altitude rule used on the Cheat Sheet — if a diameter is split into segments a and b, the altitude x to the diameter satisfies x² = a·b. Choosing a = πr and b = r gives x² = πr², so a square of side x has the same area as a circle of radius r. Before Euclid’s axioms and long before calculus, Thales’ generation was already asking: what must be true of shapes, not just what looks true?`,
+  },
+  {
     year: 'c. 570–495 BCE',
     title: 'Number, ratio, and the Pythagorean school',
     figure: 'Pythagoras of Samos',
@@ -21,7 +32,7 @@ const EVENTS = [
     portrait: '/portraits/pythagoras.jpg',
     latex: String.raw`a^{2} + b^{2} = c^{2}`,
     formulaNote: 'Ratio · harmony · the right triangle',
-    body: `Pythagoras ran what was basically a secret math cult: members shared property, kept vows of silence, and treated numbers as holy. Legend says they forbade eating beans, and that he discovered musical harmony by listening to blacksmiths’ hammers. The famous right-triangle theorem is only the best-known piece of a bigger idea — that ratios and proportions can describe the world. Calculus later needs that same habit: comparing changing lengths and rates, not just drawing pretty pictures.`,
+    body: `Pythagoras ran what was basically a secret math cult: members shared property, kept vows of silence, and treated numbers as holy. Legend says they forbade eating beans, and that he discovered musical harmony by listening to blacksmiths’ hammers. The famous right-triangle theorem is only the best-known piece of a bigger idea — that ratios and proportions can describe the world. Calculus later needs that same habit: comparing changing lengths and rates, not just drawing pretty pictures. (Thales’ right angle in a semicircle is an older cousin of the same right-triangle instinct.)`,
   },
   {
     year: 'c. 300 BCE',
@@ -29,6 +40,7 @@ const EVENTS = [
     figure: 'Euclid of Alexandria',
     centralFigure: 'Euclid',
     portrait: '/portraits/euclid.jpg',
+    portraitPullBack: true,
     latex: String.raw`\text{Elements} \;\vdash\; \text{geometry}`,
     formulaNote: 'Axioms · deduction · the classical standard',
     body: `Almost nothing is known about Euclid the person — he is mostly a name attached to a masterpiece. One old story says a student asked what geometry was “good for,” and Euclid told a servant to give the boy a coin, “since he must make a profit from learning.” His Elements built geometry from clear starting rules and careful proofs. Later calculus writers still followed that style: state what you assume, then deduce. Book XII even squeezes areas of circles with finer and finer shapes — a cousin of ideas calculus would formalize.`,
@@ -38,7 +50,7 @@ const EVENTS = [
     title: 'Measuring the Earth and sieving primes',
     figure: 'Eratosthenes of Cyrene',
     centralFigure: 'Eratosthenes of Cyrene',
-    portrait: '/portraits/eratosthenes.png',
+    portrait: '/portraits/eratosthenes.jpg',
     diagram: '/portraits/eratosthenes-diagram.jpg',
     diagramAlt:
       'Eratosthenes’ measurement of Earth: sunlight at Alexandria and Syene, 7.2° shadow angle, well at Syene',
@@ -51,7 +63,8 @@ const EVENTS = [
     title: 'Archimedes & the method of exhaustion',
     figure: 'Archimedes of Syracuse',
     centralFigure: 'Archimedes',
-    portrait: '/portraits/archimedes.jfif',
+    portrait: '/portraits/archimedes.jpg',
+    portraitPullBack: true,
     latex: String.raw`A = \lim_{n \to \infty} A_n`,
     formulaNote: 'Exhaustion · areas by refinement',
     body: `Archimedes is the “Eureka!” guy who (story goes) jumped from his bath and ran naked through Syracuse after spotting a density trick for a king’s crown. He also built wild war machines and, when a Roman soldier finally killed him, was supposedly still drawing figures in the sand and snapping, “Do not disturb my circles.” Long before calculus had a name, he squeezed curved areas between shapes that got finer and finer — and in a private notebook played with “tiny bits” of area, then re-proved results carefully. That double move is pure calculus spirit: invent freely, then make it solid.`,
@@ -147,19 +160,21 @@ const EVENTS = [
     centralFigure: 'Leonhard Euler',
     portrait: '/portraits/euler.jpg',
     latex: String.raw`e^{ix} = \cos x + i\sin x`,
-    formulaNote: 'Functions · series · constant e',
-    body: `Euler was cheerfully unstoppable. He drank coffee by the pot, raised a huge family, and kept writing math even after going blind in one eye and later nearly both — dictating papers from memory while children climbed on him. Contemporaries said he could calculate as easily as other people breathe. He standardized symbols we still use (f(x), e, Σ), flooded every field with papers, and made calculus the everyday language of science. If Newton and Leibniz built the engine, Euler drove it everywhere.`,
+    formulaNote: 'Functions · series · e · π',
+    body: `Euler was cheerfully unstoppable. He drank coffee by the pot, raised a huge family, and kept writing math even after going blind in one eye and later nearly both — dictating papers from memory while children climbed on him. Contemporaries said he could calculate as easily as other people breathe. He standardized symbols we still use (f(x), e, Σ), flooded every field with papers, and made calculus the everyday language of science. If Newton and Leibniz built the engine, Euler drove it everywhere.
+
+One circle-constant wrinkle still echoes today: early on (for example in a 1727 essay), Euler used the letter π for the ratio of circumference to radius — about 6.28…, a full turn in radians, the number modern “tau” fans write as τ = 2π. By Mechanica (1736) and the famous Introductio (1748) he had switched to π ≈ 3.14… as half the circumference of a unit circle (our usual π). He helped popularize the symbol either way; the definition was still wobbling between 3.14… and 6.28… into the mid-1700s. So the later π vs τ debate is not inventing a new fight from nothing — Euler himself first wrote π for the full-turn constant, then settled on the half-turn value that stuck.`,
   },
   {
     year: '19th century',
     title: 'Rigorous foundations',
-    figure: 'Cauchy · Weierstrass · Riemann',
+    figure: 'Augustin-Louis Cauchy',
     centralFigure: 'Augustin-Louis Cauchy',
     portrait:
       'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Augustin-Louis_Cauchy_1901.jpg/440px-Augustin-Louis_Cauchy_1901.jpg',
     latex: String.raw`f'(x) = \lim_{h \to 0}\dfrac{f(x+h)-f(x)}{h}`,
-    formulaNote: 'ε–δ limits · rigorous derivative',
-    body: `Bishop Berkeley had mocked early calculus as “ghosts of departed quantities.” Cauchy — a devout, stubborn royalist who sometimes fled political storms — helped rebuild limits and continuity with careful ε–δ language so the ghosts had to check in at the front desk. Weierstrass, a late-blooming teacher who once worked as a secondary-school instructor, made that precision standard. Riemann, who died young of tuberculosis, rethought integration itself. Differentiation finally got a rock-solid definition: a limit of a difference quotient, when it exists.`,
+    formulaNote: 'Limits · continuity · the modern derivative',
+    body: `Augustin-Louis Cauchy (1789–1857) was a French mathematician, engineer, and devout Catholic royalist — brilliant, prolific, and often hard to work with. He wrote hundreds of papers, fled political upheaval more than once, and taught in a style that demanded careful definitions. Where Newton and Leibniz had invented calculus as a working tool, Cauchy helped rebuild it so that “rate of change” meant a precise limit, not a vague vanishing quantity. The difference-quotient formula on the right is the classroom legacy of that program. (How to derive and use it step by step lives on the Cheat Sheet page under Differentiation from first principles.)`,
   },
   {
     year: '20th century →',
@@ -198,7 +213,7 @@ function EraSlide({ event, active }) {
     <div className={`hist-slide${active ? ' is-active' : ''}`} aria-hidden={!active}>
       {event.portrait && imgOk ? (
         <img
-          className="hist-slide-photo"
+          className={`hist-slide-photo${event.portraitPullBack ? ' hist-slide-photo--pull-back' : ''}`}
           src={event.portrait}
           alt={name}
           referrerPolicy="no-referrer"
@@ -432,9 +447,9 @@ export default function HistoryPage() {
           <div className="live-angle">
             <span className="label">Span</span>
             <div className="value" style={{ fontSize: '1.35rem' }}>
-              ~2,300 yrs
+              ~2,600 yrs
             </div>
-            <div className="sub">Pythagoras → modern analysis</div>
+            <div className="sub">Thales → modern analysis</div>
           </div>
         </div>
       </header>
