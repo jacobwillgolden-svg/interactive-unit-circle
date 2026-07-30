@@ -2663,6 +2663,24 @@ html[data-theme='light'] .hist-slide-katex .katex {
   box-sizing: border-box;
 }
 
+.id-svg--thales.is-rolling {
+  user-select: none;
+}
+
+.id-svg--thales .thales-roll-handle {
+  cursor: grab;
+  outline: none;
+}
+
+.id-svg--thales .thales-roll-handle:focus-visible {
+  filter: drop-shadow(0 0 10px rgba(196, 181, 253, 0.65));
+}
+
+.id-svg--thales .thales-roll-handle.is-dragging,
+.id-svg--thales .thales-roll-handle:active {
+  cursor: grabbing;
+}
+
 .id-svg--thales .thales-step {
   font-size: 1.75rem;
   font-weight: 700;

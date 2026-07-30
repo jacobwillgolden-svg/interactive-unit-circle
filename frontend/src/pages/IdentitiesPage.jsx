@@ -4,6 +4,7 @@
  * Calc 1 bridge, number types, and optional “bonus” constants (φ, Fibonacci).
  */
 
+import { useCallback, useRef, useState } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 
@@ -193,6 +194,7 @@ function RightTriangle() {
 /**
  * Squaring a circle by rolling + Thales geometric mean.
  * All four steps on ONE horizontal row — large panels.
+ * Step 2: drag the circle to roll a half turn (distance πr, rotation s/r).
  */
 function ThalesDiagram() {
   const r = 100
@@ -220,6 +222,93 @@ function ThalesDiagram() {
   const W = col4 + col4W + pad
   const H = contentTop + contentH + pad
 
+  // ①
+  const c1x = col1 + col1W / 2
+  const c1y = contentTop + r + 40
+
+  // ② track geometry (fixed)
+  const trackY = contentTop + r * 2 + 56
+  const trackX0 = col2 + 24
+
+  // Interactive roll: arc length s ∈ [0, πr] (half turn)
+  const [rollS, setRollS] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const svgRef = useRef(null)
+  const grabOffsetRef = useRef(0)
+  const draggingRef = useRef(false)
+  const rollCxRef = useRef(trackX0)
+
+  const rollCx = trackX0 + rollS
+  const rollCy = trackY - r
+  rollCxRef.current = rollCx
+  // Rolling right without slip → clockwise rotation (SVG +angle is clockwise with y-down)
+  const rollDeg = (rollS / r) * (180 / Math.PI)
+  const halfDone = rollS >= piR - 0.5
+
+  const clientToSvg = useCallback((clientX, clientY) => {
+    const svg = svgRef.current
+    if (!svg) return { x: 0, y: 0 }
+    // Prefer CTM; fall back to viewBox + padding-aware rect (CSS padding on <svg>)
+    const ctm = svg.getScreenCTM()
+    if (ctm) {
+      const pt = svg.createSVGPoint()
+      pt.x = clientX
+      pt.y = clientY
+      const p = pt.matrixTransform(ctm.inverse())
+      return { x: p.x, y: p.y }
+    }
+    const rect = svg.getBoundingClientRect()
+    const style = getComputedStyle(svg)
+    const padL = parseFloat(style.paddingLeft) || 0
+    const padT = parseFloat(style.paddingTop) || 0
+    const padR = parseFloat(style.paddingRight) || 0
+    const padB = parseFloat(style.paddingBottom) || 0
+    const cw = rect.width - padL - padR
+    const ch = rect.height - padT - padB
+    const vb = svg.viewBox.baseVal
+    return {
+      x: ((clientX - rect.left - padL) / cw) * vb.width,
+      y: ((clientY - rect.top - padT) / ch) * vb.height,
+    }
+  }, [])
+
+  const setRollFromClientX = useCallback(
+    (clientX) => {
+      const { x: sx } = clientToSvg(clientX, 0)
+      const next = Math.min(piR, Math.max(0, sx - trackX0 - grabOffsetRef.current))
+      setRollS(next)
+    },
+    [clientToSvg, piR, trackX0],
+  )
+
+  const onRollPointerDown = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const { x: sx } = clientToSvg(e.clientX, e.clientY)
+    grabOffsetRef.current = sx - rollCxRef.current
+    draggingRef.current = true
+    setDragging(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setRollFromClientX(e.clientX)
+  }
+
+  const onRollPointerMove = (e) => {
+    if (!draggingRef.current) return
+    e.preventDefault()
+    setRollFromClientX(e.clientX)
+  }
+
+  const onRollPointerUp = (e) => {
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    setDragging(false)
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      /* already released */
+    }
+  }
+
   const rightAngle = (ax, ay, bx, by, cx, cy, s = 22) => {
     const toA = { x: ax - cx, y: ay - cy }
     const toB = { x: bx - cx, y: by - cy }
@@ -236,16 +325,6 @@ function ThalesDiagram() {
       />
     )
   }
-
-  // ①
-  const c1x = col1 + col1W / 2
-  const c1y = contentTop + r + 40
-
-  // ②
-  const trackY = contentTop + r * 2 + 56
-  const trackX0 = col2 + 24
-  const rollCx = trackX0 + piR
-  const rollCy = trackY - r
 
   // ③
   const A3 = col3 + 28
@@ -266,18 +345,23 @@ function ThalesDiagram() {
   const B4 = D4 + r4
   const C4x = D4
   const C4y = diamY4 + x4
+  // Step 4 circle sits at D (join of πr and r) — original fixed location
   const combCx = D4
   const combCy = diamY4 - r4
   const sqX = D4
   const sqY = diamY4
   const sqSide = x4
 
+  // Rim paint mark (step 2): local angle from +x, SVG y-down; bottom contact = 90°
+  const markLocalDeg = 90
+
   return (
     <svg
+      ref={svgRef}
       viewBox={`0 0 ${W} ${H}`}
-      className="id-svg id-svg--thales"
+      className={`id-svg id-svg--thales${dragging ? ' is-rolling' : ''}`}
       preserveAspectRatio="xMinYMid meet"
-      aria-label="Four large steps in one horizontal row: circle, roll, geometric mean, combined figure"
+      aria-label="Four large steps: circle, drag-to-roll half turn, geometric mean, combined figure"
     >
       <defs>
         {/* Modest fixed-size heads (user units) — visible but not huge */}
@@ -294,48 +378,96 @@ function ThalesDiagram() {
         </marker>
       </defs>
 
-      {/* Step index only — no title text */}
+      {/* Step 1 — purple to match steps 2–4 */}
       <g transform={`translate(${col1 + 8}, ${pad + 8})`}>
-        <circle cx="18" cy="18" r="18" fill="rgba(125,211,252,0.15)" stroke="#7dd3fc" strokeWidth="2.5" />
-        <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#7dd3fc" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
+        <circle cx="18" cy="18" r="18" fill="rgba(196,181,253,0.15)" stroke="#c4b5fd" strokeWidth="2.5" />
+        <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#c4b5fd" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
           1
         </text>
       </g>
-      <circle cx={c1x} cy={c1y} r={r} fill="rgba(125,211,252,0.12)" stroke="#7dd3fc" strokeWidth="4.5" />
-      <line x1={c1x} y1={c1y} x2={c1x + r} y2={c1y} stroke="#7dd3fc" strokeWidth="4" />
-      <circle cx={c1x} cy={c1y} r={7} fill="#7dd3fc" />
-      <text x={c1x + r / 2} y={c1y - 20} fontSize="36" fill="#7dd3fc" textAnchor="middle" fontWeight="700">
+      <circle cx={c1x} cy={c1y} r={r} fill="rgba(167,139,250,0.2)" stroke="#c4b5fd" strokeWidth="4.5" />
+      <line x1={c1x} y1={c1y} x2={c1x + r} y2={c1y} stroke="#c4b5fd" strokeWidth="4" />
+      <circle cx={c1x} cy={c1y} r={7} fill="#c4b5fd" />
+      <text x={c1x + r / 2} y={c1y - 20} fontSize="36" fill="#c4b5fd" textAnchor="middle" fontWeight="700">
         r
       </text>
-      <text x={c1x} y={c1y + r + 48} fontSize="34" fill="#7dd3fc" textAnchor="middle" fontWeight="600">
+      <text x={c1x} y={c1y + r + 48} fontSize="34" fill="#c4b5fd" textAnchor="middle" fontWeight="600">
         A○ = πr²
       </text>
 
-      {/* Roll */}
+      {/* Roll — interactive: drag circle back and forth a half turn (πr) */}
       <g transform={`translate(${col2 + 8}, ${pad + 8})`}>
         <circle cx="18" cy="18" r="18" fill="rgba(196,181,253,0.15)" stroke="#c4b5fd" strokeWidth="2.5" />
         <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#c4b5fd" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
           2
         </text>
       </g>
+      {/* Ground line (extends past πr + r) */}
       <line
         x1={trackX0 - 16}
         y1={trackY}
-        x2={rollCx + r + 48}
+        x2={trackX0 + piR + r + 48}
         y2={trackY}
         stroke="currentColor"
         strokeOpacity="0.35"
         strokeWidth="3"
       />
+      {/* Full half-turn track (dim) */}
       <line
         x1={trackX0}
         y1={trackY}
         x2={trackX0 + piR}
         y2={trackY}
         stroke="#c4b5fd"
-        strokeWidth="16"
+        strokeWidth="5"
         strokeLinecap="round"
+        opacity="0.28"
       />
+      {/* Painted rim so far (purple = rolled half-circumference) */}
+      {rollS > 1 && (
+        <line
+          x1={trackX0}
+          y1={trackY}
+          x2={trackX0 + rollS}
+          y2={trackY}
+          stroke="#c4b5fd"
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+      )}
+      {/* Segment of length r after πr: grey until half turn done, then white + “r” */}
+      <line
+        x1={trackX0 + piR}
+        y1={trackY}
+        x2={trackX0 + piR + r}
+        y2={trackY}
+        stroke={halfDone ? '#f1f5f9' : 'currentColor'}
+        strokeWidth="5"
+        strokeLinecap="round"
+        opacity={halfDone ? 1 : 0.35}
+      />
+      {/* End ticks: 0, πr, and πr+r (when done) */}
+      <line x1={trackX0} y1={trackY - 10} x2={trackX0} y2={trackY + 10} stroke="#c4b5fd" strokeWidth="2.5" opacity="0.7" />
+      <line
+        x1={trackX0 + piR}
+        y1={trackY - 10}
+        x2={trackX0 + piR}
+        y2={trackY + 10}
+        stroke={halfDone ? '#f1f5f9' : '#c4b5fd'}
+        strokeWidth="2.5"
+        opacity="0.7"
+      />
+      {halfDone && (
+        <line
+          x1={trackX0 + piR + r}
+          y1={trackY - 10}
+          x2={trackX0 + piR + r}
+          y2={trackY + 10}
+          stroke="#f1f5f9"
+          strokeWidth="2.5"
+          opacity="0.85"
+        />
+      )}
       <text
         x={trackX0 + piR / 2}
         y={trackY + 48}
@@ -344,8 +476,21 @@ function ThalesDiagram() {
         textAnchor="middle"
         fontWeight="700"
       >
-        πr = C/2
+        {halfDone ? 'πr = C/2' : `s = ${(rollS / r).toFixed(2)} r`}
       </text>
+      {halfDone && (
+        <text
+          x={trackX0 + piR + r / 2}
+          y={trackY + 48}
+          fontSize="34"
+          fill="#f1f5f9"
+          textAnchor="middle"
+          fontWeight="700"
+        >
+          r
+        </text>
+      )}
+      {/* Ghost start position */}
       <circle
         cx={trackX0}
         cy={trackY - r}
@@ -354,55 +499,152 @@ function ThalesDiagram() {
         stroke="#c4b5fd"
         strokeWidth="3.5"
         strokeDasharray="10 7"
-        opacity="0.4"
+        opacity="0.35"
       />
+      {/* Ghost end (half turn) */}
       <circle
-        cx={rollCx}
-        cy={rollCy}
+        cx={trackX0 + piR}
+        cy={trackY - r}
         r={r}
-        fill="rgba(196,181,253,0.14)"
-        stroke="#c4b5fd"
-        strokeWidth="4.5"
-      />
-      <line x1={rollCx} y1={rollCy} x2={rollCx} y2={trackY} stroke="#c4b5fd" strokeWidth="3.5" />
-      <text x={rollCx + 18} y={rollCy + 12} fontSize="32" fill="#c4b5fd" fontWeight="700">
-        r
-      </text>
-      <path
-        d={`M ${rollCx + r * 0.55} ${rollCy - r * 0.55}
-            A ${r * 0.78} ${r * 0.78} 0 0 1 ${rollCx - r * 0.15} ${rollCy - r * 0.85}`}
         fill="none"
         stroke="#c4b5fd"
-        strokeWidth="3.5"
-        strokeOpacity="0.85"
-        markerEnd="url(#thalesArrow)"
-      />
-      <text x={rollCx + r + 20} y={rollCy + 10} fontSize="28" fill="#c4b5fd" fontWeight="600">
-        ½ turn
-      </text>
-      <path
-        d={`M ${trackX0 + 40} ${trackY - r - 32} L ${trackX0 + piR - 48} ${trackY - r - 32}`}
-        fill="none"
-        stroke="#c4b5fd"
-        strokeOpacity="0.5"
-        strokeWidth="3.5"
-        markerEnd="url(#thalesArrow)"
+        strokeWidth="2.5"
+        strokeDasharray="8 8"
+        opacity="0.22"
       />
 
-      {/* Geometric mean */}
+      {/* Draggable rolling circle */}
+      <g
+        className={`thales-roll-handle${dragging ? ' is-dragging' : ''}`}
+        transform={`translate(${rollCx}, ${rollCy}) rotate(${rollDeg})`}
+        onPointerDown={onRollPointerDown}
+        onPointerMove={onRollPointerMove}
+        onPointerUp={onRollPointerUp}
+        onPointerCancel={onRollPointerUp}
+        role="slider"
+        tabIndex={0}
+        aria-label="Roll the circle a half turn. Drag left or right."
+        aria-valuemin={0}
+        aria-valuemax={Math.PI}
+        aria-valuenow={Number((rollS / r).toFixed(3))}
+        aria-valuetext={`rolled ${(rollS / r).toFixed(2)} r of π r`}
+        onKeyDown={(e) => {
+          const step = piR / 40
+          if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+            e.preventDefault()
+            setRollS((s) => Math.min(piR, s + step))
+          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+            e.preventDefault()
+            setRollS((s) => Math.max(0, s - step))
+          } else if (e.key === 'Home') {
+            e.preventDefault()
+            setRollS(0)
+          } else if (e.key === 'End') {
+            e.preventDefault()
+            setRollS(piR)
+          }
+        }}
+        style={{ cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
+      >
+        {/* Invisible hit ring (slightly larger for easier grab) */}
+        <circle cx={0} cy={0} r={r + 18} fill="transparent" />
+        {/* Outline only: full rim white; the half that will roll is pre-painted purple */}
+        <circle cx={0} cy={0} r={r} fill="none" stroke="#f1f5f9" strokeWidth="4.5" />
+        {(() => {
+          // Fixed semicircle on the disk: rim that contacts the track over a half turn
+          // when rolling right. Contact local angle goes 90° → −90° (right side).
+          // SVG sweep=0 = counter-clockwise: bottom → right → top.
+          const a0 = markLocalDeg // 90° bottom (first contact)
+          const a1 = markLocalDeg - 180 // −90° top (after half turn)
+          const rad = (d) => (d * Math.PI) / 180
+          const x0 = r * Math.cos(rad(a0))
+          const y0 = r * Math.sin(rad(a0))
+          const x1 = r * Math.cos(rad(a1))
+          const y1 = r * Math.sin(rad(a1))
+          return (
+            <path
+              d={`M ${x0} ${y0} A ${r} ${r} 0 0 0 ${x1} ${y1}`}
+              fill="none"
+              stroke="#c4b5fd"
+              strokeWidth="5.5"
+              strokeLinecap="round"
+            />
+          )
+        })()}
+        {/* Radius: starts up (−90°), ends down after half turn (180° clockwise roll) */}
+        <line
+          x1={0}
+          y1={0}
+          x2={r * Math.cos(((markLocalDeg - 180) * Math.PI) / 180)}
+          y2={r * Math.sin(((markLocalDeg - 180) * Math.PI) / 180)}
+          stroke="#f1f5f9"
+          strokeWidth="3"
+          opacity="0.85"
+        />
+        <circle cx={0} cy={0} r={6} fill="#f1f5f9" />
+        {/* Endpoints of the purple half-circumference */}
+        <circle
+          cx={r * Math.cos((markLocalDeg * Math.PI) / 180)}
+          cy={r * Math.sin((markLocalDeg * Math.PI) / 180)}
+          r={7}
+          fill="#c4b5fd"
+          stroke="#f1f5f9"
+          strokeWidth="1.5"
+        />
+        <circle
+          cx={r * Math.cos(((markLocalDeg - 180) * Math.PI) / 180)}
+          cy={r * Math.sin(((markLocalDeg - 180) * Math.PI) / 180)}
+          r={8}
+          fill="#c4b5fd"
+          stroke="#f1f5f9"
+          strokeWidth="1.5"
+        />
+      </g>
+
+      <text
+        x={rollCx}
+        y={rollCy - r - 28}
+        fontSize="26"
+        fill="#c4b5fd"
+        textAnchor="middle"
+        fontWeight="600"
+        opacity="0.9"
+        pointerEvents="none"
+      >
+        {halfDone ? '½ turn ✓' : dragging ? 'rolling…' : 'drag to roll'}
+      </text>
+      {/* Arc-length callout above painted segment */}
+      {rollS > r * 0.35 && (
+        <text
+          x={trackX0 + rollS / 2}
+          y={trackY - 22}
+          fontSize="24"
+          fill="#c4b5fd"
+          textAnchor="middle"
+          fontWeight="600"
+          opacity="0.85"
+          pointerEvents="none"
+        >
+          {halfDone ? 'πr' : `${(rollS / r).toFixed(2)}r`}
+        </text>
+      )}
+
+      {/* Geometric mean — colors match step 2: purple πr, white r */}
       <g transform={`translate(${col3 + 8}, ${pad + 8})`}>
-        <circle cx="18" cy="18" r="18" fill="rgba(240,217,168,0.15)" stroke="#f0d9a8" strokeWidth="2.5" />
-        <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#f0d9a8" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
+        <circle cx="18" cy="18" r="18" fill="rgba(196,181,253,0.15)" stroke="#c4b5fd" strokeWidth="2.5" />
+        <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#c4b5fd" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
           3
         </text>
       </g>
-      <line x1={A3} y1={diamY3} x2={B3} y2={diamY3} stroke="currentColor" strokeOpacity="0.55" strokeWidth="4.5" />
-      <line x1={D3} y1={diamY3 - 16} x2={D3} y2={diamY3 + 16} stroke="#f0d9a8" strokeWidth="4.5" />
+      {/* Diameter: πr (purple) + r (white) */}
+      <line x1={A3} y1={diamY3} x2={D3} y2={diamY3} stroke="#c4b5fd" strokeWidth="5" strokeLinecap="round" />
+      <line x1={D3} y1={diamY3} x2={B3} y2={diamY3} stroke="#f1f5f9" strokeWidth="5" strokeLinecap="round" />
+      <line x1={D3} y1={diamY3 - 16} x2={D3} y2={diamY3 + 16} stroke="#f1f5f9" strokeWidth="3.5" />
       <path
         d={`M ${A3} ${diamY3} A ${semiR} ${semiR} 0 0 0 ${B3} ${diamY3}`}
-        fill="rgba(240,217,168,0.06)"
-        stroke="currentColor"
-        strokeOpacity="0.5"
+        fill="none"
+        stroke="#f1f5f9"
+        strokeOpacity="0.55"
         strokeWidth="4"
       />
       <line
@@ -410,8 +652,8 @@ function ThalesDiagram() {
         y1={diamY3}
         x2={C3x}
         y2={C3y}
-        stroke="currentColor"
-        strokeOpacity="0.35"
+        stroke="#f1f5f9"
+        strokeOpacity="0.4"
         strokeWidth="3"
         strokeDasharray="12 8"
       />
@@ -420,61 +662,69 @@ function ThalesDiagram() {
         y1={diamY3}
         x2={C3x}
         y2={C3y}
-        stroke="currentColor"
-        strokeOpacity="0.35"
+        stroke="#f1f5f9"
+        strokeOpacity="0.4"
         strokeWidth="3"
         strokeDasharray="12 8"
       />
-      <line x1={D3} y1={diamY3} x2={C3x} y2={C3y} stroke="#f0d9a8" strokeWidth="4.5" />
-      <text x={D3 + 22} y={(diamY3 + C3y) / 2 + 12} fontSize="38" fill="#f0d9a8" fontWeight="700">
+      <line x1={D3} y1={diamY3} x2={C3x} y2={C3y} stroke="#f1f5f9" strokeWidth="4.5" />
+      <text x={D3 + 22} y={(diamY3 + C3y) / 2 + 12} fontSize="38" fill="#f1f5f9" fontWeight="700">
         x
       </text>
       <text x={(A3 + D3) / 2} y={diamY3 - 22} fontSize="36" fill="#c4b5fd" textAnchor="middle" fontWeight="700">
         πr
       </text>
-      <text x={(D3 + B3) / 2} y={diamY3 - 22} fontSize="36" fill="#7dd3fc" textAnchor="middle" fontWeight="700">
+      <text x={(D3 + B3) / 2} y={diamY3 - 22} fontSize="36" fill="#f1f5f9" textAnchor="middle" fontWeight="700">
         r
       </text>
       {rightAngle(A3, diamY3, B3, diamY3, C3x, C3y)}
       <circle cx={A3} cy={diamY3} r={9} fill="#c4b5fd" />
-      <circle cx={D3} cy={diamY3} r={9} fill="#f0d9a8" />
-      <circle cx={B3} cy={diamY3} r={9} fill="#7dd3fc" />
-      <circle cx={C3x} cy={C3y} r={10} fill="#f0d9a8" />
+      <circle cx={D3} cy={diamY3} r={8} fill="#f1f5f9" />
+      <circle cx={B3} cy={diamY3} r={9} fill="#f1f5f9" />
+      <circle cx={C3x} cy={C3y} r={10} fill="#f1f5f9" />
       <text x={A3 - 12} y={diamY3 - 24} fontSize="26" fill="#c4b5fd" fontWeight="600">
         A
       </text>
-      <text x={B3 + 14} y={diamY3 - 24} fontSize="26" fill="#7dd3fc" fontWeight="600">
+      <text x={B3 + 14} y={diamY3 - 24} fontSize="26" fill="#f1f5f9" fontWeight="600">
         B
       </text>
-      <text x={C3x + 18} y={C3y + 12} fontSize="26" fill="#f0d9a8" fontWeight="600">
+      <text x={C3x + 18} y={C3y + 12} fontSize="26" fill="#f1f5f9" fontWeight="600">
         C · 90°
       </text>
       <text
         x={A3}
         y={C3y + 52}
         fontSize="30"
-        fill="#f0d9a8"
+        fill="#c4b5fd"
         fontFamily="JetBrains Mono, monospace"
         fontWeight="600"
       >
         x² = (πr)·r = πr²
       </text>
 
-      {/* Combined */}
+      {/* Combined — same diagram; colors only: purple πr / white r (match steps 2–3) */}
       <g transform={`translate(${col4 + 8}, ${pad + 8})`}>
-        <circle cx="18" cy="18" r="18" fill="rgba(74,222,128,0.12)" stroke="#4ade80" strokeWidth="2.5" />
-        <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#4ade80" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
+        <circle cx="18" cy="18" r="18" fill="rgba(196,181,253,0.15)" stroke="#c4b5fd" strokeWidth="2.5" />
+        <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#c4b5fd" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
           4
         </text>
       </g>
 
-      <circle cx={combCx} cy={combCy} r={r4} fill="#0f766e" stroke="#2dd4bf" strokeWidth="3.5" />
-      <line x1={combCx} y1={combCy} x2={D4} y2={diamY4} stroke="#f1f5f9" strokeWidth="4" />
+      {/* Diameter: πr purple + r white (colors only; full figure) */}
+      <line x1={A4} y1={diamY4} x2={D4} y2={diamY4} stroke="#c4b5fd" strokeWidth="4.5" />
+      <line x1={D4} y1={diamY4} x2={B4} y2={diamY4} stroke="#f1f5f9" strokeWidth="4.5" />
+      <line x1={B4} y1={diamY4} x2={sqX + sqSide} y2={diamY4} stroke="#f1f5f9" strokeWidth="4.5" />
 
-      <line x1={A4} y1={diamY4} x2={B4} y2={diamY4} stroke="#38bdf8" strokeWidth="4.5" />
-      <line x1={B4} y1={diamY4} x2={sqX + sqSide} y2={diamY4} stroke="#38bdf8" strokeWidth="4.5" />
-
-      <rect x={sqX} y={sqY} width={sqSide} height={sqSide} fill="#0f766e" stroke="#5eead4" strokeWidth="4" />
+      {/* Square + circle: shaded fill (was teal; now purple) */}
+      <rect
+        x={sqX}
+        y={sqY}
+        width={sqSide}
+        height={sqSide}
+        fill="rgba(167,139,250,0.35)"
+        stroke="#c4b5fd"
+        strokeWidth="4"
+      />
 
       <path
         d={`M ${A4} ${diamY4} A ${semiR4} ${semiR4} 0 0 0 ${B4} ${diamY4}`}
@@ -503,13 +753,24 @@ function ThalesDiagram() {
         strokeDasharray="12 8"
         strokeOpacity="0.75"
       />
-      <line x1={D4} y1={diamY4} x2={C4x} y2={C4y} stroke="#f0d9a8" strokeWidth="4.5" />
+      <line x1={D4} y1={diamY4} x2={C4x} y2={C4y} stroke="#f1f5f9" strokeWidth="4.5" />
+
+      {/* Circle fixed at D — original location */}
+      <circle
+        cx={combCx}
+        cy={combCy}
+        r={r4}
+        fill="rgba(167,139,250,0.35)"
+        stroke="#c4b5fd"
+        strokeWidth="3.5"
+      />
+      <line x1={combCx} y1={combCy} x2={D4} y2={diamY4} stroke="#f1f5f9" strokeWidth="4" />
 
       <text
         x={(A4 + D4) / 2}
         y={diamY4 + 42}
         fontSize="34"
-        fill="#f1f5f9"
+        fill="#c4b5fd"
         textAnchor="middle"
         fontStyle="italic"
         fontWeight="600"
@@ -531,7 +792,7 @@ function ThalesDiagram() {
         x={D4 - 20}
         y={(diamY4 + C4y) / 2 + 12}
         fontSize="38"
-        fill="#f0d9a8"
+        fill="#f1f5f9"
         textAnchor="end"
         fontStyle="italic"
         fontWeight="700"
@@ -539,8 +800,8 @@ function ThalesDiagram() {
         x
       </text>
 
-      <circle cx={A4} cy={diamY4} r={9} fill="#f1f5f9" />
-      <circle cx={D4} cy={diamY4} r={7} fill="#f0d9a8" />
+      <circle cx={A4} cy={diamY4} r={9} fill="#c4b5fd" />
+      <circle cx={D4} cy={diamY4} r={7} fill="#f1f5f9" />
       <circle cx={C4x} cy={C4y} r={9} fill="#f1f5f9" />
 
       {rightAngle(A4, diamY4, B4, diamY4, C4x, C4y, 24)}
@@ -549,7 +810,7 @@ function ThalesDiagram() {
         x={A4}
         y={diamY4 + sqSide + 56}
         fontSize="28"
-        fill="#5eead4"
+        fill="#c4b5fd"
         fontFamily="JetBrains Mono, monospace"
         fontWeight="600"
       >
@@ -930,7 +1191,7 @@ export default function IdentitiesPage() {
             <section className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Roll · mean · square</span>
-                <span className="panel-hint">x² = (πr)·r = πr²</span>
+                <span className="panel-hint">Drag the circle in step 2 · half turn = πr</span>
               </div>
               <div className="id-body id-body--thales-layout">
                 {/* Full-width figure — fills the card; no side column */}
@@ -953,7 +1214,8 @@ export default function IdentitiesPage() {
                     <div>
                       <strong>Roll half a turn</strong>
                       <p>
-                        Roll 180° on a track — the rim paints length πr on the line.
+                        <strong>Drag</strong> the circle left/right — a half turn paints length πr
+                        (no slip: distance = r·θ).
                       </p>
                     </div>
                   </div>
