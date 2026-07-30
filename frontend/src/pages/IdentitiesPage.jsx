@@ -4,7 +4,7 @@
  * Calc 1 bridge, number types, and optional “bonus” constants (φ, Fibonacci).
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 
@@ -230,9 +230,12 @@ function ThalesDiagram() {
   const trackY = contentTop + r * 2 + 56
   const trackX0 = col2 + 24
 
-  // Interactive roll: arc length s ∈ [0, πr] (half turn)
+  // Interactive roll: s ∈ [0, πr]. After half turn, drag the second radius onto the grey r slot.
   const [rollS, setRollS] = useState(0)
-  const [dragging, setDragging] = useState(false)
+  const [rPlaced, setRPlaced] = useState(false)
+  const [dragging, setDragging] = useState(false) // rolling the circle
+  const [isRadiusDragging, setIsRadiusDragging] = useState(false)
+  const [radiusDrag, setRadiusDrag] = useState(null) // { x, y } free end while dragging radius stick
   const svgRef = useRef(null)
   const grabOffsetRef = useRef(0)
   const draggingRef = useRef(false)
@@ -244,11 +247,17 @@ function ThalesDiagram() {
   // Rolling right without slip → clockwise rotation (SVG +angle is clockwise with y-down)
   const rollDeg = (rollS / r) * (180 / Math.PI)
   const halfDone = rollS >= piR - 0.5
+  const rDone = rPlaced
+
+  // First radius local: −90° (starts up, ends down after half turn)
+  const rad1LocalDeg = -90
+  // Second radius 90° from first: local 180° → world-right after half-turn rotation
+  const rad2LocalDeg = 180
+  const rad2LocalRad = (rad2LocalDeg * Math.PI) / 180
 
   const clientToSvg = useCallback((clientX, clientY) => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
-    // Prefer CTM; fall back to viewBox + padding-aware rect (CSS padding on <svg>)
     const ctm = svg.getScreenCTM()
     if (ctm) {
       const pt = svg.createSVGPoint()
@@ -277,11 +286,13 @@ function ThalesDiagram() {
       const { x: sx } = clientToSvg(clientX, 0)
       const next = Math.min(piR, Math.max(0, sx - trackX0 - grabOffsetRef.current))
       setRollS(next)
+      if (next < piR - 0.5) setRPlaced(false)
     },
     [clientToSvg, piR, trackX0],
   )
 
   const onRollPointerDown = (e) => {
+    if (isRadiusDragging) return
     e.stopPropagation()
     e.preventDefault()
     const { x: sx } = clientToSvg(e.clientX, e.clientY)
@@ -308,6 +319,57 @@ function ThalesDiagram() {
       /* already released */
     }
   }
+
+  // Grey drop target for the second radius (length r after πr)
+  const dropZone = {
+    x0: trackX0 + piR,
+    x1: trackX0 + piR + r,
+    y: trackY,
+  }
+  const isOverDropZone = (x, y) =>
+    x >= dropZone.x0 - 24 &&
+    x <= dropZone.x1 + 24 &&
+    y >= dropZone.y - 48 &&
+    y <= dropZone.y + 48
+
+  const onRadiusPointerDown = (e) => {
+    if (!halfDone || rPlaced) return
+    e.stopPropagation()
+    e.preventDefault()
+    setIsRadiusDragging(true)
+    setRadiusDrag(clientToSvg(e.clientX, e.clientY))
+  }
+
+  // Window-level listeners — only bind while a radius drag is active (not on every move)
+  useEffect(() => {
+    if (!isRadiusDragging) return undefined
+    const overDrop = (x, y) =>
+      x >= trackX0 + piR - 24 &&
+      x <= trackX0 + piR + r + 24 &&
+      y >= trackY - 48 &&
+      y <= trackY + 48
+    const onMove = (e) => {
+      e.preventDefault()
+      setRadiusDrag(clientToSvg(e.clientX, e.clientY))
+    }
+    const onUp = (e) => {
+      const p = clientToSvg(e.clientX, e.clientY)
+      const midX = p.x - r / 2
+      if (overDrop(p.x, p.y) || overDrop(midX, p.y) || overDrop(p.x - r, p.y)) {
+        setRPlaced(true)
+      }
+      setIsRadiusDragging(false)
+      setRadiusDrag(null)
+    }
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [isRadiusDragging, clientToSvg, r, trackX0, piR, trackY])
 
   const rightAngle = (ax, ay, bx, by, cx, cy, s = 22) => {
     const toA = { x: ax - cx, y: ay - cy }
@@ -387,7 +449,7 @@ function ThalesDiagram() {
       </g>
       <circle cx={c1x} cy={c1y} r={r} fill="rgba(167,139,250,0.2)" stroke="#c4b5fd" strokeWidth="4.5" />
       <line x1={c1x} y1={c1y} x2={c1x + r} y2={c1y} stroke="#c4b5fd" strokeWidth="4" />
-      <circle cx={c1x} cy={c1y} r={7} fill="#c4b5fd" />
+      <circle cx={c1x} cy={c1y} r={5} fill="#c4b5fd" />
       <text x={c1x + r / 2} y={c1y - 20} fontSize="36" fill="#c4b5fd" textAnchor="middle" fontWeight="700">
         r
       </text>
@@ -435,18 +497,39 @@ function ThalesDiagram() {
           strokeLinecap="round"
         />
       )}
-      {/* Segment of length r after πr: grey until half turn done, then white + “r” */}
+      {/* Grey r slot after πr — drop target for the second radius */}
       <line
         x1={trackX0 + piR}
         y1={trackY}
         x2={trackX0 + piR + r}
         y2={trackY}
-        stroke={halfDone ? '#f1f5f9' : 'currentColor'}
+        stroke={
+          radiusDrag && isOverDropZone(radiusDrag.x, radiusDrag.y)
+            ? '#f1f5f9'
+            : 'currentColor'
+        }
         strokeWidth="5"
         strokeLinecap="round"
-        opacity={halfDone ? 1 : 0.35}
+        opacity={
+          rPlaced
+            ? 0
+            : radiusDrag && isOverDropZone(radiusDrag.x, radiusDrag.y)
+              ? 0.55
+              : 0.28
+        }
       />
-      {/* End ticks: 0, πr, and πr+r (when done) */}
+      {rPlaced && (
+        <line
+          x1={trackX0 + piR}
+          y1={trackY}
+          x2={trackX0 + piR + r}
+          y2={trackY}
+          stroke="#f1f5f9"
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+      )}
+      {/* End ticks: 0, πr, and πr+r */}
       <line x1={trackX0} y1={trackY - 10} x2={trackX0} y2={trackY + 10} stroke="#c4b5fd" strokeWidth="2.5" opacity="0.7" />
       <line
         x1={trackX0 + piR}
@@ -457,17 +540,15 @@ function ThalesDiagram() {
         strokeWidth="2.5"
         opacity="0.7"
       />
-      {halfDone && (
-        <line
-          x1={trackX0 + piR + r}
-          y1={trackY - 10}
-          x2={trackX0 + piR + r}
-          y2={trackY + 10}
-          stroke="#f1f5f9"
-          strokeWidth="2.5"
-          opacity="0.85"
-        />
-      )}
+      <line
+        x1={trackX0 + piR + r}
+        y1={trackY - 10}
+        x2={trackX0 + piR + r}
+        y2={trackY + 10}
+        stroke="#f1f5f9"
+        strokeWidth="2.5"
+        opacity={rDone ? 0.85 : 0.35}
+      />
       <text
         x={trackX0 + piR / 2}
         y={trackY + 48}
@@ -478,7 +559,7 @@ function ThalesDiagram() {
       >
         {halfDone ? 'πr = C/2' : `s = ${(rollS / r).toFixed(2)} r`}
       </text>
-      {halfDone && (
+      {rPlaced && (
         <text
           x={trackX0 + piR + r / 2}
           y={trackY + 48}
@@ -523,7 +604,7 @@ function ThalesDiagram() {
         onPointerCancel={onRollPointerUp}
         role="slider"
         tabIndex={0}
-        aria-label="Roll the circle a half turn. Drag left or right."
+        aria-label="Roll the circle a half turn, then drag the second radius onto the grey segment."
         aria-valuemin={0}
         aria-valuemax={Math.PI}
         aria-valuenow={Number((rollS / r).toFixed(3))}
@@ -535,10 +616,15 @@ function ThalesDiagram() {
             setRollS((s) => Math.min(piR, s + step))
           } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
             e.preventDefault()
-            setRollS((s) => Math.max(0, s - step))
+            setRollS((s) => {
+              const next = Math.max(0, s - step)
+              if (next < piR - 0.5) setRPlaced(false)
+              return next
+            })
           } else if (e.key === 'Home') {
             e.preventDefault()
             setRollS(0)
+            setRPlaced(false)
           } else if (e.key === 'End') {
             e.preventDefault()
             setRollS(piR)
@@ -551,9 +637,6 @@ function ThalesDiagram() {
         {/* Outline only: full rim white; the half that will roll is pre-painted purple */}
         <circle cx={0} cy={0} r={r} fill="none" stroke="#f1f5f9" strokeWidth="4.5" />
         {(() => {
-          // Fixed semicircle on the disk: rim that contacts the track over a half turn
-          // when rolling right. Contact local angle goes 90° → −90° (right side).
-          // SVG sweep=0 = counter-clockwise: bottom → right → top.
           const a0 = markLocalDeg // 90° bottom (first contact)
           const a1 = markLocalDeg - 180 // −90° top (after half turn)
           const rad = (d) => (d * Math.PI) / 180
@@ -571,35 +654,106 @@ function ThalesDiagram() {
             />
           )
         })()}
-        {/* Radius: starts up (−90°), ends down after half turn (180° clockwise roll) */}
+        {/* Primary radius: starts up, ends down after half turn */}
         <line
           x1={0}
           y1={0}
-          x2={r * Math.cos(((markLocalDeg - 180) * Math.PI) / 180)}
-          y2={r * Math.sin(((markLocalDeg - 180) * Math.PI) / 180)}
+          x2={r * Math.cos((rad1LocalDeg * Math.PI) / 180)}
+          y2={r * Math.sin((rad1LocalDeg * Math.PI) / 180)}
           stroke="#f1f5f9"
           strokeWidth="3"
           opacity="0.85"
         />
-        <circle cx={0} cy={0} r={6} fill="#f1f5f9" />
+        {/* After half turn: second white radius at 90° — drag onto grey track below */}
+        {halfDone && !rPlaced && (
+          <g
+            className="thales-roll-handle"
+            onPointerDown={onRadiusPointerDown}
+            style={{
+              cursor: radiusDrag ? 'grabbing' : 'grab',
+              touchAction: 'none',
+              opacity: radiusDrag ? 0.2 : 1,
+            }}
+            aria-label="Drag this radius onto the grey segment of length r"
+          >
+            {/* hit area */}
+            <line
+              x1={0}
+              y1={0}
+              x2={r * Math.cos(rad2LocalRad)}
+              y2={r * Math.sin(rad2LocalRad)}
+              stroke="transparent"
+              strokeWidth="28"
+            />
+            <line
+              x1={0}
+              y1={0}
+              x2={r * Math.cos(rad2LocalRad)}
+              y2={r * Math.sin(rad2LocalRad)}
+              stroke="#f1f5f9"
+              strokeWidth="3.5"
+            />
+            {/* small right-angle mark at center */}
+            <path
+              d={`M ${18 * Math.cos((rad1LocalDeg * Math.PI) / 180)} ${18 * Math.sin((rad1LocalDeg * Math.PI) / 180)}
+                  L ${18 * Math.cos((rad1LocalDeg * Math.PI) / 180) + 18 * Math.cos(rad2LocalRad)}
+                    ${18 * Math.sin((rad1LocalDeg * Math.PI) / 180) + 18 * Math.sin(rad2LocalRad)}
+                  L ${18 * Math.cos(rad2LocalRad)} ${18 * Math.sin(rad2LocalRad)}`}
+              fill="none"
+              stroke="#f1f5f9"
+              strokeWidth="2"
+              opacity="0.75"
+              pointerEvents="none"
+            />
+            <circle
+              cx={r * Math.cos(rad2LocalRad)}
+              cy={r * Math.sin(rad2LocalRad)}
+              r={9}
+              fill="#f1f5f9"
+              stroke="#c4b5fd"
+              strokeWidth="2"
+            />
+          </g>
+        )}
+        <circle cx={0} cy={0} r={4.5} fill="#f1f5f9" pointerEvents="none" />
         {/* Endpoints of the purple half-circumference */}
         <circle
           cx={r * Math.cos((markLocalDeg * Math.PI) / 180)}
           cy={r * Math.sin((markLocalDeg * Math.PI) / 180)}
-          r={7}
+          r={5}
           fill="#c4b5fd"
           stroke="#f1f5f9"
           strokeWidth="1.5"
+          pointerEvents="none"
         />
         <circle
           cx={r * Math.cos(((markLocalDeg - 180) * Math.PI) / 180)}
           cy={r * Math.sin(((markLocalDeg - 180) * Math.PI) / 180)}
-          r={8}
+          r={5.5}
           fill="#c4b5fd"
           stroke="#f1f5f9"
           strokeWidth="1.5"
+          pointerEvents="none"
         />
       </g>
+
+      {/* Floating radius stick while dragging (horizontal length r, free end at pointer) */}
+      {radiusDrag && (
+        <g style={{ pointerEvents: 'none' }}>
+          <line
+            x1={radiusDrag.x - r}
+            y1={radiusDrag.y}
+            x2={radiusDrag.x}
+            y2={radiusDrag.y}
+            stroke="#f1f5f9"
+            strokeWidth="5"
+            strokeLinecap="round"
+            opacity={isOverDropZone(radiusDrag.x, radiusDrag.y) ? 1 : 0.85}
+          />
+          <circle cx={radiusDrag.x - r} cy={radiusDrag.y} r={6} fill="#f1f5f9" />
+          <circle cx={radiusDrag.x} cy={radiusDrag.y} r={8} fill="#f1f5f9" stroke="#c4b5fd" strokeWidth="2" />
+        </g>
+      )}
 
       <text
         x={rollCx}
@@ -611,9 +765,17 @@ function ThalesDiagram() {
         opacity="0.9"
         pointerEvents="none"
       >
-        {halfDone ? '½ turn ✓' : dragging ? 'rolling…' : 'drag to roll'}
+        {rDone
+          ? 'πr + r ✓'
+          : halfDone
+            ? radiusDrag
+              ? 'drop on grey r…'
+              : '½ turn ✓ · drag radius → r'
+            : dragging
+              ? 'rolling…'
+              : 'drag to roll'}
       </text>
-      {/* Arc-length callout above painted segment */}
+      {/* Arc-length callout above painted purple segment */}
       {rollS > r * 0.35 && (
         <text
           x={trackX0 + rollS / 2}
@@ -636,6 +798,15 @@ function ThalesDiagram() {
           3
         </text>
       </g>
+      {/* Similar triangles: ADC (πr/x, yellow) ~ CDB (x/r, blue) — light fills under strokes */}
+      <polygon
+        points={`${A3},${diamY3} ${D3},${diamY3} ${C3x},${C3y}`}
+        fill="rgba(254, 249, 195, 0.22)"
+      />
+      <polygon
+        points={`${D3},${diamY3} ${B3},${diamY3} ${C3x},${C3y}`}
+        fill="rgba(56, 189, 248, 0.16)"
+      />
       {/* Diameter: πr (purple) + r (white) */}
       <line x1={A3} y1={diamY3} x2={D3} y2={diamY3} stroke="#c4b5fd" strokeWidth="5" strokeLinecap="round" />
       <line x1={D3} y1={diamY3} x2={B3} y2={diamY3} stroke="#f1f5f9" strokeWidth="5" strokeLinecap="round" />
@@ -668,7 +839,7 @@ function ThalesDiagram() {
         strokeDasharray="12 8"
       />
       <line x1={D3} y1={diamY3} x2={C3x} y2={C3y} stroke="#f1f5f9" strokeWidth="4.5" />
-      <text x={D3 + 22} y={(diamY3 + C3y) / 2 + 12} fontSize="38" fill="#f1f5f9" fontWeight="700">
+      <text x={D3 - 22} y={(diamY3 + C3y) / 2 + 12} fontSize="38" fill="#f1f5f9" fontWeight="700" textAnchor="end">
         x
       </text>
       <text x={(A3 + D3) / 2} y={diamY3 - 22} fontSize="36" fill="#c4b5fd" textAnchor="middle" fontWeight="700">
@@ -678,10 +849,10 @@ function ThalesDiagram() {
         r
       </text>
       {rightAngle(A3, diamY3, B3, diamY3, C3x, C3y)}
-      <circle cx={A3} cy={diamY3} r={9} fill="#c4b5fd" />
-      <circle cx={D3} cy={diamY3} r={8} fill="#f1f5f9" />
-      <circle cx={B3} cy={diamY3} r={9} fill="#f1f5f9" />
-      <circle cx={C3x} cy={C3y} r={10} fill="#f1f5f9" />
+      <circle cx={A3} cy={diamY3} r={6} fill="#c4b5fd" />
+      <circle cx={D3} cy={diamY3} r={5.5} fill="#f1f5f9" />
+      <circle cx={B3} cy={diamY3} r={6} fill="#f1f5f9" />
+      <circle cx={C3x} cy={C3y} r={6.5} fill="#f1f5f9" />
       <text x={A3 - 12} y={diamY3 - 24} fontSize="26" fill="#c4b5fd" fontWeight="600">
         A
       </text>
@@ -691,16 +862,66 @@ function ThalesDiagram() {
       <text x={C3x + 18} y={C3y + 12} fontSize="26" fill="#f1f5f9" fontWeight="600">
         C · 90°
       </text>
-      <text
-        x={A3}
-        y={C3y + 52}
-        fontSize="30"
-        fill="#c4b5fd"
-        fontFamily="JetBrains Mono, monospace"
-        fontWeight="600"
-      >
-        x² = (πr)·r = πr²
-      </text>
+      {/* Vertical fractions: πr/x = x/r ⇒ x² = (πr)·r */}
+      {(() => {
+        const baseX = A3 + 40
+        const midY = C3y + 108
+        const fs = 28
+        const fracW = 52
+        const barY = midY
+        const numY = midY - 18
+        const denY = midY + 26
+        // Layout: [πr/x]  =  [x/r]  ⇒  x² = (πr)·r
+        const f1x = baseX
+        const eqX = f1x + fracW + 22
+        const f2x = eqX + 28
+        const arrX = f2x + fracW + 28
+        return (
+          <g fontFamily="JetBrains Mono, monospace" fontWeight="600" fontSize={fs}>
+            {/* yellow πr / x */}
+            <text x={f1x + fracW / 2} y={numY} textAnchor="middle" fill="#fef08a">
+              πr
+            </text>
+            <line
+              x1={f1x + 4}
+              y1={barY}
+              x2={f1x + fracW - 4}
+              y2={barY}
+              stroke="#fef08a"
+              strokeWidth="2.5"
+            />
+            <text x={f1x + fracW / 2} y={denY} textAnchor="middle" fill="#fef08a">
+              x
+            </text>
+            {/* = */}
+            <text x={eqX} y={midY + 8} textAnchor="middle" fill="#f1f5f9" fontSize={fs + 4}>
+              =
+            </text>
+            {/* blue x / r */}
+            <text x={f2x + fracW / 2} y={numY} textAnchor="middle" fill="#38bdf8">
+              x
+            </text>
+            <line
+              x1={f2x + 4}
+              y1={barY}
+              x2={f2x + fracW - 4}
+              y2={barY}
+              stroke="#38bdf8"
+              strokeWidth="2.5"
+            />
+            <text x={f2x + fracW / 2} y={denY} textAnchor="middle" fill="#38bdf8">
+              r
+            </text>
+            {/* ⇒ x² = (πr)·r */}
+            <text x={arrX} y={midY + 8} fill="#f1f5f9">
+              <tspan>⇒  x² = (</tspan>
+              <tspan fill="#fef08a">πr</tspan>
+              <tspan fill="#f1f5f9">)·</tspan>
+              <tspan fill="#38bdf8">r</tspan>
+            </text>
+          </g>
+        )
+      })()}
 
       {/* Combined — same diagram; colors only: purple πr / white r (match steps 2–3) */}
       <g transform={`translate(${col4 + 8}, ${pad + 8})`}>
@@ -768,7 +989,7 @@ function ThalesDiagram() {
 
       <text
         x={(A4 + D4) / 2}
-        y={diamY4 + 42}
+        y={diamY4 - 24}
         fontSize="34"
         fill="#c4b5fd"
         textAnchor="middle"
@@ -778,7 +999,7 @@ function ThalesDiagram() {
         πr
       </text>
       <text
-        x={(D4 + B4) / 2}
+        x={(D4 + B4) / 2 + 48}
         y={diamY4 - 24}
         fontSize="34"
         fill="#f1f5f9"
@@ -800,15 +1021,15 @@ function ThalesDiagram() {
         x
       </text>
 
-      <circle cx={A4} cy={diamY4} r={9} fill="#c4b5fd" />
-      <circle cx={D4} cy={diamY4} r={7} fill="#f1f5f9" />
-      <circle cx={C4x} cy={C4y} r={9} fill="#f1f5f9" />
+      <circle cx={A4} cy={diamY4} r={6} fill="#c4b5fd" />
+      <circle cx={D4} cy={diamY4} r={5} fill="#f1f5f9" />
+      <circle cx={C4x} cy={C4y} r={6} fill="#f1f5f9" />
 
       {rightAngle(A4, diamY4, B4, diamY4, C4x, C4y, 24)}
 
       <text
         x={A4}
-        y={diamY4 + sqSide + 56}
+        y={diamY4 + sqSide + 88}
         fontSize="28"
         fill="#c4b5fd"
         fontFamily="JetBrains Mono, monospace"
@@ -1214,8 +1435,9 @@ export default function IdentitiesPage() {
                     <div>
                       <strong>Roll half a turn</strong>
                       <p>
-                        <strong>Drag</strong> the circle left/right — a half turn paints length πr
-                        (no slip: distance = r·θ).
+                        <strong>Drag</strong> the circle for a half turn (paints πr). A second
+                        white radius appears at 90° — drag it onto the grey slot to place length{' '}
+                        <strong>r</strong>.
                       </p>
                     </div>
                   </div>
@@ -1223,8 +1445,11 @@ export default function IdentitiesPage() {
                     <span className="id-thales-num">3</span>
                     <div>
                       <strong>Semicircle · geometric mean</strong>
-                      <p>Diameter πr + r; altitude x at the join:</p>
-                      <Formula math={String.raw`x^{2}=(\pi r)\cdot r=\pi r^{2}`} />
+                      <p>
+                        Diameter πr + r with altitude x at the join. The two right triangles are
+                        similar — corresponding sides give the ratio in the figure (cross-multiply
+                        for x²).
+                      </p>
                     </div>
                   </div>
                   <div className="id-thales-step">
