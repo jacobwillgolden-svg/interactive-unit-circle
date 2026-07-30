@@ -1060,17 +1060,6 @@ function ThalesDiagram() {
         πr
       </text>
       <text
-        x={(D4 + B4) / 2 + 48}
-        y={diamY4 - 24}
-        fontSize="34"
-        fill="#f1f5f9"
-        textAnchor="middle"
-        fontStyle="italic"
-        fontWeight="600"
-      >
-        r
-      </text>
-      <text
         x={D4 - 20}
         y={(diamY4 + C4y) / 2 + 12}
         fontSize="38"
