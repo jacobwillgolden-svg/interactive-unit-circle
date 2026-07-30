@@ -291,72 +291,122 @@ function ThalesDiagram() {
     [clientToSvg, piR, trackX0],
   )
 
+  const interacting = dragging || isRadiusDragging
+
+  // Lock page/figure scroll while dragging (critical for touch)
+  useEffect(() => {
+    if (!interacting) return undefined
+    const prev = document.documentElement.style.touchAction
+    document.documentElement.style.touchAction = 'none'
+    return () => {
+      document.documentElement.style.touchAction = prev
+    }
+  }, [interacting])
+
   const onRollPointerDown = (e) => {
     if (isRadiusDragging) return
+    if (e.isPrimary === false) return
     e.stopPropagation()
     e.preventDefault()
     const { x: sx } = clientToSvg(e.clientX, e.clientY)
     grabOffsetRef.current = sx - rollCxRef.current
     draggingRef.current = true
     setDragging(true)
-    e.currentTarget.setPointerCapture(e.pointerId)
-    setRollFromClientX(e.clientX)
-  }
-
-  const onRollPointerMove = (e) => {
-    if (!draggingRef.current) return
-    e.preventDefault()
-    setRollFromClientX(e.clientX)
-  }
-
-  const onRollPointerUp = (e) => {
-    if (!draggingRef.current) return
-    draggingRef.current = false
-    setDragging(false)
     try {
-      e.currentTarget.releasePointerCapture(e.pointerId)
+      e.currentTarget.setPointerCapture(e.pointerId)
     } catch {
-      /* already released */
+      /* capture optional — window listeners still work */
     }
+    setRollFromClientX(e.clientX)
   }
 
-  // Grey drop target for the second radius (length r after πr)
+  // Window-level roll drag (reliable on touch; non-passive so we can preventDefault)
+  useEffect(() => {
+    if (!dragging) return undefined
+    const clientXOf = (e) => e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX
+    const onMove = (e) => {
+      if (!draggingRef.current) return
+      if (e.isPrimary === false) return
+      const cx = clientXOf(e)
+      if (cx == null) return
+      e.preventDefault()
+      setRollFromClientX(cx)
+    }
+    const onUp = (e) => {
+      if (e.isPrimary === false) return
+      draggingRef.current = false
+      setDragging(false)
+    }
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    // iOS Safari: non-passive touchmove so scrolling doesn't win
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onUp)
+    window.addEventListener('touchcancel', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
+      window.removeEventListener('touchcancel', onUp)
+    }
+  }, [dragging, setRollFromClientX])
+
+  // Grey drop target for the second radius (length r after πr) — generous for fingers
+  const dropPadX = 40
+  const dropPadY = 72
   const dropZone = {
     x0: trackX0 + piR,
     x1: trackX0 + piR + r,
     y: trackY,
   }
   const isOverDropZone = (x, y) =>
-    x >= dropZone.x0 - 24 &&
-    x <= dropZone.x1 + 24 &&
-    y >= dropZone.y - 48 &&
-    y <= dropZone.y + 48
+    x >= dropZone.x0 - dropPadX &&
+    x <= dropZone.x1 + dropPadX &&
+    y >= dropZone.y - dropPadY &&
+    y <= dropZone.y + dropPadY
 
   const onRadiusPointerDown = (e) => {
     if (!halfDone || rPlaced) return
+    if (e.isPrimary === false) return
     e.stopPropagation()
     e.preventDefault()
+    // Don't start a roll at the same time
+    draggingRef.current = false
+    setDragging(false)
     setIsRadiusDragging(true)
     setRadiusDrag(clientToSvg(e.clientX, e.clientY))
   }
 
-  // Window-level listeners — only bind while a radius drag is active (not on every move)
+  // Window-level radius drag + drop
   useEffect(() => {
     if (!isRadiusDragging) return undefined
     const overDrop = (x, y) =>
-      x >= trackX0 + piR - 24 &&
-      x <= trackX0 + piR + r + 24 &&
-      y >= trackY - 48 &&
-      y <= trackY + 48
+      x >= trackX0 + piR - dropPadX &&
+      x <= trackX0 + piR + r + dropPadX &&
+      y >= trackY - dropPadY &&
+      y <= trackY + dropPadY
     const onMove = (e) => {
+      if (e.isPrimary === false) return
+      // touchmove events don't always have clientX on the same shape — normalize
+      const cx = e.clientX ?? e.touches?.[0]?.clientX
+      const cy = e.clientY ?? e.touches?.[0]?.clientY
+      if (cx == null || cy == null) return
       e.preventDefault()
-      setRadiusDrag(clientToSvg(e.clientX, e.clientY))
+      setRadiusDrag(clientToSvg(cx, cy))
     }
     const onUp = (e) => {
-      const p = clientToSvg(e.clientX, e.clientY)
-      const midX = p.x - r / 2
-      if (overDrop(p.x, p.y) || overDrop(midX, p.y) || overDrop(p.x - r, p.y)) {
-        setRPlaced(true)
+      if (e.isPrimary === false) return
+      const cx = e.clientX ?? e.changedTouches?.[0]?.clientX
+      const cy = e.clientY ?? e.changedTouches?.[0]?.clientY
+      if (cx != null && cy != null) {
+        const p = clientToSvg(cx, cy)
+        const midX = p.x - r / 2
+        if (overDrop(p.x, p.y) || overDrop(midX, p.y) || overDrop(p.x - r, p.y)) {
+          setRPlaced(true)
+        }
       }
       setIsRadiusDragging(false)
       setRadiusDrag(null)
@@ -364,10 +414,16 @@ function ThalesDiagram() {
     window.addEventListener('pointermove', onMove, { passive: false })
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onUp)
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onUp)
+    window.addEventListener('touchcancel', onUp)
     return () => {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
+      window.removeEventListener('touchcancel', onUp)
     }
   }, [isRadiusDragging, clientToSvg, r, trackX0, piR, trackY])
 
@@ -421,7 +477,7 @@ function ThalesDiagram() {
     <svg
       ref={svgRef}
       viewBox={`0 0 ${W} ${H}`}
-      className={`id-svg id-svg--thales${dragging ? ' is-rolling' : ''}`}
+      className={`id-svg id-svg--thales${interacting ? ' is-interacting' : ''}${dragging ? ' is-rolling' : ''}${isRadiusDragging ? ' is-radius-dragging' : ''}`}
       preserveAspectRatio="xMinYMid meet"
       aria-label="Four large steps: circle, drag-to-roll half turn, geometric mean, combined figure"
     >
@@ -599,9 +655,6 @@ function ThalesDiagram() {
         className={`thales-roll-handle${dragging ? ' is-dragging' : ''}`}
         transform={`translate(${rollCx}, ${rollCy}) rotate(${rollDeg})`}
         onPointerDown={onRollPointerDown}
-        onPointerMove={onRollPointerMove}
-        onPointerUp={onRollPointerUp}
-        onPointerCancel={onRollPointerUp}
         role="slider"
         tabIndex={0}
         aria-label="Roll the circle a half turn, then drag the second radius onto the grey segment."
@@ -632,8 +685,8 @@ function ThalesDiagram() {
         }}
         style={{ cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
       >
-        {/* Invisible hit ring (slightly larger for easier grab) */}
-        <circle cx={0} cy={0} r={r + 18} fill="transparent" />
+        {/* Large hit ring for touch */}
+        <circle cx={0} cy={0} r={r + 36} fill="transparent" />
         {/* Outline only: full rim white; the half that will roll is pre-painted purple */}
         <circle cx={0} cy={0} r={r} fill="none" stroke="#f1f5f9" strokeWidth="4.5" />
         {(() => {
@@ -676,14 +729,20 @@ function ThalesDiagram() {
             }}
             aria-label="Drag this radius onto the grey segment of length r"
           >
-            {/* hit area */}
+            {/* Fat hit area for the radius stick + free end (touch-friendly) */}
             <line
               x1={0}
               y1={0}
               x2={r * Math.cos(rad2LocalRad)}
               y2={r * Math.sin(rad2LocalRad)}
               stroke="transparent"
-              strokeWidth="28"
+              strokeWidth="44"
+            />
+            <circle
+              cx={r * Math.cos(rad2LocalRad)}
+              cy={r * Math.sin(rad2LocalRad)}
+              r={28}
+              fill="transparent"
             />
             <line
               x1={0}
@@ -692,6 +751,7 @@ function ThalesDiagram() {
               y2={r * Math.sin(rad2LocalRad)}
               stroke="#f1f5f9"
               strokeWidth="3.5"
+              pointerEvents="none"
             />
             {/* small right-angle mark at center */}
             <path
@@ -708,10 +768,11 @@ function ThalesDiagram() {
             <circle
               cx={r * Math.cos(rad2LocalRad)}
               cy={r * Math.sin(rad2LocalRad)}
-              r={9}
+              r={11}
               fill="#f1f5f9"
               stroke="#c4b5fd"
               strokeWidth="2"
+              pointerEvents="none"
             />
           </g>
         )}
