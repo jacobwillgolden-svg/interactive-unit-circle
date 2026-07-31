@@ -33,6 +33,18 @@
   --sec-soft: rgba(191, 90, 242, 0.16);
   --cot: #f5e642;
   --cot-soft: rgba(245, 230, 66, 0.14);
+  --asin: #f87171;
+  --asin-soft: rgba(248, 113, 113, 0.16);
+  --acos: #60a5fa;
+  --acos-soft: rgba(96, 165, 250, 0.16);
+  --atan: #fbbf24;
+  --atan-soft: rgba(251, 191, 36, 0.16);
+  --acsc: #86efac;
+  --acsc-soft: rgba(134, 239, 172, 0.14);
+  --asec: #d8b4fe;
+  --asec-soft: rgba(216, 180, 254, 0.16);
+  --acot: #fde047;
+  --acot-soft: rgba(253, 224, 71, 0.14);
   --gold: #f0d9a8;
 
   --font-sans: 'Outfit', system-ui, sans-serif;
@@ -730,6 +742,12 @@ html[data-theme='light'] .panel {
 .metric--csc .metric-value { color: var(--csc); }
 .metric--sec .metric-value { color: var(--sec); }
 .metric--cot .metric-value { color: var(--cot); }
+.metric--asin .metric-value { color: var(--asin); }
+.metric--acos .metric-value { color: var(--acos); }
+.metric--atan .metric-value { color: var(--atan); }
+.metric--acsc .metric-value { color: var(--acsc); }
+.metric--asec .metric-value { color: var(--asec); }
+.metric--acot .metric-value { color: var(--acot); }
 .metric--point .metric-value { color: var(--gold); font-size: 0.95rem; }
 
 .metric--wide {
@@ -1051,6 +1069,36 @@ html[data-theme='light'] .panel {
   border-color: color-mix(in srgb, var(--cot) 55%, transparent);
   background: var(--cot-soft);
   color: var(--cot);
+}
+.chip-toggle.chip--asin.is-on {
+  border-color: color-mix(in srgb, var(--asin) 55%, transparent);
+  background: var(--asin-soft);
+  color: var(--asin);
+}
+.chip-toggle.chip--acos.is-on {
+  border-color: color-mix(in srgb, var(--acos) 55%, transparent);
+  background: var(--acos-soft);
+  color: var(--acos);
+}
+.chip-toggle.chip--atan.is-on {
+  border-color: color-mix(in srgb, var(--atan) 55%, transparent);
+  background: var(--atan-soft);
+  color: var(--atan);
+}
+.chip-toggle.chip--acsc.is-on {
+  border-color: color-mix(in srgb, var(--acsc) 55%, transparent);
+  background: var(--acsc-soft);
+  color: var(--acsc);
+}
+.chip-toggle.chip--asec.is-on {
+  border-color: color-mix(in srgb, var(--asec) 55%, transparent);
+  background: var(--asec-soft);
+  color: var(--asec);
+}
+.chip-toggle.chip--acot.is-on {
+  border-color: color-mix(in srgb, var(--acot) 55%, transparent);
+  background: var(--acot-soft);
+  color: var(--acot);
 }
 
 .chip-toggle.is-disabled {
@@ -2451,6 +2499,134 @@ html[data-theme='light'] .hist-slide-katex .katex {
 .id-note-figure .id-caption {
   margin-top: 0.5rem !important;
   text-align: center;
+}
+
+/* Inverse-trig terminology tables */
+.id-term-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 0.75rem 0 0.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--metric-bg);
+}
+
+.id-term-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.id-term-table th,
+.id-term-table td {
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.id-term-table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  white-space: nowrap;
+}
+
+.id-term-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.id-term-table td:first-child {
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.id-term-table td {
+  color: var(--text-muted);
+  font-weight: 300;
+}
+
+.id-term-table .id-katex--inline {
+  color: var(--text);
+}
+
+.id-term-table--compact td:nth-child(2) {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .id-term-table th,
+  .id-term-table td {
+    padding: 0.45rem 0.55rem;
+    font-size: 0.84rem;
+  }
+}
+
+/* Graphing-calc screenshots side by side (sin/cos derivative cycle) */
+.id-calc-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 0.25rem;
+  align-items: start;
+}
+
+.id-calc-gallery .id-note-figure {
+  max-width: none;
+  justify-self: stretch;
+}
+
+.id-calc-gallery .id-note-img {
+  background: #e8eaf0;
+  object-fit: contain;
+}
+
+.id-wave-key {
+  list-style: none;
+  margin: 0.35rem 0 0.85rem;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.id-wave-key li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.id-swatch {
+  flex: 0 0 auto;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  margin-top: 0.2rem;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.id-swatch--sin {
+  background: #dc2626;
+}
+.id-swatch--cos {
+  background: #f97316;
+}
+.id-swatch--nsin {
+  background: #22c55e;
+}
+.id-swatch--ncos {
+  background: #2563eb;
+}
+
+@media (max-width: 720px) {
+  .id-calc-gallery {
+    grid-template-columns: 1fr;
+  }
 }
 
 .id-liate-list {

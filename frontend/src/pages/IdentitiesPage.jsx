@@ -1134,8 +1134,7 @@ export default function IdentitiesPage() {
 
       <main className="workspace workspace--single">
         {/* Jump links */}
-        <nav className="id-toc panel" aria-label="On this page">
-          <span className="id-toc-label">On this page</span>
+        <nav className="id-toc panel" aria-label="Cheat sheet sections">
           <a href="#core-trig">Core trig</a>
           <a href="#thales">Thales</a>
           <a href="#first-principles">First principles</a>
@@ -1144,6 +1143,7 @@ export default function IdentitiesPage() {
           <a href="#logs">Logs</a>
           <a href="#unit-circle-bridge">Unit circle & Euler</a>
           <a href="#calc-bridge">Calc 1 bridge</a>
+          <a href="#inverse-trig">Inverse trig</a>
           <a href="#number-types">Number types</a>
           <a href="#constants">Constants</a>
           <a href="#bonus">Bonus · φ & Fibonacci</a>
@@ -2067,7 +2067,9 @@ export default function IdentitiesPage() {
                 <Formula math={String.raw`\dfrac{d}{dx}[\tan x]=\sec^{2}x`} />
                 <p>
                   Angles must be in <strong>radians</strong> for these formulas (the limit
-                  definition of the derivative assumes radian measure).
+                  definition of the derivative assumes radian measure). See{' '}
+                  <a href="#inverse-trig">Inverse trig</a> for the full four-step cycle and
+                  calculator graphs of −sin / −cos.
                 </p>
                 <UseWhen>
                   Related rates, harmonic motion, and any chain-rule problem with a trig outer
@@ -2140,6 +2142,346 @@ export default function IdentitiesPage() {
                   “Undefined” is not the same as “indeterminate.” 1/0 is broken arithmetic; 1^∞ is a
                   label for a family of limits that still need work.
                 </WatchOut>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════
+            INVERSE TRIG · terminology + how it works
+            ═══════════════════════════════════════════ */}
+        <section id="inverse-trig" className="id-block">
+          <SectionLabel course="Precalc · Calc 1 · Graphs">Inverse trig</SectionLabel>
+          <p className="id-block-lead">
+            Three different ideas share the word “inverse” in trig. Get the names straight first —
+            then the graphs and the derivative cycle make sense.
+          </p>
+
+          <div className="id-grid">
+            {/* Terminology from user table + full family */}
+            <section className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">Terminology · tan family (works the same for sin / cos)</span>
+                <span className="panel-hint">Name · meaning · notation · example</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  Start with one forward function — here <strong>tan</strong>. Everything else is
+                  built from it: reciprocal, inverse function, or (on the Graphs page) a simple
+                  flip through the axis.
+                </p>
+
+                <div className="id-term-table-wrap">
+                  <table className="id-term-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Meaning</th>
+                        <th scope="col">Notation</th>
+                        <th scope="col">Example</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <strong>tan</strong>
+                        </td>
+                        <td>Tangent function (forward)</td>
+                        <td>
+                          <Formula math={String.raw`\tan\theta`} display={false} />
+                        </td>
+                        <td>
+                          <Formula math={String.raw`\tan 45^{\circ}=1`} display={false} />
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <strong>cotangent</strong>
+                        </td>
+                        <td>
+                          <em>Reciprocal</em> of tan — flip the fraction, not the function
+                        </td>
+                        <td>
+                          <Formula math={String.raw`\cot\theta=\dfrac{1}{\tan\theta}`} display={false} />
+                        </td>
+                        <td>
+                          <Formula math={String.raw`\cot 45^{\circ}=1`} display={false} />
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <strong>arctangent</strong>
+                        </td>
+                        <td>
+                          <em>Inverse function</em> of tan — undoes tan (principal angle)
+                        </td>
+                        <td>
+                          <Formula math={String.raw`\arctan(x)`} display={false} />
+                        </td>
+                        <td>
+                          <Formula math={String.raw`\arctan(1)=45^{\circ}`} display={false} />
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <strong>tan⁻¹</strong>
+                        </td>
+                        <td>
+                          Same as arctangent — the superscript −1 means inverse{' '}
+                          <em>function</em>, not “to the power −1”
+                        </td>
+                        <td>
+                          <Formula math={String.raw`\tan^{-1}(x)`} display={false} />
+                        </td>
+                        <td>
+                          <Formula math={String.raw`\tan^{-1}(1)=45^{\circ}`} display={false} />
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <strong>−tan</strong>
+                        </td>
+                        <td>
+                          <em>Additive</em> inverse — flip the graph through the θ-axis (phase
+                          flip). Not arctan, not cot.
+                        </td>
+                        <td>
+                          <Formula math={String.raw`-\tan\theta`} display={false} />
+                        </td>
+                        <td>
+                          <Formula math={String.raw`-\tan 45^{\circ}=-1`} display={false} />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <p className="id-mini-label" style={{ marginTop: '1rem' }}>
+                  Same pattern for the whole family
+                </p>
+                <div className="id-formula-stack">
+                  <Formula
+                    math={String.raw`\sin^{-1}=\arcsin,\quad
+                      \cos^{-1}=\arccos,\quad
+                      \tan^{-1}=\arctan`}
+                  />
+                  <Formula
+                    math={String.raw`\csc\theta=\dfrac{1}{\sin\theta},\quad
+                      \sec\theta=\dfrac{1}{\cos\theta},\quad
+                      \cot\theta=\dfrac{1}{\tan\theta}`}
+                  />
+                </div>
+                <WatchOut>
+                  On a calculator, <strong>tan⁻¹</strong> is arctan. Writing{' '}
+                  <Formula math={String.raw`\tan^{-1}\theta`} display={false} /> does{' '}
+                  <em>not</em> mean <Formula math={String.raw`1/\tan\theta`} display={false} /> —
+                  that reciprocal is <strong>cot</strong>. And neither is <strong>−tan</strong>.
+                </WatchOut>
+              </div>
+            </section>
+
+            {/* How inverse functions work */}
+            <section className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">How an inverse trig function works</span>
+                <span className="panel-hint">Undo the forward map · principal values</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  A forward function sends an <strong>angle</strong> to a <strong>ratio</strong>{' '}
+                  (or coordinate). The inverse sends that ratio back to an angle — but only on a
+                  restricted range so the answer is unique (the <strong>principal value</strong>).
+                </p>
+                <div className="id-formula-stack">
+                  <Formula
+                    math={String.raw`\tan\theta = x
+                      \quad\Longleftrightarrow\quad
+                      \theta = \tan^{-1}(x)
+                      \quad\text{(with }\theta\text{ in the principal range)}`}
+                  />
+                  <Formula
+                    math={String.raw`\tan^{-1}:\mathbb{R}\to\left(-\dfrac{\pi}{2},\dfrac{\pi}{2}\right)
+                      \qquad
+                      \sin^{-1}:[-1,1]\to\left[-\dfrac{\pi}{2},\dfrac{\pi}{2}\right]
+                      \qquad
+                      \cos^{-1}:[-1,1]\to[0,\pi]`}
+                  />
+                </div>
+                <p>
+                  Example with the table: <Formula math={String.raw`\tan 45^{\circ}=1`} display={false} />,
+                  so <Formula math={String.raw`\tan^{-1}(1)=45^{\circ}`} display={false} /> (or π/4
+                  rad). Same number, roles swapped — input and output trade places.
+                </p>
+                <p>
+                  On the unit circle, if P = (cos θ, sin θ), then:
+                </p>
+                <ul className="id-wave-key">
+                  <li>
+                    <strong>tan θ</strong> = slope of the ray OP (or opposite/adjacent on the
+                    triangle)
+                  </li>
+                  <li>
+                    <strong>tan⁻¹(x)</strong> = the unique principal angle whose tan is x
+                  </li>
+                  <li>
+                    <strong>cot θ</strong> = 1/tan θ — still a function of the same angle, not an
+                    inverse map
+                  </li>
+                </ul>
+                <p>
+                  Graph of <Formula math={String.raw`y=\tan^{-1}x`} display={false} />: smooth
+                  S-curve with horizontal asymptotes ±π/2 (see Graphs page tan⁻¹). That is{' '}
+                  <em>not</em> the same as plotting{' '}
+                  <Formula math={String.raw`\tan^{-1}(\tan\theta)`} display={false} />, which folds
+                  into a sawtooth of straight segments (principal-value composition).
+                </p>
+                <UseWhen>
+                  Solving for an angle from a known ratio (right triangles, “find θ”), switching
+                  between degrees and radians carefully, and reading inverse graphs on the Graphs
+                  page.
+                </UseWhen>
+                <Check>
+                  <p>
+                    If <Formula math={String.raw`\tan\theta=1`} display={false} />, then one
+                    answer is θ = 45°. Also θ = 45° + 180°k for integers k — but{' '}
+                    <Formula math={String.raw`\tan^{-1}(1)`} display={false} /> returns only the
+                    principal value 45° (or π/4).
+                  </p>
+                </Check>
+              </div>
+            </section>
+
+            {/* Three-way confusion card */}
+            <section className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">Three “inverses” — do not mix them</span>
+                <span className="panel-hint">Reciprocal · inverse function · additive flip</span>
+              </div>
+              <div className="id-body">
+                <div className="id-term-table-wrap">
+                  <table className="id-term-table id-term-table--compact">
+                    <thead>
+                      <tr>
+                        <th scope="col">Idea</th>
+                        <th scope="col">Symbol example</th>
+                        <th scope="col">What it does</th>
+                        <th scope="col">On Graphs page</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <strong>Reciprocal</strong>
+                        </td>
+                        <td>
+                          <Formula math={String.raw`\cot=\frac{1}{\tan}`} display={false} />
+                        </td>
+                        <td>Invert the number (multiply by 1/y)</td>
+                        <td>cot, csc, sec toggles</td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <strong>Inverse function</strong>
+                        </td>
+                        <td>
+                          <Formula math={String.raw`\tan^{-1}=\arctan`} display={false} />
+                        </td>
+                        <td>Undo the map: ratio → angle</td>
+                        <td>tan⁻¹, cot⁻¹, sec⁻¹, csc⁻¹</td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <strong>Additive flip</strong>
+                        </td>
+                        <td>
+                          <Formula math={String.raw`-\sin,\;-\cos`} display={false} />
+                        </td>
+                        <td>Reflect the wave through the θ-axis</td>
+                        <td>−sin, −cos (derivative cycle)</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <WatchOut>
+                  Spoken language is sloppy: people say “inverse tan” for both cot and arctan.
+                  Always check notation — cot vs tan⁻¹ vs −tan.
+                </WatchOut>
+              </div>
+            </section>
+
+            {/* Derivative cycle — phase flips, not inverse functions */}
+            <section className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">sin · cos · −sin · −cos · the derivative cycle</span>
+                <span className="panel-hint">Additive flips · not arctrig · RADIAN mode</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  Differentiating sine and cosine walks a four-step cycle of{' '}
+                  <strong>phase flips</strong> (−sin, −cos), not inverse functions. After four
+                  derivatives you return to sin x.
+                </p>
+                <div className="id-formula-stack">
+                  <Formula
+                    math={String.raw`\dfrac{d}{dx}[\sin x]=\cos x,\qquad
+                      \dfrac{d}{dx}[\cos x]=-\sin x,\qquad
+                      \dfrac{d}{dx}[-\sin x]=-\cos x,\qquad
+                      \dfrac{d}{dx}[-\cos x]=\sin x`}
+                  />
+                </div>
+                <p>
+                  Clockwise on the colour key below is “differentiate once.” Angles must be in{' '}
+                  <strong>radians</strong>.
+                </p>
+
+                <div className="id-calc-gallery">
+                  <NoteFigure
+                    src="/notes/sin-cos-derivative-cycle.jpg"
+                    alt="Graphing calculator: Y1=sin(X) red, Y2=cos(X) orange, Y5=-sin(X) green, Y6=-cos(X) blue, with a colour-coded derivative cycle ring linking sin → cos → −sin → −cos"
+                    caption="Colour key · d/dx cycle: sin (red) → cos (orange) → −sin (green) → −cos (blue) → sin"
+                  />
+                  <NoteFigure
+                    src="/notes/sin-cos-inverted-waves.jpg"
+                    alt="Graphing calculator plot of sin(X), cos(X), −sin(X), and −cos(X) as four phase-shifted sinusoids"
+                    caption="All four are sinusoids — same amplitude, shifted phase. −sin and −cos flip through the x-axis"
+                  />
+                </div>
+
+                <p className="id-mini-label" style={{ marginTop: '0.85rem' }}>
+                  Reading the four waves
+                </p>
+                <ul className="id-wave-key">
+                  <li>
+                    <span className="id-swatch id-swatch--sin" aria-hidden="true" />
+                    <strong>sin x</strong> — starts at 0, rises (red on the calc)
+                  </li>
+                  <li>
+                    <span className="id-swatch id-swatch--cos" aria-hidden="true" />
+                    <strong>cos x</strong> — starts at 1; slope of sin (orange)
+                  </li>
+                  <li>
+                    <span className="id-swatch id-swatch--nsin" aria-hidden="true" />
+                    <strong>−sin x</strong> — sin flipped through the axis; slope of cos (green)
+                  </li>
+                  <li>
+                    <span className="id-swatch id-swatch--ncos" aria-hidden="true" />
+                    <strong>−cos x</strong> — cos flipped; slope of −sin (blue)
+                  </li>
+                </ul>
+                <UseWhen>
+                  Memorizing d/dx of sin and cos as one closed loop; checking Graphs-page −sin /
+                  −cos toggles against a calculator; related rates and harmonic motion.
+                </UseWhen>
+                <WatchOut>
+                  Do not confuse the leading minus on <strong>−sin</strong> (additive flip) with
+                  the superscript on <strong>sin⁻¹</strong> (arcsin / inverse function).
+                </WatchOut>
+                <Check>
+                  <p>
+                    Differentiate sin three times: cos → −sin → −cos. One more step returns sin.
+                    Same loop starting at cos: −sin → −cos → sin → cos.
+                  </p>
+                </Check>
               </div>
             </section>
           </div>

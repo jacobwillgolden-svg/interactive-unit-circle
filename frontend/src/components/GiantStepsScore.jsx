@@ -1,23 +1,22 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import {
-  ARP_STEPS_PER_REV,
-  COF_RAINBOW,
-  GIANT_STEPS,
   KEY_SIG_MAX,
   KEY_SIG_MIN,
+  MAX_PROGRESSION_STEPS,
   SCORE_BARS_PER_REV,
   SCORE_CHORDS_PER_BAR,
   SCORE_TIME_SIG,
   analyzeChordFromMidis,
   angleToStep,
   buildShellVoicing,
+  colorForKeyCentre,
   colorForProgressionRoot,
   detectProgressionHarmony,
+  getActiveStepCount,
   parseChordSymbol,
   parseProgressionString,
   preferFlatsFromKeySig,
   previewShellPitch,
-  progressionRootPcs,
   resolveShellVoicing,
 } from '../utils/trigMusic'
 
@@ -73,13 +72,14 @@ function rolesOf(v) {
   return [
     { role: 'root', midi: v.root },
     { role: 'cos', midi: v.cos },
-    { role: 'tan', midi: v.tan },
+    { role: 'asin', midi: v.asin },
+    { role: 'acos', midi: v.acos },
   ]
 }
 
 /**
  * Interactive score: typable chord symbols snap notes; drag for inversions;
- * key signature auto-updates; I–IV–V progressions use two colours only.
+ * key signature is manual. One diatonic key → one colour; modulation → CoF rainbow.
  */
 export default function GiantStepsScore({
   angleDeg = 0,
@@ -89,10 +89,10 @@ export default function GiantStepsScore({
   keySigFifths = 0,
   onKeySigChange,
 }) {
-  const current = active ? angleToStep(angleDeg) : -1
+  const current = active ? angleToStep(angleDeg, voicings) : -1
   const svgRef = useRef(/** @type {SVGSVGElement | null} */ (null))
   const dragRef = useRef(
-    /** @type {null | { step: number, role: 'root'|'cos'|'tan', pointerId: number }} */ (
+    /** @type {null | { step: number, role: 'root'|'cos'|'asin'|'acos', pointerId: number }} */ (
       null
     )
   )
@@ -110,7 +110,8 @@ export default function GiantStepsScore({
   const symbolBand = 36
   const staffTop = symbolBand + 14
   const staffH = 4 * lineGap
-  const n = GIANT_STEPS.length
+  /** Active chords this turn (1…MAX); no minimum beyond one when customized */
+  const n = getActiveStepCount(voicings)
   const chordsPerBar = SCORE_CHORDS_PER_BAR
 
   const fifths = Math.max(KEY_SIG_MIN, Math.min(KEY_SIG_MAX, keySigFifths | 0))
@@ -119,10 +120,7 @@ export default function GiantStepsScore({
   const accOrder = fifths >= 0 ? SHARP_ORDER : FLAT_ORDER
   const accGlyph = fifths >= 0 ? '♯' : '♭'
 
-  const harmony = useMemo(
-    () => detectProgressionHarmony(progressionRootPcs(voicings)),
-    [voicings]
-  )
+  const harmony = useMemo(() => detectProgressionHarmony(voicings), [voicings])
 
   const clefW = 28
   const accSlot = 11
@@ -136,15 +134,16 @@ export default function GiantStepsScore({
   const timeSigX = keySigStartX + keySigW + 2
 
   const bars = useMemo(() => {
-    return GIANT_STEPS.map((spec, i) => {
+    const count = getActiveStepCount(voicings)
+    return Array.from({ length: count }, (_, i) => {
       const base = resolveShellVoicing(i, voicings?.[i])
       let v = base
       if (dragLive && dragLive.step === i) {
         v = { ...base, [dragLive.role]: dragLive.midi }
       }
-      const analyzed = analyzeChordFromMidis([v.root, v.cos, v.tan], {
+      const analyzed = analyzeChordFromMidis([v.root, v.cos, v.asin, v.acos], {
         preferFlats,
-        colorForRoot: (pc) => colorForProgressionRoot(pc, harmony),
+        colorForRoot: (pc) => colorForProgressionRoot(pc, harmony, i),
       })
       return {
         i,
@@ -152,6 +151,7 @@ export default function GiantStepsScore({
         symbol: analyzed.symbol,
         quality: analyzed.quality,
         rootPc: analyzed.rootPc,
+        keyCentre: harmony.centres?.[i] ?? harmony.tonic,
         voicing: v,
         roles: rolesOf(v),
       }
@@ -185,13 +185,19 @@ export default function GiantStepsScore({
         }))
         return false
       }
-      // Always snap to strict root position (root < 3rd/5th < 5th/7th)
-      const voicing = buildShellVoicing(parsed.rootPc, parsed.cosInt, parsed.tanInt)
+      // Always snap to strict root position (root < 3rd < 5th < 7th)
+      const voicing = buildShellVoicing(
+        parsed.rootPc,
+        parsed.cosInt,
+        parsed.asinInt,
+        parsed.acosInt
+      )
       onVoicingChange(step, voicing)
-      // Audible confirm: arpeggiate the snapped triad/7th
+      // Audible confirm: arpeggiate the 4-note shell
       previewShellPitch(voicing.root)
-      window.setTimeout(() => previewShellPitch(voicing.cos), 80)
-      window.setTimeout(() => previewShellPitch(voicing.tan), 160)
+      window.setTimeout(() => previewShellPitch(voicing.cos), 70)
+      window.setTimeout(() => previewShellPitch(voicing.asin), 140)
+      window.setTimeout(() => previewShellPitch(voicing.acos), 210)
 
       setFieldError((e) => {
         const n = { ...e }
@@ -219,21 +225,35 @@ export default function GiantStepsScore({
 
   const applyProgressionLine = useCallback(() => {
     if (!onVoicingChange) return
-    const parsed = parseProgressionString(progDraft, ARP_STEPS_PER_REV)
+    const parsed = parseProgressionString(progDraft, MAX_PROGRESSION_STEPS)
     if (parsed.length === 0) {
-      setProgError('Could not parse — try: C Am F G   or   C | Am | F | G')
+      setProgError('Could not parse — try: C Am F G   or   C | Am | F | G  (1–8 chords)')
       return
     }
     setProgError('')
-    parsed.forEach((p, i) => {
-      const voicing = buildShellVoicing(p.rootPc, p.cosInt, p.tanInt)
-      onVoicingChange(i, voicing)
-    })
+    // Fill 0…N−1; clear N…MAX−1 so length is exactly N (no forced minimum)
+    for (let i = 0; i < MAX_PROGRESSION_STEPS; i++) {
+      if (i < parsed.length) {
+        const p = parsed[i]
+        onVoicingChange(
+          i,
+          buildShellVoicing(p.rootPc, p.cosInt, p.asinInt, p.acosInt)
+        )
+      } else {
+        onVoicingChange(i, null)
+      }
+    }
     // Preview first chord
-    const v0 = buildShellVoicing(parsed[0].rootPc, parsed[0].cosInt, parsed[0].tanInt)
+    const v0 = buildShellVoicing(
+      parsed[0].rootPc,
+      parsed[0].cosInt,
+      parsed[0].asinInt,
+      parsed[0].acosInt
+    )
     previewShellPitch(v0.root)
-    window.setTimeout(() => previewShellPitch(v0.cos), 80)
-    window.setTimeout(() => previewShellPitch(v0.tan), 160)
+    window.setTimeout(() => previewShellPitch(v0.cos), 70)
+    window.setTimeout(() => previewShellPitch(v0.asin), 140)
+    window.setTimeout(() => previewShellPitch(v0.acos), 210)
   }, [onVoicingChange, progDraft])
 
   const onPointerDown = (e, step, role) => {
@@ -285,21 +305,23 @@ export default function GiantStepsScore({
     (dir) => {
       if (!onVoicingChange) return
       const delta = dir * 12
+      const count = getActiveStepCount(voicings)
       let lo = Infinity
       let hi = -Infinity
-      for (let i = 0; i < ARP_STEPS_PER_REV; i++) {
+      for (let i = 0; i < count; i++) {
         const v = resolveShellVoicing(i, voicings?.[i])
-        lo = Math.min(lo, v.root, v.cos, v.tan)
-        hi = Math.max(hi, v.root, v.cos, v.tan)
+        lo = Math.min(lo, v.root, v.cos, v.asin, v.acos)
+        hi = Math.max(hi, v.root, v.cos, v.asin, v.acos)
       }
       if (delta < 0 && lo + delta < MIDI_MIN) return
       if (delta > 0 && hi + delta > MIDI_MAX) return
-      for (let i = 0; i < ARP_STEPS_PER_REV; i++) {
+      for (let i = 0; i < count; i++) {
         const v = resolveShellVoicing(i, voicings?.[i])
         onVoicingChange(i, {
           root: v.root + delta,
           cos: v.cos + delta,
-          tan: v.tan + delta,
+          asin: v.asin + delta,
+          acos: v.acos + delta,
         })
       }
       // Audible feedback: root of current (or first) chord after shift
@@ -311,12 +333,13 @@ export default function GiantStepsScore({
   )
 
   const octaveBounds = useMemo(() => {
+    const count = getActiveStepCount(voicings)
     let lo = Infinity
     let hi = -Infinity
-    for (let i = 0; i < ARP_STEPS_PER_REV; i++) {
+    for (let i = 0; i < count; i++) {
       const v = resolveShellVoicing(i, voicings?.[i])
-      lo = Math.min(lo, v.root, v.cos, v.tan)
-      hi = Math.max(hi, v.root, v.cos, v.tan)
+      lo = Math.min(lo, v.root, v.cos, v.asin, v.acos)
+      hi = Math.max(hi, v.root, v.cos, v.asin, v.acos)
     }
     return { canDown: lo - 12 >= MIDI_MIN, canUp: hi + 12 <= MIDI_MAX }
   }, [voicings])
@@ -329,7 +352,8 @@ export default function GiantStepsScore({
         John Coltrane — <em>Giant Steps</em> opening ({SCORE_BARS_PER_REV} bars ·{' '}
         {SCORE_TIME_SIG.beats}/{SCORE_TIME_SIG.unit}). Type a chord name to snap notes to root
         position; drag for inversions. Key signature is <strong>manual only</strong> (modulation ≠
-        key change). I–IV–V progressions use two colours; freer roots use the CoF rainbow.
+        key change). Chords in one key share one colour; modulation (out-of-key roots) uses the CoF
+        rainbow.
       </figcaption>
 
       <div className="gs-score__toolbar" role="group" aria-label="Key signature">
@@ -366,7 +390,9 @@ export default function GiantStepsScore({
             : fifthsClamped > 0
               ? `${fifthsClamped}♯`
               : `${-fifthsClamped}♭`}
-          {harmony.mode === 'IVV' ? ' · I–IV–V (2 colours)' : ' · CoF rainbow'}
+          {harmony.keyCount <= 1
+            ? ' · 1 key (1 colour)'
+            : ` · ${harmony.keyCount} keys (${harmony.keyCount} colours)`}
         </span>
       </div>
 
@@ -380,8 +406,8 @@ export default function GiantStepsScore({
           className={`gs-score__prog-input${progError ? ' is-error' : ''}`}
           value={progDraft}
           spellCheck={false}
-          placeholder="e.g. C Am F G   or   C | Am | F | G7"
-          title="Space- or | -separated chords; fills slots from the left in root position"
+          placeholder="e.g. C Am F G   or   C | Am | F | G7  (1–8 chords)"
+          title="Space- or | -separated chords (1–8); fills from the left; shorter progressions use the full θ turn"
           onChange={(e) => {
             setProgDraft(e.target.value)
             setProgError('')
@@ -685,49 +711,27 @@ export default function GiantStepsScore({
       </div>
 
       <p className="gs-score__hint">
-        Type chords: triads <code>C</code>/<code>Am</code> (root–3rd–5th) or sevenths{' '}
-        <code>D7</code>/<code>Gmaj7</code> (root–3rd–7th). Voices: sin=root, cos=3rd|5th, tan=5th|7th.
-        Drag for inversions. Key signature is manual. Fixed: 4/4 · {SCORE_BARS_PER_REV} bars ·{' '}
-        {ARP_STEPS_PER_REV} chords / θ turn.
-        {harmony.mode === 'IVV'
-          ? ' This progression is I–IV–V only → two colours (tonic vs IV/V).'
-          : ' Free / circle-of-fifths roots → full rainbow colours.'}
+        Type chords: triads <code>C</code>/<code>Am</code> (root–3rd–5th–octave) or sevenths{' '}
+        <code>D7</code>/<code>Gmaj7</code> (root–3rd–5th–7th). Piano voices: sin=root, cos=3rd,
+        −sin=5th, −cos=7th. Drag for inversions. Key signature is manual. Fixed: 4/4 ·{' '}
+        {n} chord{n === 1 ? '' : 's'} / θ turn (max {MAX_PROGRESSION_STEPS}).
+        {harmony.keyCount <= 1
+          ? ' One key centre → one colour.'
+          : ` ${harmony.keyCount} key centres (e.g. C then G then D) → ${harmony.keyCount} colours on the circle of fifths.`}
       </p>
       <p className="gs-score__legend">
-        <span className="gs-score__legend-label">
-          {harmony.mode === 'IVV'
-            ? 'I–IV–V colouring (tonic vs dominant function):'
-            : 'Root → colour (circle of fifths):'}
-        </span>
-        {harmony.mode === 'IVV' ? (
-          <>
-            <span className="gs-score__swatch">
-              <i
-                style={{
-                  background: colorForProgressionRoot(harmony.tonic, harmony),
-                }}
-              />
-              I (tonic)
-            </span>
-            <span className="gs-score__swatch">
-              <i
-                style={{
-                  background: colorForProgressionRoot((harmony.tonic + 7) % 12, harmony),
-                }}
-              />
-              IV / V
-            </span>
-          </>
-        ) : (
-          COF_RAINBOW.map((hex, i) => {
-            const roots = ['C', 'G', 'D', 'A', 'E', 'B', 'F♯', 'C♯', 'G♯', 'D♯', 'A♯', 'F']
+        <span className="gs-score__legend-label">Key-centre colouring:</span>
+        {(harmony.uniqueCentres?.length ? harmony.uniqueCentres : [harmony.tonic ?? 0]).map(
+          (c) => {
+            const names = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']
+            const hex = colorForKeyCentre(c)
             return (
-              <span key={hex} className="gs-score__swatch" title={roots[i]}>
+              <span key={c} className="gs-score__swatch" title={`Key of ${names[c]}`}>
                 <i style={{ background: hex }} />
-                {roots[i]}
+                {names[((c % 12) + 12) % 12]}
               </span>
             )
-          })
+          }
         )}
       </p>
     </figure>

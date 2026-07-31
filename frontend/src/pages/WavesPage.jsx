@@ -6,10 +6,16 @@ import {
   ARP_STEPS_PER_REV,
   arpInfo,
   disposeTrigMusic,
+  getPianoInstrument,
+  setPianoInstrument,
   updateTrigMusic,
 } from '../utils/trigMusic'
 
-/** Neon-leaning stroke colors for each function */
+/**
+ * Neon-leaning stroke colors.
+ * asin/acos keys = phase flips −sin/−cos (derivative cycle).
+ * atan/acot/acsc/asec = true inverse trig (principal values, radians).
+ */
 const FN_COLORS = {
   sin: '#dc2626',
   cos: '#2563eb',
@@ -17,6 +23,12 @@ const FN_COLORS = {
   csc: '#39ff14', // neon green
   sec: '#bf5af2', // neon violet
   cot: '#f5e642', // neon yellow
+  asin: '#f87171', // soft red — −sin
+  acos: '#60a5fa', // soft blue — −cos
+  atan: '#fbbf24', // soft amber — tan⁻¹
+  acsc: '#86efac', // soft green — csc⁻¹
+  asec: '#d8b4fe', // soft violet — sec⁻¹
+  acot: '#fde047', // soft yellow — cot⁻¹
 }
 
 /** Soft triangle fill matching a stroke color (light theme slightly stronger) */
@@ -124,6 +136,56 @@ function safeCot(s, c) {
   return c / s
 }
 
+/**
+ * Additive inverse (phase flip): −f(θ).
+ * Used only for −sin / −cos on the derivative cycle sin → cos → −sin → −cos → sin.
+ * Not inverse trig (arcsin ≠ −sin, arctan ≠ −tan).
+ */
+function negate(v) {
+  if (v == null || !Number.isFinite(v)) return null
+  return -v
+}
+
+/**
+ * True inverse trig: y = f⁻¹(x) with real input x, NOT f⁻¹(f(θ)).
+ * Composition f⁻¹(f(θ)) is a sawtooth of straight segments; the real graph of
+ * arctan is the smooth S-curve with asymptotes ±π/2 (see calculator reference).
+ *
+ * Across the wave panel we map θ-progress 0°…360° → x ∈ [−INV_X_MAX, +INV_X_MAX]
+ * so one full sweep draws the full inverse curve left→right (0 at panel center).
+ */
+const INV_X_MAX = 10
+
+/** Map unwrapped θ (degrees, 0…360) → real input for inverse-trig plots. */
+function invInputFromTheta(tDeg) {
+  const t = Math.max(0, Math.min(360, tDeg))
+  return -INV_X_MAX + (t / 360) * (2 * INV_X_MAX)
+}
+
+/** y = arctan(x), x real → (−π/2, π/2) */
+function trueAtan(x) {
+  if (x == null || !Number.isFinite(x)) return null
+  return Math.atan(x)
+}
+
+/** y = arccot(x) ∈ (0, π) via atan2(1, x) */
+function trueAcot(x) {
+  if (x == null || !Number.isFinite(x)) return null
+  return Math.atan2(1, x)
+}
+
+/** y = arccsc(x), |x| ≥ 1 → [−π/2, π/2] \ {0} */
+function trueAcsc(x) {
+  if (x == null || !Number.isFinite(x) || Math.abs(x) < 1 - EPS) return null
+  return Math.asin(1 / x)
+}
+
+/** y = arcsec(x), |x| ≥ 1 → [0, π] \ {π/2} */
+function trueAsec(x) {
+  if (x == null || !Number.isFinite(x) || Math.abs(x) < 1 - EPS) return null
+  return Math.acos(1 / x)
+}
+
 function formatTrigValue(v) {
   if (v == null || !Number.isFinite(v)) return '∞'
   if (Math.abs(v) > 1e4) return '∞'
@@ -169,10 +231,22 @@ export default function WavesPage() {
   const [playing, setPlaying] = useState(true)
   /** Wave-tied kit (samples + pad) */
   const [musicOn, setMusicOn] = useState(false)
-  /** Music-mode defaults: sin / cos / tan on (shell chord voices) */
+  /** Ableton Grand Piano multi vs E-Piano sample bank */
+  const [pianoInst, setPianoInst] = useState(() => getPianoInstrument())
+  /** Piano shell: sin / cos / −sin / −cos (4-note chords in music mode) */
   const [showSin, setShowSin] = useState(true)
   const [showCos, setShowCos] = useState(true)
-  const [showTan, setShowTan] = useState(true)
+  const [showAsin, setShowAsin] = useState(false)
+  const [showAcos, setShowAcos] = useState(false)
+  /** Hats: tan / cot / tan⁻¹ / cot⁻¹ · kicks/perc: sec / csc / sec⁻¹ / csc⁻¹ */
+  const [showTan, setShowTan] = useState(false)
+  const [showAtan, setShowAtan] = useState(false)
+  const [showCot, setShowCot] = useState(false)
+  const [showAcot, setShowAcot] = useState(false)
+  const [showCsc, setShowCsc] = useState(false)
+  const [showAcsc, setShowAcsc] = useState(false)
+  const [showSec, setShowSec] = useState(false)
+  const [showAsec, setShowAsec] = useState(false)
   /** Per-step shell MIDI overrides from staff drag (null = use defaults) */
   const [shellVoicings, setShellVoicings] = useState(
     () => /** @type {(import('../utils/trigMusic').ShellVoicing | null)[]} */ (
@@ -181,9 +255,6 @@ export default function WavesPage() {
   )
   /** Key signature in fifths: −7…+7 (editable on score); 0 = C major */
   const [keySigFifths, setKeySigFifths] = useState(0)
-  const [showCsc, setShowCsc] = useState(false)
-  const [showSec, setShowSec] = useState(false)
-  const [showCot, setShowCot] = useState(false)
   // Defaults match design screenshot: coords on (θ in °), axis labels + radians on
   const [showCoords, setShowCoords] = useState(true)
   const [coordsInRadians, setCoordsInRadians] = useState(false)
@@ -304,19 +375,33 @@ export default function WavesPage() {
   const amp = R
   const yClip = Math.min(MAX_GEO - 0.05, (cy - 12) / amp)
 
-  // Music: Giant Steps shells (sin=root, tan=3rd, cos=7th) + drums
+  // Music: 4-note piano (sin/cos/asin/acos) + Cymatics drum rack
   useEffect(() => {
     const r = (angle * Math.PI) / 180
     const s = Math.sin(r)
     const c = Math.cos(r)
+    const t = safeTan(s, c)
+    const cscV = safeCsc(s)
+    const secV = safeSec(c)
+    const cotV = safeCot(s, c)
     updateTrigMusic(musicOn && soundOn, {
       angleDeg: angle,
+      instrument: pianoInst,
+      // Piano
       sin: { show: showSin, value: s },
       cos: { show: showCos, value: c },
-      sec: { show: showSec, value: safeSec(c) },
-      csc: { show: showCsc, value: safeCsc(s) },
-      tan: { show: showTan, value: safeTan(s, c) },
-      cot: { show: showCot, value: safeCot(s, c) },
+      asin: { show: showAsin, value: negate(s) },
+      acos: { show: showAcos, value: negate(c) },
+      // Closed hats — roll rate from |tan|/|cot| (sign does not matter for rate)
+      tan: { show: showTan, value: t },
+      cot: { show: showCot, value: cotV },
+      atan: { show: showAtan, value: t },
+      acot: { show: showAcot, value: cotV },
+      // Kick / perc — valley strikes on |sec|/|csc|
+      sec: { show: showSec, value: secV },
+      asec: { show: showAsec, value: secV },
+      csc: { show: showCsc, value: cscV },
+      acsc: { show: showAcsc, value: cscV },
       shellVoicings,
     })
   }, [
@@ -325,17 +410,25 @@ export default function WavesPage() {
     angle,
     showSin,
     showCos,
-    showSec,
-    showCsc,
+    showAsin,
+    showAcos,
     showTan,
     showCot,
+    showAtan,
+    showAcot,
+    showSec,
+    showAsec,
+    showCsc,
+    showAcsc,
     shellVoicings,
+    pianoInst,
   ])
 
   const onShellVoicingChange = useCallback((step, voicing) => {
     setShellVoicings((prev) => {
       const next = prev.slice()
       while (next.length < ARP_STEPS_PER_REV) next.push(null)
+      // null clears a slot (used when applying a shorter progression)
       next[step] = voicing
       return next
     })
@@ -350,15 +443,23 @@ export default function WavesPage() {
     () => arpInfo(angle, 'cos', shellVoicings, keySigFifths),
     [angle, shellVoicings, keySigFifths]
   )
-  const tanArp = useMemo(
-    () => arpInfo(angle, 'tan', shellVoicings, keySigFifths),
+  const asinArp = useMemo(
+    () => arpInfo(angle, 'asin', shellVoicings, keySigFifths),
+    [angle, shellVoicings, keySigFifths]
+  )
+  const acosArp = useMemo(
+    () => arpInfo(angle, 'acos', shellVoicings, keySigFifths),
     [angle, shellVoicings, keySigFifths]
   )
   const sinColor = musicOn && showSin ? sinArp.color : FN_COLORS.sin
   const cosColor = musicOn && showCos ? cosArp.color : FN_COLORS.cos
-  const tanColor = musicOn && showTan ? tanArp.color : FN_COLORS.tan
+  const asinColor = musicOn && showAsin ? asinArp.color : FN_COLORS.asin
+  const acosColor = musicOn && showAcos ? acosArp.color : FN_COLORS.acos
+  const tanColor = FN_COLORS.tan
   const chordTag =
-    musicOn && (showSin || showCos || showTan) ? sinArp.chordSymbol : null
+    musicOn && (showSin || showCos || showAsin || showAcos)
+      ? sinArp.chordSymbol
+      : null
 
   const rad = (angle * Math.PI) / 180
   const cos = Math.cos(rad)
@@ -367,6 +468,15 @@ export default function WavesPage() {
   const csc = safeCsc(sin)
   const sec = safeSec(cos)
   const cot = safeCot(sin, cos)
+  // −sin / −cos: phase flips (derivative cycle).
+  // tan⁻¹…: true inverse trig y=f⁻¹(x) with x mapped across the panel (not f⁻¹(f(θ))).
+  const invX = invInputFromTheta(angle)
+  const asin = negate(sin)
+  const acos = negate(cos)
+  const atan = trueAtan(invX)
+  const acsc = trueAcsc(invX)
+  const asec = trueAsec(invX)
+  const acot = trueAcot(invX)
   const px = cx + cos * R
   const py = cy - sin * R
   // Foot of perpendicular from P to x-axis (screen)
@@ -883,6 +993,12 @@ export default function WavesPage() {
         ['csc', showCsc],
         ['sec', showSec],
         ['cot', showCot],
+        ['asin', showAsin],
+        ['acos', showAcos],
+        ['atan', showAtan],
+        ['acsc', showAcsc],
+        ['asec', showAsec],
+        ['acot', showAcot],
       ]
         .filter(([, on]) => on)
         .map(([name]) => name)
@@ -923,13 +1039,20 @@ export default function WavesPage() {
     showCsc,
     showSec,
     showCot,
+    showAsin,
+    showAcos,
+    showAtan,
+    showAcsc,
+    showAsec,
+    showAcot,
     angle,
     angleAsInt,
   ])
 
   const viewTransform = `matrix(${view.k} 0 0 ${view.k} ${view.tx} ${view.ty})`
 
-  // Wave history: θ from 0 → current
+  // Wave history: θ from 0 → current (forward + phase flips).
+  // Inverse trig use the same x-position but y = f⁻¹(real input), not f⁻¹(f(θ)).
   const history = useMemo(() => {
     const pts = []
     const steps = 720 // denser sampling for vertical asymptotes
@@ -939,44 +1062,45 @@ export default function WavesPage() {
       const tr = (t * Math.PI) / 180
       const s = Math.sin(tr)
       const c = Math.cos(tr)
+      const tVal = safeTan(s, c)
+      const cscV = safeCsc(s)
+      const secV = safeSec(c)
+      const cotV = safeCot(s, c)
+      const xInv = invInputFromTheta(t)
       pts.push({
         t,
         x: waveX0 + (t / 360) * waveW,
         sin: s,
         cos: c,
-        tan: safeTan(s, c),
-        csc: safeCsc(s),
-        sec: safeSec(c),
-        cot: safeCot(s, c),
+        tan: tVal,
+        csc: cscV,
+        sec: secV,
+        cot: cotV,
+        asin: negate(s),
+        acos: negate(c),
+        atan: trueAtan(xInv),
+        acsc: trueAcsc(xInv),
+        asec: trueAsec(xInv),
+        acot: trueAcot(xInv),
       })
     }
     return pts
   }, [angle, waveW, waveX0])
 
-  const sinPath = useMemo(
-    () => buildClippedPath(history, (p) => p.sin, cy, amp, yClip),
-    [history, cy, amp, yClip]
-  )
-  const cosPath = useMemo(
-    () => buildClippedPath(history, (p) => p.cos, cy, amp, yClip),
-    [history, cy, amp, yClip]
-  )
-  const tanPath = useMemo(
-    () => buildClippedPath(history, (p) => p.tan, cy, amp, yClip),
-    [history, cy, amp, yClip]
-  )
-  const cscPath = useMemo(
-    () => buildClippedPath(history, (p) => p.csc, cy, amp, yClip),
-    [history, cy, amp, yClip]
-  )
-  const secPath = useMemo(
-    () => buildClippedPath(history, (p) => p.sec, cy, amp, yClip),
-    [history, cy, amp, yClip]
-  )
-  const cotPath = useMemo(
-    () => buildClippedPath(history, (p) => p.cot, cy, amp, yClip),
-    [history, cy, amp, yClip]
-  )
+  const makePath = (key) =>
+    buildClippedPath(history, (p) => p[key], cy, amp, yClip)
+  const sinPath = useMemo(() => makePath('sin'), [history, cy, amp, yClip])
+  const cosPath = useMemo(() => makePath('cos'), [history, cy, amp, yClip])
+  const tanPath = useMemo(() => makePath('tan'), [history, cy, amp, yClip])
+  const cscPath = useMemo(() => makePath('csc'), [history, cy, amp, yClip])
+  const secPath = useMemo(() => makePath('sec'), [history, cy, amp, yClip])
+  const cotPath = useMemo(() => makePath('cot'), [history, cy, amp, yClip])
+  const asinPath = useMemo(() => makePath('asin'), [history, cy, amp, yClip])
+  const acosPath = useMemo(() => makePath('acos'), [history, cy, amp, yClip])
+  const atanPath = useMemo(() => makePath('atan'), [history, cy, amp, yClip])
+  const acscPath = useMemo(() => makePath('acsc'), [history, cy, amp, yClip])
+  const asecPath = useMemo(() => makePath('asec'), [history, cy, amp, yClip])
+  const acotPath = useMemo(() => makePath('acot'), [history, cy, amp, yClip])
 
   const scanX = waveX0 + (angle / 360) * waveW
 
@@ -1004,34 +1128,130 @@ export default function WavesPage() {
       setShow: setShowSin,
       value: sin,
       path: sinPath,
-      scanY: sinScanY,
+      scanY: scanY(sin),
       color: sinColor,
     },
     {
       key: 'cos',
-      label: musicOn && showCos ? `cos · ${cosArp.name}` : 'cos x',
+      label: musicOn && showCos ? `cos · 3rd ${cosArp.name}` : 'cos x',
       short: 'cos θ',
       show: showCos,
       setShow: setShowCos,
       value: cos,
       path: cosPath,
-      scanY: cosScanY,
+      scanY: scanY(cos),
       color: cosColor,
     },
     {
+      key: 'asin',
+      label: musicOn && showAsin ? `−sin · 5th ${asinArp.name}` : '−sin x',
+      short: '−sin',
+      show: showAsin,
+      setShow: setShowAsin,
+      value: asin,
+      path: asinPath,
+      scanY: scanY(asin),
+      color: asinColor,
+    },
+    {
+      key: 'acos',
+      label: musicOn && showAcos ? `−cos · 7th ${acosArp.name}` : '−cos x',
+      short: '−cos',
+      show: showAcos,
+      setShow: setShowAcos,
+      value: acos,
+      path: acosPath,
+      scanY: scanY(acos),
+      color: acosColor,
+    },
+    {
       key: 'tan',
-      label: musicOn && showTan ? `tan · ${tanArp.name}` : 'tan x',
+      label: musicOn && showTan ? 'tan · closed hat' : 'tan x',
       short: 'tan θ',
       show: showTan,
       setShow: setShowTan,
       value: tan,
       path: tanPath,
-      scanY: tanScanY,
+      scanY: scanY(tan),
       color: tanColor,
     },
-    { key: 'csc', label: 'csc x', short: 'csc θ', show: showCsc, setShow: setShowCsc, value: csc, path: cscPath, scanY: cscScanY, color: FN_COLORS.csc },
-    { key: 'sec', label: 'sec x', short: 'sec θ', show: showSec, setShow: setShowSec, value: sec, path: secPath, scanY: secScanY, color: FN_COLORS.sec },
-    { key: 'cot', label: 'cot x', short: 'cot θ', show: showCot, setShow: setShowCot, value: cot, path: cotPath, scanY: cotScanY, color: FN_COLORS.cot },
+    {
+      key: 'cot',
+      label: musicOn && showCot ? 'cot · closed hat' : 'cot x',
+      short: 'cot θ',
+      show: showCot,
+      setShow: setShowCot,
+      value: cot,
+      path: cotPath,
+      scanY: scanY(cot),
+      color: FN_COLORS.cot,
+    },
+    {
+      key: 'atan',
+      label: musicOn && showAtan ? 'tan⁻¹ · closed hat' : 'tan⁻¹ x',
+      short: 'tan⁻¹',
+      show: showAtan,
+      setShow: setShowAtan,
+      value: atan,
+      path: atanPath,
+      scanY: scanY(atan),
+      color: FN_COLORS.atan,
+    },
+    {
+      key: 'acot',
+      label: musicOn && showAcot ? 'cot⁻¹ · closed hat' : 'cot⁻¹ x',
+      short: 'cot⁻¹',
+      show: showAcot,
+      setShow: setShowAcot,
+      value: acot,
+      path: acotPath,
+      scanY: scanY(acot),
+      color: FN_COLORS.acot,
+    },
+    {
+      key: 'csc',
+      label: musicOn && showCsc ? 'csc · perc' : 'csc x',
+      short: 'csc θ',
+      show: showCsc,
+      setShow: setShowCsc,
+      value: csc,
+      path: cscPath,
+      scanY: scanY(csc),
+      color: FN_COLORS.csc,
+    },
+    {
+      key: 'sec',
+      label: musicOn && showSec ? 'sec · kick' : 'sec x',
+      short: 'sec θ',
+      show: showSec,
+      setShow: setShowSec,
+      value: sec,
+      path: secPath,
+      scanY: scanY(sec),
+      color: FN_COLORS.sec,
+    },
+    {
+      key: 'acsc',
+      label: musicOn && showAcsc ? 'csc⁻¹ · perc' : 'csc⁻¹ x',
+      short: 'csc⁻¹',
+      show: showAcsc,
+      setShow: setShowAcsc,
+      value: acsc,
+      path: acscPath,
+      scanY: scanY(acsc),
+      color: FN_COLORS.acsc,
+    },
+    {
+      key: 'asec',
+      label: musicOn && showAsec ? 'sec⁻¹ · kick' : 'sec⁻¹ x',
+      short: 'sec⁻¹',
+      show: showAsec,
+      setShow: setShowAsec,
+      value: asec,
+      path: asecPath,
+      scanY: scanY(asec),
+      color: FN_COLORS.asec,
+    },
   ]
 
   return (
@@ -1679,7 +1899,12 @@ export default function WavesPage() {
                     fill="none"
                     stroke={f.color}
                     strokeWidth={
-                      f.key === 'sin' || f.key === 'cos' ? WAVE_STROKE_MAIN : WAVE_STROKE_OTHER
+                      f.key === 'sin' ||
+                      f.key === 'cos' ||
+                      f.key === 'asin' ||
+                      f.key === 'acos'
+                        ? WAVE_STROKE_MAIN
+                        : WAVE_STROKE_OTHER
                     }
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -1738,10 +1963,11 @@ export default function WavesPage() {
                   onClick={() => {
                     setMusicOn((m) => {
                       if (!m) {
-                        // Music mode defaults: shell voices on
+                        // Music mode: 4-note piano shell (sin/cos family)
                         setShowSin(true)
                         setShowCos(true)
-                        setShowTan(true)
+                        setShowAsin(true)
+                        setShowAcos(true)
                       }
                       return !m
                     })
@@ -1751,12 +1977,32 @@ export default function WavesPage() {
                       ? 'Site sound is muted (nav ♪) — turn it on to hear waves'
                       : musicOn
                         ? 'Mute wave music'
-                        : 'Music: Coltrane Giant Steps harmony — sin=root, tan=3rd, cos=7th; colour = CoF rainbow by root'
+                        : 'Music: 4-note piano (sin/cos/−sin/−cos) · hats (tan/cot) · kick/perc (sec/csc)'
                   }
                   aria-pressed={musicOn}
                 >
                   {musicOn ? 'Music on' : 'Music'}
                 </button>
+                {musicOn && (
+                  <button
+                    type="button"
+                    className={`btn-ghost${pianoInst === 'electric' ? ' is-active' : ''}`}
+                    onClick={() => {
+                      const next = pianoInst === 'grand' ? 'electric' : 'grand'
+                      // One shot only: stop tails + swap bank; music loop re-fires chord once
+                      setPianoInstrument(next)
+                      setPianoInst(next)
+                    }}
+                    title={
+                      pianoInst === 'grand'
+                        ? 'Now: Ableton Grand Piano (warm mf multi) — click for Uber Tines EP'
+                        : 'Now: MPC Uber Tines soft (vel 068) — click for Grand Piano'
+                    }
+                    aria-pressed={pianoInst === 'electric'}
+                  >
+                    {pianoInst === 'grand' ? 'Grand Piano' : 'Uber Tines'}
+                  </button>
+                )}
                 <button type="button" className="btn-ghost" onClick={() => setAngle(0)}>
                   Reset θ
                 </button>
@@ -1970,18 +2216,25 @@ export default function WavesPage() {
               </div>
 
               <p className="derive-note">
-                Each function is a length on the unit circle and a wave against θ. Toggle sin, cos,
-                tan, csc, sec, and cot — circle segments and graphs stay in sync; unbounded curves
-                break at their asymptotes.
+                Each forward function is a length on the unit circle and a wave against θ.{' '}
+                <strong>−sin</strong> and <strong>−cos</strong> are phase flips (additive inverses)
+                that complete the derivative cycle{' '}
+                <em>sin → cos → −sin → −cos → sin</em> — still full sinusoids.{' '}
+                <strong>tan⁻¹, cot⁻¹, sec⁻¹, csc⁻¹</strong> are the true inverse functions{' '}
+                y = f⁻¹(x) (principal branch, radians): as the graph sweeps left→right, x runs about
+                −{INV_X_MAX}…+{INV_X_MAX}, so tan⁻¹ is the smooth S-curve with asymptotes ±π/2 — not
+                the sawtooth tan⁻¹(tan θ). Toggle any combination — unbounded curves break at their
+                asymptotes.
                 {musicOn && (
                   <>
                     {' '}
-                    <strong>Music</strong> uses a Giant Steps opening excerpt (4 bars · 4/4 · 8
-                    chords / θ turn) played with Ableton Live Lite’s <em>Grand Piano</em>{' '}
-                    multisamples. Type chord names to snap notes, or drag for inversions; colours
-                    follow the circle of fifths unless the progression is only I–IV–V (then two
-                    colours). Key signature is manual only; time signature stays 4/4. Percussion: sec
-                    = kick, csc = snare, cot = closed hat.
+                    <strong>Music</strong> defaults to a Giant Steps excerpt (up to 8 chords /
+                    θ turn; apply any 1–8 chord progression). Toggle <em>Grand Piano</em> vs{' '}
+                    <em>Uber Tines</em>. Four-note shells: <em>sin</em>=root, <em>cos</em>=3rd,{' '}
+                    <em>−sin</em>=5th, <em>−cos</em>=7th. Closed hats: tan / cot / tan⁻¹ / cot⁻¹.
+                    Kick: sec / sec⁻¹. Perc: csc / csc⁻¹. Type chord names or drag notes; colours
+                    follow the circle of fifths (or one colour for pure I–IV–V). Key signature is
+                    manual; time stays 4/4.
                   </>
                 )}
                 {!playing &&
