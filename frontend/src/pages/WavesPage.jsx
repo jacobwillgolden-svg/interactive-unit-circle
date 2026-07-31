@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { formatCoords, formatRadLabel, snapCommonAngle } from '../utils/angles'
 import GiantStepsScore from '../components/GiantStepsScore'
-import { arpInfo, disposeTrigMusic, updateTrigMusic } from '../utils/trigMusic'
+import {
+  ARP_STEPS_PER_REV,
+  arpInfo,
+  disposeTrigMusic,
+  updateTrigMusic,
+} from '../utils/trigMusic'
 
 /** Neon-leaning stroke colors for each function */
 const FN_COLORS = {
@@ -168,6 +173,14 @@ export default function WavesPage() {
   const [showSin, setShowSin] = useState(true)
   const [showCos, setShowCos] = useState(true)
   const [showTan, setShowTan] = useState(true)
+  /** Per-step shell MIDI overrides from staff drag (null = use defaults) */
+  const [shellVoicings, setShellVoicings] = useState(
+    () => /** @type {(import('../utils/trigMusic').ShellVoicing | null)[]} */ (
+      Array.from({ length: ARP_STEPS_PER_REV }, () => null)
+    )
+  )
+  /** Key signature in fifths: −7…+7 (editable on score); 0 = C major */
+  const [keySigFifths, setKeySigFifths] = useState(0)
   const [showCsc, setShowCsc] = useState(false)
   const [showSec, setShowSec] = useState(false)
   const [showCot, setShowCot] = useState(false)
@@ -304,6 +317,7 @@ export default function WavesPage() {
       csc: { show: showCsc, value: safeCsc(s) },
       tan: { show: showTan, value: safeTan(s, c) },
       cot: { show: showCot, value: safeCot(s, c) },
+      shellVoicings,
     })
   }, [
     musicOn,
@@ -315,12 +329,31 @@ export default function WavesPage() {
     showCsc,
     showTan,
     showCot,
+    shellVoicings,
   ])
 
-  // Pitch colours = CoF rainbow; labels show role + note + Spectrum Cycle chord
-  const sinArp = useMemo(() => arpInfo(angle, 'sin'), [angle])
-  const cosArp = useMemo(() => arpInfo(angle, 'cos'), [angle])
-  const tanArp = useMemo(() => arpInfo(angle, 'tan'), [angle])
+  const onShellVoicingChange = useCallback((step, voicing) => {
+    setShellVoicings((prev) => {
+      const next = prev.slice()
+      while (next.length < ARP_STEPS_PER_REV) next.push(null)
+      next[step] = voicing
+      return next
+    })
+  }, [])
+
+  // Colours/symbols follow analysed composition + key spelling
+  const sinArp = useMemo(
+    () => arpInfo(angle, 'sin', shellVoicings, keySigFifths),
+    [angle, shellVoicings, keySigFifths]
+  )
+  const cosArp = useMemo(
+    () => arpInfo(angle, 'cos', shellVoicings, keySigFifths),
+    [angle, shellVoicings, keySigFifths]
+  )
+  const tanArp = useMemo(
+    () => arpInfo(angle, 'tan', shellVoicings, keySigFifths),
+    [angle, shellVoicings, keySigFifths]
+  )
   const sinColor = musicOn && showSin ? sinArp.color : FN_COLORS.sin
   const cosColor = musicOn && showCos ? cosArp.color : FN_COLORS.cos
   const tanColor = musicOn && showTan ? tanArp.color : FN_COLORS.tan
@@ -976,7 +1009,7 @@ export default function WavesPage() {
     },
     {
       key: 'cos',
-      label: musicOn && showCos ? `cos · 7th ${cosArp.name}` : 'cos x',
+      label: musicOn && showCos ? `cos · ${cosArp.name}` : 'cos x',
       short: 'cos θ',
       show: showCos,
       setShow: setShowCos,
@@ -987,7 +1020,7 @@ export default function WavesPage() {
     },
     {
       key: 'tan',
-      label: musicOn && showTan ? `tan · 3rd ${tanArp.name}` : 'tan x',
+      label: musicOn && showTan ? `tan · ${tanArp.name}` : 'tan x',
       short: 'tan θ',
       show: showTan,
       setShow: setShowTan,
@@ -1943,11 +1976,12 @@ export default function WavesPage() {
                 {musicOn && (
                   <>
                     {' '}
-                    <strong>Music</strong> follows John Coltrane’s <em>Giant Steps</em> — the
-                    standard 16-bar form (see coloured staff below). As θ turns, the progression
-                    advances left → right; the active chord is outlined. Enabled voices form a shell
-                    — <strong>sin</strong> = root, <strong>tan</strong> = 3rd, <strong>cos</strong> =
-                    7th. Percussion: sec = kick, csc = snare, cot = closed hat.
+                    <strong>Music</strong> uses a Giant Steps opening excerpt (4 bars · 4/4 · 8
+                    chords / θ turn) played with Ableton Live Lite’s <em>Grand Piano</em>{' '}
+                    multisamples. Type chord names to snap notes, or drag for inversions; colours
+                    follow the circle of fifths unless the progression is only I–IV–V (then two
+                    colours). Key signature is manual only; time signature stays 4/4. Percussion: sec
+                    = kick, csc = snare, cot = closed hat.
                   </>
                 )}
                 {!playing &&
@@ -1956,7 +1990,16 @@ export default function WavesPage() {
                 Save PNG to export.
               </p>
 
-              {musicOn && <GiantStepsScore angleDeg={angle} active={musicOn} />}
+              {musicOn && (
+                <GiantStepsScore
+                  angleDeg={angle}
+                  active={musicOn}
+                  voicings={shellVoicings}
+                  onVoicingChange={onShellVoicingChange}
+                  keySigFifths={keySigFifths}
+                  onKeySigChange={setKeySigFifths}
+                />
+              )}
             </div>
           </div>
         </section>
