@@ -1400,6 +1400,127 @@ html[data-theme='light'] .zoom-controls {
   font-weight: 500;
 }
 
+/* Giant Steps treble-staff progression (Music mode) */
+.gs-score {
+  margin: 0.85rem 0 0.25rem;
+  padding: 0.75rem 0.85rem 0.65rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.gs-score__caption {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  margin: 0 0 0.55rem;
+  font-weight: 300;
+}
+
+.gs-score__caption em {
+  color: var(--text);
+  font-style: italic;
+}
+
+.gs-score__scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gs-score__svg {
+  display: block;
+  min-width: 1100px;
+  max-width: none;
+  height: auto;
+}
+
+.gs-score__symbol-band {
+  fill: color-mix(in srgb, var(--surface) 40%, transparent);
+}
+
+.gs-score__staff-line {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.gs-score__clef {
+  font-size: 42px;
+  fill: var(--text-muted);
+  font-family: 'Segoe UI Symbol', 'Apple Symbols', 'Noto Music', serif;
+  opacity: 0.85;
+  user-select: none;
+}
+
+.gs-score__barline {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  opacity: 0.4;
+}
+
+.gs-score__symbol {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  /* Keep labels in the reserved band above the staff */
+  dominant-baseline: auto;
+}
+
+.gs-score__active-ring {
+  stroke: var(--text);
+  stroke-width: 1.25;
+  stroke-dasharray: 3 2;
+  opacity: 0.55;
+}
+
+.gs-score__chord.is-current .gs-score__symbol {
+  font-size: 11px;
+}
+
+.gs-score__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.gs-score__legend-label {
+  width: 100%;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0.1rem;
+}
+
+@media (min-width: 720px) {
+  .gs-score__legend-label {
+    width: auto;
+    margin-right: 0.25rem;
+    margin-bottom: 0;
+  }
+}
+
+.gs-score__swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.gs-score__swatch i {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent);
+}
+
 .helix-panel {
   overflow: hidden;
   min-height: 420px;

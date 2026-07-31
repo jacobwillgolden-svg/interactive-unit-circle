@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { formatCoords, formatRadLabel, snapCommonAngle } from '../utils/angles'
-import { disposeTrigMusic, updateTrigMusic } from '../utils/trigMusic'
+import GiantStepsScore from '../components/GiantStepsScore'
+import { arpInfo, disposeTrigMusic, updateTrigMusic } from '../utils/trigMusic'
 
 /** Neon-leaning stroke colors for each function */
 const FN_COLORS = {
@@ -14,13 +15,26 @@ const FN_COLORS = {
 }
 
 /** Soft triangle fill matching a stroke color (light theme slightly stronger) */
-function softFill(hex, light) {
-  const h = hex.replace('#', '')
-  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16)
+function softFill(color, light) {
+  const a = light ? 0.14 : 0.12
+  // HSL from unit-circle / octave pitch colours
+  const hsl = /^hsl\(\s*([\d.]+)\s+([\d.]+)%\s+([\d.]+)%\s*\)$/i.exec(color)
+  if (hsl) {
+    return `hsl(${hsl[1]} ${hsl[2]}% ${hsl[3]}% / ${a})`
+  }
+  const hex = color.replace('#', '')
+  if (!/^[0-9a-f]{3,8}$/i.test(hex)) return color
+  const full =
+    hex.length === 3
+      ? hex
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : hex.slice(0, 6)
+  const n = parseInt(full, 16)
   const r = (n >> 16) & 255
   const g = (n >> 8) & 255
   const b = n & 255
-  const a = light ? 0.14 : 0.12
   return `rgba(${r},${g},${b},${a})`
 }
 
@@ -150,9 +164,10 @@ export default function WavesPage() {
   const [playing, setPlaying] = useState(true)
   /** Wave-tied kit (samples + pad) */
   const [musicOn, setMusicOn] = useState(false)
+  /** Music-mode defaults: sin / cos / tan on (shell chord voices) */
   const [showSin, setShowSin] = useState(true)
   const [showCos, setShowCos] = useState(true)
-  const [showTan, setShowTan] = useState(false)
+  const [showTan, setShowTan] = useState(true)
   const [showCsc, setShowCsc] = useState(false)
   const [showSec, setShowSec] = useState(false)
   const [showCot, setShowCot] = useState(false)
@@ -276,12 +291,13 @@ export default function WavesPage() {
   const amp = R
   const yClip = Math.min(MAX_GEO - 0.05, (cy - 12) / amp)
 
-  // Music: samples + pad; sec/csc valleys, tan hat-roll, cot riser
+  // Music: Giant Steps shells (sin=root, tan=3rd, cos=7th) + drums
   useEffect(() => {
     const r = (angle * Math.PI) / 180
     const s = Math.sin(r)
     const c = Math.cos(r)
     updateTrigMusic(musicOn && soundOn, {
+      angleDeg: angle,
       sin: { show: showSin, value: s },
       cos: { show: showCos, value: c },
       sec: { show: showSec, value: safeSec(c) },
@@ -300,6 +316,16 @@ export default function WavesPage() {
     showTan,
     showCot,
   ])
+
+  // Pitch colours = CoF rainbow; labels show role + note + Spectrum Cycle chord
+  const sinArp = useMemo(() => arpInfo(angle, 'sin'), [angle])
+  const cosArp = useMemo(() => arpInfo(angle, 'cos'), [angle])
+  const tanArp = useMemo(() => arpInfo(angle, 'tan'), [angle])
+  const sinColor = musicOn && showSin ? sinArp.color : FN_COLORS.sin
+  const cosColor = musicOn && showCos ? cosArp.color : FN_COLORS.cos
+  const tanColor = musicOn && showTan ? tanArp.color : FN_COLORS.tan
+  const chordTag =
+    musicOn && (showSin || showCos || showTan) ? sinArp.chordSymbol : null
 
   const rad = (angle * Math.PI) / 180
   const cos = Math.cos(rad)
@@ -934,9 +960,42 @@ export default function WavesPage() {
   const cotScanY = scanY(cot)
 
   const functions = [
-    { key: 'sin', label: 'sin x', short: 'sin θ', show: showSin, setShow: setShowSin, value: sin, path: sinPath, scanY: sinScanY, color: FN_COLORS.sin },
-    { key: 'cos', label: 'cos x', short: 'cos θ', show: showCos, setShow: setShowCos, value: cos, path: cosPath, scanY: cosScanY, color: FN_COLORS.cos },
-    { key: 'tan', label: 'tan x', short: 'tan θ', show: showTan, setShow: setShowTan, value: tan, path: tanPath, scanY: tanScanY, color: FN_COLORS.tan },
+    {
+      key: 'sin',
+      label:
+        musicOn && showSin
+          ? `sin · root ${sinArp.name}${chordTag ? ` · ${chordTag}` : ''}`
+          : 'sin x',
+      short: 'sin θ',
+      show: showSin,
+      setShow: setShowSin,
+      value: sin,
+      path: sinPath,
+      scanY: sinScanY,
+      color: sinColor,
+    },
+    {
+      key: 'cos',
+      label: musicOn && showCos ? `cos · 7th ${cosArp.name}` : 'cos x',
+      short: 'cos θ',
+      show: showCos,
+      setShow: setShowCos,
+      value: cos,
+      path: cosPath,
+      scanY: cosScanY,
+      color: cosColor,
+    },
+    {
+      key: 'tan',
+      label: musicOn && showTan ? `tan · 3rd ${tanArp.name}` : 'tan x',
+      short: 'tan θ',
+      show: showTan,
+      setShow: setShowTan,
+      value: tan,
+      path: tanPath,
+      scanY: tanScanY,
+      color: tanColor,
+    },
     { key: 'csc', label: 'csc x', short: 'csc θ', show: showCsc, setShow: setShowCsc, value: csc, path: cscPath, scanY: cscScanY, color: FN_COLORS.csc },
     { key: 'sec', label: 'sec x', short: 'sec θ', show: showSec, setShow: setShowSec, value: sec, path: secPath, scanY: secScanY, color: FN_COLORS.sec },
     { key: 'cot', label: 'cot x', short: 'cot θ', show: showCot, setShow: setShowCot, value: cot, path: cotPath, scanY: cotScanY, color: FN_COLORS.cot },
@@ -1207,14 +1266,14 @@ export default function WavesPage() {
                 <polygon
                   /* Under elevated cos (0,sin)→(cos,sin) down to the x-axis */
                   points={`${cx},${py} ${px},${py} ${footX},${footY} ${cx},${cy}`}
-                  fill={softFill(FN_COLORS.cos, isLight)}
+                  fill={softFill(cosColor, isLight)}
                   stroke="none"
                 />
               )}
               {showSin && (
                 <polygon
                   points={`${cx},${cy} ${footX},${footY} ${px},${py}`}
-                  fill={softFill(FN_COLORS.sin, isLight)}
+                  fill={softFill(sinColor, isLight)}
                   stroke="none"
                 />
               )}
@@ -1228,7 +1287,7 @@ export default function WavesPage() {
               {showTanGeo && tanEnd && (
                 <polygon
                   points={`${cx},${cy} ${px},${py} ${tanEnd.x},${tanEnd.y}`}
-                  fill={softFill(FN_COLORS.tan, isLight)}
+                  fill={softFill(tanColor, isLight)}
                   stroke="none"
                 />
               )}
@@ -1361,19 +1420,19 @@ export default function WavesPage() {
                     y1={py}
                     x2={tanEnd.x}
                     y2={tanEnd.y}
-                    stroke={FN_COLORS.tan}
+                    stroke={tanColor}
                     strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
                   {showEndpoints && (
-                    <TipDot x={tanEnd.x} y={tanEnd.y} color={FN_COLORS.tan} />
+                    <TipDot x={tanEnd.x} y={tanEnd.y} color={tanColor} />
                   )}
                   {showNames && (
                     <text
                       x={(px + tanEnd.x) / 2 + 8}
                       y={(py + tanEnd.y) / 2}
                       fontSize="12"
-                      fill={FN_COLORS.tan}
+                      fill={tanColor}
                       fontFamily="JetBrains Mono, monospace"
                       fontWeight="600"
                     >
@@ -1393,19 +1452,19 @@ export default function WavesPage() {
                     y1={py}
                     x2={px}
                     y2={py}
-                    stroke={FN_COLORS.cos}
+                    stroke={cosColor}
                     strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
                   {showEndpoints && (
-                    <TipDot x={cx} y={py} color={FN_COLORS.cos} />
+                    <TipDot x={cx} y={py} color={cosColor} />
                   )}
                   {showNames && (
                     <text
                       x={(cx + px) / 2}
                       y={py + (sin >= 0 ? -10 : 16)}
                       fontSize="12"
-                      fill={FN_COLORS.cos}
+                      fill={cosColor}
                       fontFamily="JetBrains Mono, monospace"
                       fontWeight="600"
                       textAnchor="middle"
@@ -1419,7 +1478,7 @@ export default function WavesPage() {
                       y1={py}
                       x2={scanX}
                       y2={cosScanY}
-                      stroke={FN_COLORS.cos}
+                      stroke={cosColor}
                       strokeOpacity="0.18"
                       strokeDasharray="4 4"
                     />
@@ -1435,19 +1494,19 @@ export default function WavesPage() {
                     y1={footY}
                     x2={px}
                     y2={py}
-                    stroke={FN_COLORS.sin}
+                    stroke={sinColor}
                     strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
                   {showEndpoints && (
-                    <TipDot x={px} y={py} color={FN_COLORS.sin} />
+                    <TipDot x={px} y={py} color={sinColor} />
                   )}
                   {showNames && (
                     <text
                       x={px + (cos >= 0 ? 8 : -8)}
                       y={(footY + py) / 2}
                       fontSize="12"
-                      fill={FN_COLORS.sin}
+                      fill={sinColor}
                       fontFamily="JetBrains Mono, monospace"
                       fontWeight="600"
                       textAnchor={cos >= 0 ? 'start' : 'end'}
@@ -1461,7 +1520,7 @@ export default function WavesPage() {
                       y1={py}
                       x2={scanX}
                       y2={sinScanY}
-                      stroke={FN_COLORS.sin}
+                      stroke={sinColor}
                       strokeOpacity="0.22"
                       strokeDasharray="4 4"
                     />
@@ -1487,7 +1546,7 @@ export default function WavesPage() {
                   y1={tanEnd.y}
                   x2={scanX}
                   y2={tanScanY}
-                  stroke={FN_COLORS.tan}
+                  stroke={tanColor}
                   strokeOpacity="0.2"
                   strokeDasharray="4 4"
                 />
@@ -1643,13 +1702,23 @@ export default function WavesPage() {
                 <button
                   type="button"
                   className={`btn-ghost${musicOn ? ' is-active' : ''}`}
-                  onClick={() => setMusicOn((m) => !m)}
+                  onClick={() => {
+                    setMusicOn((m) => {
+                      if (!m) {
+                        // Music mode defaults: shell voices on
+                        setShowSin(true)
+                        setShowCos(true)
+                        setShowTan(true)
+                      }
+                      return !m
+                    })
+                  }}
                   title={
                     !soundOn
                       ? 'Site sound is muted (nav ♪) — turn it on to hear waves'
                       : musicOn
                         ? 'Mute wave music'
-                        : 'Music: Terror samples — sec=kick, csc=snare, tan=hat roll, cot=riser (builds with |cot|→∞)'
+                        : 'Music: Coltrane Giant Steps harmony — sin=root, tan=3rd, cos=7th; colour = CoF rainbow by root'
                   }
                   aria-pressed={musicOn}
                 >
@@ -1871,13 +1940,23 @@ export default function WavesPage() {
                 Each function is a length on the unit circle and a wave against θ. Toggle sin, cos,
                 tan, csc, sec, and cot — circle segments and graphs stay in sync; unbounded curves
                 break at their asymptotes.
-                {musicOn &&
-                  ' Music (Cymatics Terror samples): sec = kick, csc = snare, tan = closed-hat roll (faster as |tan|→∞), cot = riser (builds with |cot|→∞, cuts at asymptote). Mute with Music or the nav ♪ control.'}
+                {musicOn && (
+                  <>
+                    {' '}
+                    <strong>Music</strong> follows John Coltrane’s <em>Giant Steps</em> — the
+                    standard 16-bar form (see coloured staff below). As θ turns, the progression
+                    advances left → right; the active chord is outlined. Enabled voices form a shell
+                    — <strong>sin</strong> = root, <strong>tan</strong> = 3rd, <strong>cos</strong> =
+                    7th. Percussion: sec = kick, csc = snare, cot = closed hat.
+                  </>
+                )}
                 {!playing &&
                   ' Left-drag an endpoint or the unit circle ring to set θ (Endpoints toggle shows tips + P handle).'}
                 {' '}Scroll or pinch to zoom; one-finger drag (touch) or right-drag (mouse) to pan;
                 Save PNG to export.
               </p>
+
+              {musicOn && <GiantStepsScore angleDeg={angle} active={musicOn} />}
             </div>
           </div>
         </section>
