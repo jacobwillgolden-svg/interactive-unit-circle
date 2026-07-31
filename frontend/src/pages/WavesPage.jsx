@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { formatCoords, formatRadLabel, snapCommonAngle } from '../utils/angles'
+import { disposeTrigMusic, updateTrigMusic } from '../utils/trigMusic'
 
 /** Neon-leaning stroke colors for each function */
 const FN_COLORS = {
@@ -32,6 +33,25 @@ const GEO_STROKE = 1.5
 /** Wave-plot stroke weights */
 const WAVE_STROKE_MAIN = 1.55
 const WAVE_STROKE_OTHER = 1.35
+
+/** θ animation: degrees per second at speed = 1 (see play loop) */
+const ANIM_DEG_PER_SEC = 40
+/** Musical grid: 4 quarter notes per full θ rotation */
+const BEATS_PER_REV = 4
+const BPM_MIN = 7
+const BPM_MAX = 170
+/** speed ↔ BPM: BPM = BEATS_PER_REV * ANIM_DEG_PER_SEC * speed * 60 / 360 */
+const SPEED_MIN = (BPM_MIN * 360) / (BEATS_PER_REV * ANIM_DEG_PER_SEC * 60)
+const SPEED_MAX = (BPM_MAX * 360) / (BEATS_PER_REV * ANIM_DEG_PER_SEC * 60)
+
+function bpmFromSpeed(speed) {
+  return Math.round((BEATS_PER_REV * ANIM_DEG_PER_SEC * speed * 60) / 360)
+}
+
+/** Full θ rotations per minute */
+function rpmFromSpeed(speed) {
+  return Math.round(((ANIM_DEG_PER_SEC * speed) / 360) * 60)
+}
 
 /** Translucent tip marker; large invisible hit ring for easier left-drag */
 function TipDot({ x, y, color, interactive = true }) {
@@ -125,9 +145,11 @@ function buildClippedPath(pts, getValue, cy, amp, yClip) {
  * Unit circle + unwrapped trig graphs (sin, cos, tan, csc, sec, cot).
  */
 export default function WavesPage() {
-  const { theme } = useOutletContext()
+  const { theme, soundOn } = useOutletContext()
   const [angle, setAngle] = useState(0)
   const [playing, setPlaying] = useState(true)
+  /** Wave-tied kit (samples + pad) */
+  const [musicOn, setMusicOn] = useState(false)
   const [showSin, setShowSin] = useState(true)
   const [showCos, setShowCos] = useState(true)
   const [showTan, setShowTan] = useState(false)
@@ -204,7 +226,7 @@ export default function WavesPage() {
     const tick = (now) => {
       const dt = (now - last) / 1000
       last = now
-      setAngle((a) => (a + dt * 40 * speed) % 360)
+      setAngle((a) => (a + dt * ANIM_DEG_PER_SEC * speed) % 360)
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -223,6 +245,8 @@ export default function WavesPage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  useEffect(() => () => disposeTrigMusic(), [])
 
   const isLight = theme === 'light'
   const ink = isLight ? '#0f172a' : '#e8eaf0'
@@ -251,6 +275,31 @@ export default function WavesPage() {
   const W = waveX0 + waveW + 40
   const amp = R
   const yClip = Math.min(MAX_GEO - 0.05, (cy - 12) / amp)
+
+  // Music: samples + pad; sec/csc valleys, tan hat-roll, cot riser
+  useEffect(() => {
+    const r = (angle * Math.PI) / 180
+    const s = Math.sin(r)
+    const c = Math.cos(r)
+    updateTrigMusic(musicOn && soundOn, {
+      sin: { show: showSin, value: s },
+      cos: { show: showCos, value: c },
+      sec: { show: showSec, value: safeSec(c) },
+      csc: { show: showCsc, value: safeCsc(s) },
+      tan: { show: showTan, value: safeTan(s, c) },
+      cot: { show: showCot, value: safeCot(s, c) },
+    })
+  }, [
+    musicOn,
+    soundOn,
+    angle,
+    showSin,
+    showCos,
+    showSec,
+    showCsc,
+    showTan,
+    showCot,
+  ])
 
   const rad = (angle * Math.PI) / 180
   const cos = Math.cos(rad)
@@ -1591,6 +1640,21 @@ export default function WavesPage() {
                 <button type="button" className="btn-primary" onClick={() => setPlaying((p) => !p)}>
                   {playing ? 'Pause' : 'Play'}
                 </button>
+                <button
+                  type="button"
+                  className={`btn-ghost${musicOn ? ' is-active' : ''}`}
+                  onClick={() => setMusicOn((m) => !m)}
+                  title={
+                    !soundOn
+                      ? 'Site sound is muted (nav ♪) — turn it on to hear waves'
+                      : musicOn
+                        ? 'Mute wave music'
+                        : 'Music: Terror samples — sec=kick, csc=snare, tan=hat roll, cot=riser (builds with |cot|→∞)'
+                  }
+                  aria-pressed={musicOn}
+                >
+                  {musicOn ? 'Music on' : 'Music'}
+                </button>
                 <button type="button" className="btn-ghost" onClick={() => setAngle(0)}>
                   Reset θ
                 </button>
@@ -1637,48 +1701,69 @@ export default function WavesPage() {
                     Reset view
                   </button>
                 </div>
-                <label className="inline-slider">
-                  <span>Speed</span>
-                  <input
-                    type="range"
-                    min="0.25"
-                    max="2.5"
-                    step="0.05"
-                    value={speed}
-                    onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                  />
-                </label>
-                <label className="inline-slider">
-                  <span>Angle</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="360"
-                    step={angleAsInt ? 1 : 0.001}
-                    value={angle}
-                    onChange={(e) => {
-                      setPlaying(false)
-                      let v = parseFloat(e.target.value)
-                      if (angleAsInt) v = Math.round(v)
-                      setAngle(v)
-                    }}
-                  />
-                </label>
-                <label
-                  className={`chip-toggle${angleAsInt ? ' is-on' : ''}`}
-                  title={
-                    angleAsInt
-                      ? 'Angle as whole numbers (int) — click for 3 decimal places'
-                      : 'Angle with 3 decimal places (float) — click for whole numbers'
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    checked={angleAsInt}
-                    onChange={(e) => setAngleAsInt(e.target.checked)}
-                  />
-                  {angleAsInt ? 'θ: int' : 'θ: float'}
-                </label>
+              </div>
+
+              <div className="wave-sliders">
+                <div className="wave-slider-row">
+                  <label className="inline-slider inline-slider--row">
+                    <span>Angle</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="360"
+                      step={angleAsInt ? 1 : 0.001}
+                      value={angle}
+                      onChange={(e) => {
+                        setPlaying(false)
+                        let v = parseFloat(e.target.value)
+                        if (angleAsInt) v = Math.round(v)
+                        setAngle(v)
+                      }}
+                    />
+                  </label>
+                  <label
+                    className={`chip-toggle chip-toggle--slider-end${angleAsInt ? ' is-on' : ''}`}
+                    title={
+                      angleAsInt
+                        ? 'Angle as whole numbers (int) — click for 3 decimal places'
+                        : 'Angle with 3 decimal places (float) — click for whole numbers'
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={angleAsInt}
+                      onChange={(e) => setAngleAsInt(e.target.checked)}
+                    />
+                    {angleAsInt ? 'θ: int' : 'θ: float'}
+                  </label>
+                </div>
+                <div className="wave-slider-row">
+                  <label className="inline-slider inline-slider--row">
+                    <span>Speed</span>
+                    <input
+                      type="range"
+                      min={SPEED_MIN}
+                      max={SPEED_MAX}
+                      step="0.01"
+                      value={speed}
+                      onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                    />
+                  </label>
+                  <div
+                    className="tempo-readout"
+                    title={
+                      musicOn
+                        ? `Quarter-note BPM (${BPM_MIN}–${BPM_MAX}): 4 beats per full θ rotation. Scales with Speed.`
+                        : 'Revolutions per minute of θ. Turn Music on to show BPM instead.'
+                    }
+                    aria-live="polite"
+                  >
+                    <span className="tempo-value">
+                      {musicOn ? bpmFromSpeed(speed) : rpmFromSpeed(speed)}
+                    </span>
+                    <span className="tempo-unit">{musicOn ? 'BPM' : 'RPM'}</span>
+                  </div>
+                </div>
               </div>
 
               <div className="fn-toggles">
@@ -1786,6 +1871,8 @@ export default function WavesPage() {
                 Each function is a length on the unit circle and a wave against θ. Toggle sin, cos,
                 tan, csc, sec, and cot — circle segments and graphs stay in sync; unbounded curves
                 break at their asymptotes.
+                {musicOn &&
+                  ' Music (Cymatics Terror samples): sec = kick, csc = snare, tan = closed-hat roll (faster as |tan|→∞), cot = riser (builds with |cot|→∞, cuts at asymptote). Mute with Music or the nav ♪ control.'}
                 {!playing &&
                   ' Left-drag an endpoint or the unit circle ring to set θ (Endpoints toggle shows tips + P handle).'}
                 {' '}Scroll or pinch to zoom; one-finger drag (touch) or right-drag (mouse) to pan;
