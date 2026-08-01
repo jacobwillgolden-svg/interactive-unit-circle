@@ -6,6 +6,7 @@ import {
   ARP_STEPS_PER_REV,
   arpInfo,
   disposeTrigMusic,
+  exportLoopMp3,
   getPianoInstrument,
   setPianoInstrument,
   updateTrigMusic,
@@ -231,6 +232,8 @@ export default function WavesPage() {
   const [playing, setPlaying] = useState(true)
   /** Wave-tied kit (samples + pad) */
   const [musicOn, setMusicOn] = useState(false)
+  /** True while capturing one θ revolution for MP3 export */
+  const [savingMp3, setSavingMp3] = useState(false)
   /** Ableton Grand Piano multi vs E-Piano sample bank */
   const [pianoInst, setPianoInst] = useState(() => getPianoInstrument())
   /** Piano shell: sin / cos / −sin / −cos (4-note chords in music mode) */
@@ -931,6 +934,98 @@ export default function WavesPage() {
   const handleContextMenu = (e) => {
     e.preventDefault()
   }
+
+  /**
+   * Record one full θ revolution of the live music mix and download as .mp3.
+   * Uses current speed, instrument, progression, and function toggles.
+   */
+  const downloadMp3 = useCallback(async () => {
+    if (!musicOn || savingMp3) return
+    if (!soundOn) {
+      try {
+        window.alert(
+          'Site sound is muted (nav ♪). Turn it on to record your loop as MP3.'
+        )
+      } catch {
+        /* */
+      }
+      return
+    }
+
+    setSavingMp3(true)
+    const wasPlaying = playing
+    // Ensure θ advances so hats/kicks and chord steps fire during capture
+    if (!playing) setPlaying(true)
+
+    // One full revolution: θ moves ANIM_DEG_PER_SEC * speed degrees per second
+    const durationSec = 360 / (ANIM_DEG_PER_SEC * Math.max(0.05, speed))
+
+    try {
+      // Brief beat so the graph/music effect is definitely driving the bus
+      await new Promise((r) => setTimeout(r, 80))
+      const blob = await exportLoopMp3(durationSec)
+      if (!blob || blob.size < 64) {
+        throw new Error('Recorded audio was empty — try with Music on and Play')
+      }
+
+      const bpm = bpmFromSpeed(speed)
+      const instTag = pianoInst === 'electric' ? 'uber-tines' : 'grand'
+      const fnKeys = [
+        ['sin', showSin],
+        ['cos', showCos],
+        ['asin', showAsin],
+        ['acos', showAcos],
+        ['tan', showTan],
+        ['cot', showCot],
+        ['sec', showSec],
+        ['csc', showCsc],
+      ]
+        .filter(([, on]) => on)
+        .map(([name]) => name)
+      const base =
+        fnKeys.length > 0
+          ? `trig_loop_${instTag}_${bpm}bpm_${fnKeys.join('-')}`
+          : `trig_loop_${instTag}_${bpm}bpm`
+
+      const a = document.createElement('a')
+      const out = URL.createObjectURL(blob)
+      a.href = out
+      a.download = `${base}.mp3`
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(out), 4000)
+    } catch (err) {
+      console.error('MP3 export failed', err)
+      try {
+        window.alert(
+          'Could not export MP3. Keep Music on, ensure Play is running, and try again.\n\n' +
+            (err && err.message ? err.message : String(err))
+        )
+      } catch {
+        /* */
+      }
+    } finally {
+      setSavingMp3(false)
+      if (!wasPlaying) setPlaying(false)
+    }
+  }, [
+    musicOn,
+    savingMp3,
+    soundOn,
+    playing,
+    speed,
+    pianoInst,
+    showSin,
+    showCos,
+    showAsin,
+    showAcos,
+    showTan,
+    showCot,
+    showSec,
+    showCsc,
+  ])
 
   const downloadPng = useCallback(async () => {
     const svg = svgRef.current
@@ -2003,6 +2098,23 @@ export default function WavesPage() {
                     {pianoInst === 'grand' ? 'Grand Piano' : 'Uber Tines'}
                   </button>
                 )}
+                {musicOn && (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={downloadMp3}
+                    disabled={savingMp3}
+                    title={
+                      !soundOn
+                        ? 'Site sound is muted (nav ♪) — turn it on to record'
+                        : savingMp3
+                          ? 'Recording one full θ revolution…'
+                          : 'Download one loop (full θ revolution) as MP3'
+                    }
+                  >
+                    {savingMp3 ? 'Recording…' : 'Save MP3'}
+                  </button>
+                )}
                 <button type="button" className="btn-ghost" onClick={() => setAngle(0)}>
                   Reset θ
                 </button>
@@ -2234,7 +2346,8 @@ export default function WavesPage() {
                     <em>−sin</em>=5th, <em>−cos</em>=7th. Closed hats: tan / cot / tan⁻¹ / cot⁻¹.
                     Kick: sec / sec⁻¹. Perc: csc / csc⁻¹. Type chord names or drag notes; colours
                     follow the circle of fifths (or one colour for pure I–IV–V). Key signature is
-                    manual; time stays 4/4.
+                    manual; time stays 4/4. <em>Save MP3</em> records one full θ revolution of the
+                    live mix.
                   </>
                 )}
                 {!playing &&

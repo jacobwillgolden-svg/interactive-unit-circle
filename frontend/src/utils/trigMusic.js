@@ -1028,36 +1028,38 @@ const INSTRUMENT_SPECS = {
   electric: zonesFromMidis('uber-tines', UBER_TINES_MIDIS),
 }
 
-/** Valley-triggered one-shots: kicks + percs */
+/** Valley-triggered one-shots: kicks + percs (kept under piano shell) */
 const PERC_KEYS = ['sec', 'asec', 'csc', 'acsc']
 const PERC = {
-  sec: { sample: 'kick-sec', gain: 0.95 },
-  asec: { sample: 'kick-asec', gain: 0.9 },
-  csc: { sample: 'perc-csc', gain: 0.85 },
-  acsc: { sample: 'perc-acsc', gain: 0.8 },
+  sec: { sample: 'kick-sec', gain: 0.55 },
+  asec: { sample: 'kick-asec', gain: 0.52 },
+  csc: { sample: 'perc-csc', gain: 0.48 },
+  acsc: { sample: 'perc-acsc', gain: 0.45 },
 }
 const COOLDOWN = { sec: 0.12, asec: 0.12, csc: 0.12, acsc: 0.12 }
 
 /** Closed-hat rolls — tan / cot family */
 const HAT_ROLL_KEYS = ['tan', 'cot', 'atan', 'acot']
 const HAT_ROLL = {
-  tan: { sample: 'hat-tan', gain: 0.55 },
-  cot: { sample: 'hat-cot', gain: 0.5 },
-  atan: { sample: 'hat-atan', gain: 0.48 },
-  acot: { sample: 'hat-acot', gain: 0.48 },
+  tan: { sample: 'hat-tan', gain: 0.32 },
+  cot: { sample: 'hat-cot', gain: 0.3 },
+  atan: { sample: 'hat-atan', gain: 0.28 },
+  acot: { sample: 'hat-acot', gain: 0.28 },
 }
 const ROLL_MIN_HZ = 3
 const ROLL_MAX_HZ = 32
 const ROLL_ABS_FOR_MAX = 8
 
 /** Piano shell gains / stagger: sin root → cos 3rd → asin 5th → acos 7th */
-const ARP_GAIN = { sin: 0.52, cos: 0.42, asin: 0.38, acos: 0.4 }
+const ARP_GAIN = { sin: 0.64, cos: 0.54, asin: 0.5, acos: 0.52 }
 const ARP_ATTACK = 0.005
 const ARP_DECAY = 1.8
 const ARP_MAX_VOICES = 18
 const SHELL_STAGGER = { sin: 0, cos: 0.03, asin: 0.06, acos: 0.09 }
 
 let ctx = null
+/** Shared bus so live playback and loop export hear the same mix */
+let masterGain = null
 
 /** @type {Record<string, AudioBuffer | null>} */
 const buffers = Object.fromEntries(
@@ -1127,6 +1129,18 @@ function ensureCtx() {
     ctx.resume().catch(() => {})
   }
   return ctx
+}
+
+/** Master gain → speakers (all voices connect here for balanced mix + export). */
+function getMaster() {
+  const audio = ensureCtx()
+  if (!audio) return null
+  if (!masterGain || masterGain.context !== audio) {
+    masterGain = audio.createGain()
+    masterGain.gain.value = 1
+    masterGain.connect(audio.destination)
+  }
+  return masterGain
 }
 
 async function decodeUrl(audio, url) {
@@ -1261,8 +1275,9 @@ export function retriggerShellChord() {
 
 function playSample(name, vel = 1, rate = 1) {
   const audio = ensureCtx()
+  const master = getMaster()
   const buf = buffers[name]
-  if (!audio || !buf || vel < 0.02) return
+  if (!audio || !master || !buf || vel < 0.02) return
 
   const src = audio.createBufferSource()
   const g = audio.createGain()
@@ -1270,7 +1285,7 @@ function playSample(name, vel = 1, rate = 1) {
   src.playbackRate.value = Math.max(0.5, Math.min(2, rate))
   g.gain.value = Math.min(1.2, Math.max(0, vel))
   src.connect(g)
-  g.connect(audio.destination)
+  g.connect(master)
   src.start()
 }
 
@@ -1294,7 +1309,8 @@ function playArpNote(
   instrument = pianoInstrument
 ) {
   const audio = ensureCtx()
-  if (!audio || vel < 0.03 || activeVoices >= ARP_MAX_VOICES) return
+  const master = getMaster()
+  if (!audio || !master || vel < 0.03 || activeVoices >= ARP_MAX_VOICES) return
 
   const m = Math.round(midi)
   if (m < 21 || m > 108) return
@@ -1339,7 +1355,7 @@ function playArpNote(
 
     src.connect(filter)
     filter.connect(g)
-    g.connect(audio.destination)
+    g.connect(master)
     activeVoices++
     trackShellNode(src)
     src.start(now)
@@ -1368,7 +1384,7 @@ function playArpNote(
   g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak * 0.25), now + ARP_ATTACK)
   g.gain.exponentialRampToValueAtTime(0.0001, now + ARP_ATTACK + 0.6)
   osc.connect(g)
-  g.connect(audio.destination)
+  g.connect(master)
   activeVoices++
   trackShellNode(osc)
   osc.start(now)
@@ -1651,6 +1667,197 @@ export function disposeTrigMusic() {
   for (const key of PERC_KEYS) {
     coolUntil[key] = 0
   }
+}
+
+// ——— Loop export (one θ revolution → MP3) ———
+
+/**
+ * Capture mono PCM from the master bus for `durationSec` seconds.
+ * @param {AudioNode} master
+ * @param {AudioContext} audio
+ * @param {number} durationSec
+ * @returns {Promise<{ samples: Float32Array, sampleRate: number }>}
+ */
+function captureMasterPcm(master, audio, durationSec) {
+  const sampleRate = audio.sampleRate
+  const totalSamples = Math.max(1, Math.ceil(durationSec * sampleRate))
+  const samples = new Float32Array(totalSamples)
+  let writePos = 0
+
+  return new Promise((resolve, reject) => {
+    const bufferSize = 4096
+    /** @type {ScriptProcessorNode} */
+    let processor
+    try {
+      processor = audio.createScriptProcessor(bufferSize, 1, 1)
+    } catch (err) {
+      reject(err)
+      return
+    }
+
+    const silent = audio.createGain()
+    silent.gain.value = 0
+    master.connect(processor)
+    processor.connect(silent)
+    silent.connect(audio.destination)
+
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      try {
+        processor.disconnect()
+        silent.disconnect()
+        master.disconnect(processor)
+      } catch {
+        /* already torn down */
+      }
+      resolve({ samples: samples.subarray(0, writePos || totalSamples), sampleRate })
+    }
+
+    // Safety timeout if the audio graph stalls
+    const watchdog = window.setTimeout(
+      () => {
+        if (!settled) finish()
+      },
+      Math.ceil(durationSec * 1000) + 4000
+    )
+
+    processor.onaudioprocess = (e) => {
+      if (settled) return
+      const input = e.inputBuffer.getChannelData(0)
+      const remaining = totalSamples - writePos
+      if (remaining <= 0) {
+        window.clearTimeout(watchdog)
+        finish()
+        return
+      }
+      const n = Math.min(input.length, remaining)
+      samples.set(input.subarray(0, n), writePos)
+      writePos += n
+      if (writePos >= totalSamples) {
+        window.clearTimeout(watchdog)
+        finish()
+      }
+    }
+  })
+}
+
+/**
+ * Load the self-contained lame.min.js build (npm CJS entry breaks under Vite:
+ * bare MPEGMode refs in Lame/Encoder/PsyModel). Served from /vendor/lame.min.js.
+ * @returns {Promise<{ Mp3Encoder: new (ch: number, rate: number, kbps: number) => any }>}
+ */
+function loadLameJs() {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('MP3 export requires a browser'))
+  }
+  const w = /** @type {any} */ (window)
+  if (w.lamejs?.Mp3Encoder) {
+    return Promise.resolve(w.lamejs)
+  }
+  // In-flight load so concurrent Save clicks share one script tag
+  if (w.__lamejsLoadPromise) return w.__lamejsLoadPromise
+
+  w.__lamejsLoadPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-lamejs]')
+    if (existing) {
+      existing.addEventListener('load', () => {
+        if (w.lamejs?.Mp3Encoder) resolve(w.lamejs)
+        else reject(new Error('MP3 encoder script loaded but Mp3Encoder missing'))
+      })
+      existing.addEventListener('error', () =>
+        reject(new Error('Failed to load MP3 encoder script'))
+      )
+      return
+    }
+    const s = document.createElement('script')
+    s.src = '/vendor/lame.min.js'
+    s.async = true
+    s.dataset.lamejs = '1'
+    s.onload = () => {
+      if (w.lamejs?.Mp3Encoder) resolve(w.lamejs)
+      else reject(new Error('MP3 encoder script loaded but Mp3Encoder missing'))
+    }
+    s.onerror = () => {
+      w.__lamejsLoadPromise = null
+      reject(new Error('Failed to load /vendor/lame.min.js'))
+    }
+    document.head.appendChild(s)
+  })
+  return w.__lamejsLoadPromise
+}
+
+/**
+ * Encode mono float samples (−1…1) to an MP3 Blob via lamejs (min build).
+ * @param {Float32Array} floatSamples
+ * @param {number} sampleRate
+ * @returns {Promise<Blob>}
+ */
+async function encodeMp3Mono(floatSamples, sampleRate) {
+  const lame = await loadLameJs()
+  const Mp3Encoder = lame.Mp3Encoder
+  if (typeof Mp3Encoder !== 'function') {
+    throw new Error('MP3 encoder unavailable (lamejs.Mp3Encoder missing)')
+  }
+
+  const kbps = 192
+  const encoder = new Mp3Encoder(1, sampleRate, kbps)
+  const blockSize = 1152
+  const mp3Chunks = []
+
+  const int16 = new Int16Array(floatSamples.length)
+  for (let i = 0; i < floatSamples.length; i++) {
+    let s = floatSamples[i]
+    if (s > 1) s = 1
+    else if (s < -1) s = -1
+    int16[i] = s < 0 ? (s * 0x8000) | 0 : (s * 0x7fff) | 0
+  }
+
+  for (let i = 0; i < int16.length; i += blockSize) {
+    const slice = int16.subarray(i, Math.min(i + blockSize, int16.length))
+    // Mono: left channel only (min build copies left→right when channels===1)
+    const buf = encoder.encodeBuffer(slice)
+    if (buf && buf.length > 0) mp3Chunks.push(buf)
+  }
+  const end = encoder.flush()
+  if (end && end.length > 0) mp3Chunks.push(end)
+
+  return new Blob(mp3Chunks, { type: 'audio/mpeg' })
+}
+
+/**
+ * Record the live music mix for one loop duration and return an MP3 Blob.
+ * Call while music is playing so the master bus has signal.
+ *
+ * @param {number} durationSec length of one θ revolution at current speed
+ * @returns {Promise<Blob>}
+ */
+export async function exportLoopMp3(durationSec) {
+  const audio = ensureCtx()
+  const master = getMaster()
+  if (!audio || !master) {
+    throw new Error('Audio context unavailable')
+  }
+  if (audio.state === 'suspended') {
+    await audio.resume().catch(() => {})
+  }
+
+  const sec = Math.max(0.75, Math.min(90, Number(durationSec) || 9))
+  const { samples, sampleRate } = await captureMasterPcm(master, audio, sec)
+
+  // Peak-normalize slightly soft so export isn't quieter than live monitoring
+  let peak = 0
+  for (let i = 0; i < samples.length; i++) {
+    const a = Math.abs(samples[i])
+    if (a > peak) peak = a
+  }
+  if (peak > 1e-5 && peak < 0.95) {
+    const g = 0.92 / peak
+    for (let i = 0; i < samples.length; i++) samples[i] *= g
+  }
+
+  return encodeMp3Mono(samples, sampleRate)
 }
 
 export const COLOR_BASE_FREQ = {
