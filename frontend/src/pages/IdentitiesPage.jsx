@@ -59,11 +59,44 @@ function Check({ children }) {
   )
 }
 
-function SectionLabel({ children, course }) {
+/** Course chips — colors match Browse by level (trig red, precalc blue, calc1 gold, calc2 purple). */
+const COURSE_META = {
+  trig: { label: 'Trig', cls: 'id-course-tag--trig' },
+  precalc: { label: 'Pre-Calc', cls: 'id-course-tag--precalc' },
+  calc1: { label: 'Calc 1', cls: 'id-course-tag--calc1' },
+  calc2: { label: 'Calc 2', cls: 'id-course-tag--calc2' },
+  geometry: { label: 'Geometry', cls: 'id-course-tag--neutral' },
+  graphs: { label: 'Graphs', cls: 'id-course-tag--neutral' },
+  bonus: { label: 'Bonus', cls: 'id-course-tag--neutral' },
+}
+
+/**
+ * @param {object} props
+ * @param {import('react').ReactNode} props.children
+ * @param {string} [props.sectionId] — looks up tags from CHEAT_SECTIONS
+ * @param {Array<keyof typeof COURSE_META>} [props.courses] — override if needed
+ */
+function SectionLabel({ children, sectionId, courses }) {
+  const fromCatalog = sectionId
+    ? CHEAT_SECTIONS.find((s) => s.id === sectionId)?.courses
+    : null
+  const tags = courses ?? fromCatalog ?? []
   return (
     <div className="id-section-head">
       <h2 className="id-section-title">{children}</h2>
-      {course && <span className="id-course-tag">{course}</span>}
+      {tags.length > 0 && (
+        <div className="id-course-tags" aria-label="Course levels">
+          {tags.map((key) => {
+            const meta = COURSE_META[key]
+            if (!meta) return null
+            return (
+              <span key={key} className={`id-course-tag ${meta.cls}`}>
+                {meta.label}
+              </span>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -1115,6 +1148,210 @@ function NoteFigure({ src, alt, caption }) {
   )
 }
 
+/**
+ * Single source of truth for cheat-sheet sections and course tags.
+ * Browse-by-level panels only list sections whose `courses` include that level.
+ * Keep SectionLabel `courses={…}` in sync with this catalog (same keys / ids).
+ */
+const CHEAT_SECTIONS = [
+  {
+    id: 'core-trig',
+    title: 'Core trig identities',
+    note: 'SOH-CAH-TOA, Pythagorean, sum/double-angle, ranges',
+    courses: ['trig', 'precalc'],
+  },
+  {
+    id: 'thales',
+    title: 'Thales’ theorem',
+    note: 'Right angle in a semicircle — geometry warm-up',
+    courses: ['geometry', 'precalc'],
+  },
+  {
+    id: 'first-principles',
+    title: 'Differentiation from first principles',
+    note: 'The limit definition of f′(x)',
+    courses: ['calc1'],
+  },
+  {
+    id: 'liate',
+    title: 'Integration by parts · LIATE',
+    note: 'Pick u and dv without guessing every time',
+    courses: ['calc2'],
+  },
+  {
+    id: 'close-points',
+    title: 'Close points · max, min & inflection',
+    note: 'Sign charts without graphing everything',
+    courses: ['calc1'],
+  },
+  {
+    id: 'logs',
+    title: 'Logarithms · bases & derivative',
+    note: 'Change of base, ln, and d/dx[ln x]',
+    courses: ['precalc', 'calc1'],
+  },
+  {
+    id: 'unit-circle-bridge',
+    title: 'Unit circle & Euler',
+    note: 'Points (cos θ, sin θ) and e^{iθ}',
+    courses: ['precalc', 'calc1'],
+  },
+  {
+    id: 'calc-bridge',
+    title: 'Why identities show up in calculus',
+    note: 'Chain rule, related rates, sin² / cos² tricks',
+    courses: ['calc1'],
+  },
+  {
+    id: 'inverse-trig',
+    title: 'Inverse trig',
+    note: 'arctan vs cot vs −tan; principal values',
+    courses: ['precalc', 'calc1', 'graphs'],
+  },
+  {
+    id: 'number-types',
+    title: 'What kind of number is that?',
+    note: 'Natural → real: vocabulary for every level',
+    courses: ['trig', 'precalc', 'calc1', 'calc2'],
+  },
+  {
+    id: 'constants',
+    title: 'Constants worth knowing',
+    note: 'e, π, and friends in limits and integrals',
+    courses: ['calc1', 'calc2'],
+  },
+  {
+    id: 'bonus',
+    title: 'Golden ratio & Fibonacci',
+    note: 'Enrichment — not required on most syllabi',
+    courses: ['bonus'],
+  },
+]
+
+const GRADE_META = {
+  trig: {
+    label: 'Trig',
+    short: 'HS trig',
+    blurb: 'Definitions, identities, and number language tagged for high-school trig.',
+  },
+  precalc: {
+    label: 'Pre-Calc',
+    short: 'Precalculus',
+    blurb: 'Sections tagged Pre-Calc — identities, logs, unit circle, inverse trig.',
+  },
+  calc1: {
+    label: 'Calc 1',
+    short: 'Differential calc',
+    blurb: 'Sections tagged Calc 1 — derivatives, limits, and the calc bridge.',
+  },
+  calc2: {
+    label: 'Calc 2',
+    short: 'Integral calc',
+    blurb: 'Sections tagged Calc 2 — integration by parts and related tools.',
+  },
+}
+
+/** Hover panels: only sections that carry this grade’s tag. */
+const GRADE_TRACKS = /** @type {const} */ (['trig', 'precalc', 'calc1', 'calc2']).map((id) => ({
+  id,
+  ...GRADE_META[id],
+  topics: CHEAT_SECTIONS.filter((s) => s.courses.includes(id)).map((s) => ({
+    href: `#${s.id}`,
+    title: s.title,
+    note: s.note,
+  })),
+}))
+
+function GradeBrowse() {
+  const [openId, setOpenId] = useState(null)
+  const rootRef = useRef(null)
+
+  // Close pinned panel on outside click / Escape (touch + keyboard)
+  useEffect(() => {
+    if (!openId) return
+    const onPointer = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpenId(null)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpenId(null)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [openId])
+
+  const onChipClick = (id) => {
+    // Toggle pin for touch devices; desktop mainly uses hover
+    setOpenId((prev) => (prev === id ? null : id))
+  }
+
+  return (
+    <nav
+      ref={rootRef}
+      className="id-grade-browse panel"
+      aria-label="Browse cheat sheet by grade level"
+    >
+      <div className="id-grade-browse-head">
+        <span className="id-grade-browse-label">Browse by level</span>
+        <span className="id-grade-browse-hint">Hover or tap a course</span>
+      </div>
+      <div className="id-grade-row">
+        {GRADE_TRACKS.map((track) => {
+          const isOpen = openId === track.id
+          return (
+            <div
+              key={track.id}
+              className={`id-grade-chip-wrap${isOpen ? ' is-open' : ''}`}
+              data-grade={track.id}
+            >
+              <button
+                type="button"
+                className={`id-grade-chip id-grade-chip--${track.id}${isOpen ? ' is-active' : ''}`}
+                aria-expanded={isOpen}
+                aria-controls={`grade-panel-${track.id}`}
+                onClick={() => onChipClick(track.id)}
+              >
+                <span className="id-grade-chip-label">{track.label}</span>
+                <span className="id-grade-chip-short">{track.short}</span>
+              </button>
+              <div
+                id={`grade-panel-${track.id}`}
+                className="id-grade-panel"
+                role="region"
+                aria-label={`${track.label} topics`}
+              >
+                <div className="id-grade-panel-inner">
+                  <header className="id-grade-panel-head">
+                    <h3 className="id-grade-panel-title">{track.label}</h3>
+                    <p className="id-grade-panel-blurb">{track.blurb}</p>
+                  </header>
+                  <ul className="id-grade-topic-list">
+                    {track.topics.map((t) => (
+                      <li key={t.href + t.title}>
+                        <a
+                          href={t.href}
+                          className="id-grade-topic"
+                          onClick={() => setOpenId(null)}
+                        >
+                          <span className="id-grade-topic-title">{t.title}</span>
+                          <span className="id-grade-topic-note">{t.note}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
 export default function IdentitiesPage() {
   return (
     <>
@@ -1127,14 +1364,15 @@ export default function IdentitiesPage() {
           <p className="hero-copy">
             The trig identities you actually use in high school and undergrad — plus differentiation
             from first principles, LIATE for integration by parts, the close-points method for
-            max/min/inflection, unit-circle geometry, and optional extras (Euler, e, φ).
+            max/min/inflection, unit-circle geometry, and optional extras (Euler, e, φ). Hover a
+            grade level below to jump to the right sections.
           </p>
         </div>
       </header>
 
       <main className="workspace workspace--single">
-        {/* Jump links */}
-        <nav className="id-toc panel" aria-label="Cheat sheet sections">
+        {/* Flat jump links — full map of the page */}
+        <nav className="id-toc panel" aria-label="All cheat sheet sections">
           <a href="#core-trig">Core trig</a>
           <a href="#thales">Thales</a>
           <a href="#first-principles">First principles</a>
@@ -1149,6 +1387,8 @@ export default function IdentitiesPage() {
           <a href="#bonus">Bonus · φ & Fibonacci</a>
         </nav>
 
+        <GradeBrowse />
+
         <p className="id-radian-note panel">
           <strong>Radians vs degrees.</strong> Calculus and this site use <strong>radians</strong>{' '}
           by default (a full turn is 2π). Precalc often lists both: 180° = π rad, 90° = π/2, 60° =
@@ -1159,7 +1399,7 @@ export default function IdentitiesPage() {
             CORE TRIG — cheat-sheet material first
             ═══════════════════════════════════════════ */}
         <section id="core-trig" className="id-block">
-          <SectionLabel course="Precalc · Trig">Core trig identities</SectionLabel>
+          <SectionLabel sectionId="core-trig">Core trig identities</SectionLabel>
           <p className="id-block-lead">
             These are the formulas you rearrange on homework. Each card pairs the identity with a
             unit-circle or triangle picture and a numerical check.
@@ -1452,7 +1692,7 @@ export default function IdentitiesPage() {
             THALES' THEOREM (notes: geometric mean → circle area = square)
             ═══════════════════════════════════════════ */}
         <section id="thales" className="id-block">
-          <SectionLabel course="Geometry · Precalc">Thales’ theorem</SectionLabel>
+          <SectionLabel sectionId="thales">Thales’ theorem</SectionLabel>
           <p className="id-block-lead">
             Square a circle by <strong>rolling</strong> it to lay out half the circumference, then
             using Thales’ right angle + altitude geometric mean to build a square of equal area.
@@ -1564,7 +1804,7 @@ export default function IdentitiesPage() {
             FIRST PRINCIPLES (from notebook pages)
             ═══════════════════════════════════════════ */}
         <section id="first-principles" className="id-block">
-          <SectionLabel course="Calc 1">Differentiation from first principles</SectionLabel>
+          <SectionLabel sectionId="first-principles">Differentiation from first principles</SectionLabel>
           <p className="id-block-lead">
             Before power rules, build the derivative from average rate of change — then shrink the
             gap. This is the definition every later rule must match.
@@ -1659,7 +1899,7 @@ export default function IdentitiesPage() {
 
         {/* LIATE / integration by parts */}
         <section id="liate" className="id-block">
-          <SectionLabel course="Calc 2">Integration by parts · LIATE</SectionLabel>
+          <SectionLabel sectionId="liate">Integration by parts · LIATE</SectionLabel>
           <p className="id-block-lead">
             Parts is the product rule run backwards. LIATE tells you which factor to call u
             (differentiate) and which to call dv (integrate).
@@ -1743,7 +1983,7 @@ export default function IdentitiesPage() {
 
         {/* Close points · max / min / inflection */}
         <section id="close-points" className="id-block">
-          <SectionLabel course="Calc 1">Close points · max, min & inflection</SectionLabel>
+          <SectionLabel sectionId="close-points">Close points · max, min & inflection</SectionLabel>
           <p className="id-block-lead">
             After you can differentiate, classify critical points by looking at the sign of f′ and
             f″ near the candidate — the “close points” test from first principles of shape.
@@ -1852,7 +2092,7 @@ export default function IdentitiesPage() {
 
         {/* Logs from notebook page 3 */}
         <section id="logs" className="id-block">
-          <SectionLabel course="Precalc · Calc 1">Logarithms · bases & derivative</SectionLabel>
+          <SectionLabel sectionId="logs">Logarithms · bases & derivative</SectionLabel>
           <p className="id-block-lead">
             Logs undo exponentials. Different fields default to different bases; calculus almost
             always wants the natural log.
@@ -1920,7 +2160,7 @@ export default function IdentitiesPage() {
             UNIT CIRCLE + EULER
             ═══════════════════════════════════════════ */}
         <section id="unit-circle-bridge" className="id-block">
-          <SectionLabel course="Precalc → Calc">Unit circle & Euler</SectionLabel>
+          <SectionLabel sectionId="unit-circle-bridge">Unit circle & Euler</SectionLabel>
           <p className="id-block-lead">
             Same circle as the interactive page: angle θ, point (cos θ, sin θ), and the complex form
             that ties e, i, and π together.
@@ -2049,7 +2289,7 @@ export default function IdentitiesPage() {
             CALC 1 BRIDGE
             ═══════════════════════════════════════════ */}
         <section id="calc-bridge" className="id-block">
-          <SectionLabel course="Calc 1">Why identities show up in calculus</SectionLabel>
+          <SectionLabel sectionId="calc-bridge">Why identities show up in calculus</SectionLabel>
           <p className="id-block-lead">
             Trig is not only for triangles — derivatives, limits, and integrals lean on the same
             rewrite rules.
@@ -2151,7 +2391,7 @@ export default function IdentitiesPage() {
             INVERSE TRIG · terminology + how it works
             ═══════════════════════════════════════════ */}
         <section id="inverse-trig" className="id-block">
-          <SectionLabel course="Precalc · Calc 1 · Graphs">Inverse trig</SectionLabel>
+          <SectionLabel sectionId="inverse-trig">Inverse trig</SectionLabel>
           <p className="id-block-lead">
             Three different ideas share the word “inverse” in trig. Get the names straight first —
             then the graphs and the derivative cycle make sense.
@@ -2491,7 +2731,7 @@ export default function IdentitiesPage() {
             NUMBER TYPES
             ═══════════════════════════════════════════ */}
         <section id="number-types" className="id-block">
-          <SectionLabel course="All levels">What kind of number is that?</SectionLabel>
+          <SectionLabel sectionId="number-types">What kind of number is that?</SectionLabel>
 
           <section className="panel content-panel id-card id-card--wide">
             <div className="panel-header">
@@ -2714,7 +2954,7 @@ export default function IdentitiesPage() {
             CONSTANTS (e) — keep, after core
             ═══════════════════════════════════════════ */}
         <section id="constants" className="id-block">
-          <SectionLabel course="Calc 1+">Constants worth knowing</SectionLabel>
+          <SectionLabel sectionId="constants">Constants worth knowing</SectionLabel>
 
           <div className="id-grid">
             <section className="panel content-panel id-card">
@@ -2777,7 +3017,7 @@ export default function IdentitiesPage() {
             BONUS — φ / Fibonacci demoted
             ═══════════════════════════════════════════ */}
         <section id="bonus" className="id-block id-block--bonus">
-          <SectionLabel course="Bonus · not required">Golden ratio & Fibonacci</SectionLabel>
+          <SectionLabel sectionId="bonus">Golden ratio & Fibonacci</SectionLabel>
           <p className="id-block-lead">
             Beautiful and common in enrichment problems — not part of the standard trig identity
             checklist. Safe to skip for exams; fun if you like patterns.

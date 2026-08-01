@@ -47,27 +47,18 @@ export default function UnitCircle({
   const cos = x
   const sin = y
   const tan = Math.abs(cos) < 0.0001 ? Infinity : sin / cos
-  // True tangent at P: line x·cos + y·sin = 1 (unit plane).
-  // Segment P → x-intercept (sec, 0) lies on that tangent (MathIsFun geometry).
-  const TAN_MAX = 3.5 // clip far intercepts so the segment stays on-canvas
+  // Classic tan: vertical on x = ±1 from (±1, 0) → (±1, tan·±1).
+  // Height equals tan θ by similar triangles (tan/1 = sin/cos).
+  const TAN_MAX = 3.5 // clip tall segments so they stay on-canvas
   let tanSeg = null
   if (Math.abs(cos) > 0.01 && Number.isFinite(tan)) {
-    const secU = 1 / cos
-    // Clip toward (sec, 0) if |sec| is huge
-    let endU = secU
-    let endV = 0
-    if (Math.abs(endU) > TAN_MAX) {
-      const du = endU - cos
-      const dv = endV - sin
-      const t = (Math.sign(endU) * TAN_MAX - cos) / du
-      endU = cos + du * t
-      endV = sin + dv * t
-    }
+    const sC = Math.sign(cos) || 1
+    const tipV = Math.max(-TAN_MAX, Math.min(TAN_MAX, tan * sC))
     tanSeg = {
-      x1: pointX,
-      y1: pointY,
-      x2: center + endU * radius,
-      y2: center - endV * radius,
+      x1: center + sC * radius,
+      y1: center,
+      x2: center + sC * radius,
+      y2: center - tipV * radius,
     }
   }
   const coordsLabel = formatCoords(angle, cos, sin, coordsInRadians, 3)

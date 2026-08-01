@@ -2237,6 +2237,284 @@ html[data-theme='light'] .hist-slide-katex .katex {
 
 /* ── Identities ── */
 /* ── Identities page: section chrome, TOC, pedagogy callouts ── */
+
+/* Grade-level hover / tap browse panels */
+.id-grade-browse {
+  position: relative;
+  z-index: 20;
+  padding: 1rem 1.15rem 1.15rem;
+  margin-bottom: 0.85rem;
+  overflow: visible;
+}
+
+.id-grade-browse-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.id-grade-browse-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.id-grade-browse-hint {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
+.id-grade-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  position: relative;
+}
+
+.id-grade-chip-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.id-grade-chip {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--metric-bg, rgba(0, 0, 0, 0.22));
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition:
+    border-color 0.2s var(--ease, ease),
+    background 0.2s var(--ease, ease),
+    box-shadow 0.2s var(--ease, ease),
+    transform 0.2s var(--ease, ease);
+}
+
+.id-grade-chip:hover,
+.id-grade-chip:focus-visible,
+.id-grade-chip.is-active {
+  border-color: var(--border-accent);
+  background: var(--accent-soft);
+  outline: none;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.id-grade-chip-label {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.id-grade-chip-short {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.id-grade-chip--trig:hover,
+.id-grade-chip--trig:focus-visible,
+.id-grade-chip--trig.is-active,
+.id-grade-chip-wrap:hover .id-grade-chip--trig,
+.id-grade-chip-wrap:focus-within .id-grade-chip--trig {
+  border-color: color-mix(in srgb, #fb7185 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #fb7185 30%, transparent);
+  background: color-mix(in srgb, #fb7185 12%, transparent);
+}
+
+.id-grade-chip--precalc:hover,
+.id-grade-chip--precalc:focus-visible,
+.id-grade-chip--precalc.is-active,
+.id-grade-chip-wrap:hover .id-grade-chip--precalc,
+.id-grade-chip-wrap:focus-within .id-grade-chip--precalc {
+  border-color: color-mix(in srgb, #38bdf8 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #38bdf8 30%, transparent);
+  background: color-mix(in srgb, #38bdf8 12%, transparent);
+}
+
+.id-grade-chip--calc1:hover,
+.id-grade-chip--calc1:focus-visible,
+.id-grade-chip--calc1.is-active,
+.id-grade-chip-wrap:hover .id-grade-chip--calc1,
+.id-grade-chip-wrap:focus-within .id-grade-chip--calc1 {
+  border-color: color-mix(in srgb, #f0d9a8 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #f0d9a8 30%, transparent);
+  background: color-mix(in srgb, #f0d9a8 12%, transparent);
+}
+
+.id-grade-chip--calc2:hover,
+.id-grade-chip--calc2:focus-visible,
+.id-grade-chip--calc2.is-active,
+.id-grade-chip-wrap:hover .id-grade-chip--calc2,
+.id-grade-chip-wrap:focus-within .id-grade-chip--calc2 {
+  border-color: color-mix(in srgb, #a78bfa 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #a78bfa 30%, transparent);
+  background: color-mix(in srgb, #a78bfa 12%, transparent);
+}
+
+.id-grade-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 30;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(6px);
+  transition:
+    opacity 0.18s var(--ease, ease),
+    transform 0.18s var(--ease, ease),
+    visibility 0.18s;
+}
+
+/* Desktop hover + keyboard focus */
+.id-grade-chip-wrap:hover .id-grade-panel,
+.id-grade-chip-wrap:focus-within .id-grade-panel,
+.id-grade-chip-wrap.is-open .id-grade-panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* Bridge the hover gap so the panel stays open when moving pointer down */
+.id-grade-chip-wrap::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 0.55rem;
+}
+
+.id-grade-panel-inner {
+  border-radius: var(--radius-lg, 16px);
+  border: 1px solid var(--border-hover, var(--border));
+  background: var(--bg-glass-strong, rgba(22, 25, 38, 0.96));
+  backdrop-filter: blur(18px) saturate(1.15);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  padding: 0.95rem 1rem 0.85rem;
+  min-width: min(100%, 16rem);
+}
+
+/* First two chips: panel aligns left; last two: grow left so they stay on-screen */
+.id-grade-chip-wrap[data-grade='trig'] .id-grade-panel,
+.id-grade-chip-wrap[data-grade='precalc'] .id-grade-panel {
+  left: 0;
+  right: auto;
+  width: min(22rem, calc(100vw - 2.5rem));
+}
+
+.id-grade-chip-wrap[data-grade='calc1'] .id-grade-panel,
+.id-grade-chip-wrap[data-grade='calc2'] .id-grade-panel {
+  left: auto;
+  right: 0;
+  width: min(22rem, calc(100vw - 2.5rem));
+}
+
+.id-grade-panel-head {
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.id-grade-panel-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.id-grade-panel-blurb {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.id-grade-topic-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.id-grade-topic {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--radius-sm, 8px);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s ease;
+}
+
+.id-grade-topic:hover,
+.id-grade-topic:focus-visible {
+  background: rgba(125, 211, 252, 0.1);
+  outline: none;
+}
+
+.id-grade-topic-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.id-grade-topic-note {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--text-faint);
+}
+
+@media (max-width: 720px) {
+  .id-grade-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .id-grade-chip-wrap[data-grade='trig'] .id-grade-panel,
+  .id-grade-chip-wrap[data-grade='precalc'] .id-grade-panel,
+  .id-grade-chip-wrap[data-grade='calc1'] .id-grade-panel,
+  .id-grade-chip-wrap[data-grade='calc2'] .id-grade-panel {
+    left: 0;
+    right: 0;
+    width: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .id-grade-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Light theme polish */
+:root[data-theme='light'] .id-grade-panel-inner {
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.12);
+}
+
 .id-toc {
   display: flex;
   flex-wrap: wrap;
@@ -2313,6 +2591,13 @@ html[data-theme='light'] .hist-slide-katex .katex {
   color: var(--text);
 }
 
+.id-course-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .id-course-tag {
   font-family: var(--font-mono);
   font-size: 0.72rem;
@@ -2320,8 +2605,43 @@ html[data-theme='light'] .hist-slide-katex .katex {
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
   border: 1px solid var(--border);
-  color: var(--gold);
-  background: rgba(240, 217, 168, 0.08);
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Match Browse by level chip colors: red / blue / gold / purple */
+.id-course-tag--trig {
+  color: #fb7185;
+  border-color: color-mix(in srgb, #fb7185 55%, transparent);
+  background: color-mix(in srgb, #fb7185 12%, transparent);
+}
+
+.id-course-tag--precalc {
+  color: #38bdf8;
+  border-color: color-mix(in srgb, #38bdf8 55%, transparent);
+  background: color-mix(in srgb, #38bdf8 12%, transparent);
+}
+
+.id-course-tag--calc1 {
+  color: #f0d9a8;
+  border-color: color-mix(in srgb, #f0d9a8 55%, transparent);
+  background: color-mix(in srgb, #f0d9a8 12%, transparent);
+}
+
+.id-course-tag--calc2 {
+  color: #a78bfa;
+  border-color: color-mix(in srgb, #a78bfa 55%, transparent);
+  background: color-mix(in srgb, #a78bfa 12%, transparent);
+}
+
+.id-course-tag--neutral {
+  color: var(--text-faint);
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+:root[data-theme='light'] .id-course-tag--neutral {
+  background: rgba(15, 23, 42, 0.04);
 }
 
 .id-block-lead {

@@ -357,14 +357,16 @@ export default function WavesPage() {
   const panelFill = isLight ? 'rgba(15,23,42,0.02)' : 'rgba(255,255,255,0.02)'
   const svgBg = isLight ? '#f4f6fa' : '#0b0d12'
 
-  // Layout: circle left (room for sec/csc axis intercepts), waves right.
-  // Geometry matches mathsisfun circle-unit.js (Rod Pierce) “Names” mode:
-  //   cos: elevated (0,sin)→(cos,sin)   sin: (cos,0)→P
-  //   sec: O → (sec,0)     csc: O → (0,csc)
-  //   tan: P → (sec,0)     cot: P → (0,csc)   [tangent line at P]
-  // Tall canvas: csc/cot intercepts stay on-screen; top pad keeps titles clear of tips
+  // Layout: circle left (room for exterior tan/sec + axis csc/cot), waves right.
+  // Identity-based unit-circle segments (e.g. all six at 45°):
+  //   cos: O → (cos, 0) on the x-axis     sin: (cos, 0) → P
+  //   tan: vertical on x = ±1, (±1, 0) → (±1, tan·±1)   [similar triangles]
+  //   sec: O → tan tip  (through P; length |sec| = √(1+tan²))
+  //   csc: O → (0, csc) on the y-axis
+  //   cot: P → (0, csc)  (length |cot| = |cos|/|sin|)
+  // Tall canvas so exterior tips stay on-screen; top pad keeps titles clear of tips
   const R = 90
-  const MAX_GEO = 4.2 // |sec|/|csc| draw extent in unit lengths
+  const MAX_GEO = 4.2 // |tan|/|sec|/… draw extent in unit lengths
   const TOP_PAD = 44 // room for UNIT CIRCLE / TRIG GRAPHS above max intercept
   const BOTTOM_PAD = 40
   const H = Math.ceil(2 * MAX_GEO * R + TOP_PAD + BOTTOM_PAD)
@@ -497,50 +499,21 @@ export default function WavesPage() {
     return { u: cu, v: cv, x: cx + cu * R, y: cy - cv * R }
   }
 
-  // Axis intercepts of the tangent line at P: x·cos + y·sin = 1
-  //   x-intercept (sec, 0),  y-intercept (0, csc)
-  // Same formulas as mathsisfun: secWd = R/cos, cscHt = R/sin (with y flip)
-  const secPt = sec != null ? clipPt(sec, 0) : null
-  const cscPt = csc != null ? clipPt(0, csc) : null
+  // Identity-based tips (match standard “all six” unit-circle diagram).
+  // sC puts the vertical tangent on the side of cos.
+  const sC = Math.sign(cos) || 1
+  // tan: vertical (±1,0)→(±1, tan·±1); sec: O → that exterior corner
+  const tanBase = tan != null ? clipPt(sC, 0) : null
+  const tanTip = tan != null ? clipPt(sC, tan * sC) : null
+  const secTip = tanTip
+  // csc: O → (0, csc) on the y-axis; cot: P → that intercept (length |cot|)
+  const cscTip = csc != null ? clipPt(0, csc) : null
+  const cotTip = cscTip
 
-  // When intercepts are clipped, still draw tan/cot along the ray from P toward the intercept
-  const toward = (fromU, fromV, toU, toV) => {
-    if (toU == null || toV == null || !Number.isFinite(toU) || !Number.isFinite(toV)) return null
-    // If target is inside box, use it; else intersect ray P→target with the MAX_GEO box
-    if (Math.abs(toU) <= MAX_GEO && Math.abs(toV) <= MAX_GEO) {
-      return { u: toU, v: toV, x: cx + toU * R, y: cy - toV * R }
-    }
-    const du = toU - fromU
-    const dv = toV - fromV
-    let tMax = 1
-    if (du !== 0) {
-      const t1 = (MAX_GEO - fromU) / du
-      const t2 = (-MAX_GEO - fromU) / du
-      if (t1 > 0) tMax = Math.min(tMax, t1)
-      if (t2 > 0) tMax = Math.min(tMax, t2)
-    }
-    if (dv !== 0) {
-      const t1 = (MAX_GEO - fromV) / dv
-      const t2 = (-MAX_GEO - fromV) / dv
-      if (t1 > 0) tMax = Math.min(tMax, t1)
-      if (t2 > 0) tMax = Math.min(tMax, t2)
-    }
-    if (!(tMax > 0) || !Number.isFinite(tMax)) return null
-    const u = fromU + du * tMax
-    const v = fromV + dv * tMax
-    return { u, v, x: cx + u * R, y: cy - v * R }
-  }
-
-  const tanEnd =
-    tan != null && sec != null ? toward(cos, sin, sec, 0) : null
-  const cotEnd =
-    cot != null && csc != null ? toward(cos, sin, 0, csc) : null
-
-  const showTanGeo = showTan && tanEnd != null && Math.abs(tan) > 1e-8
-  const showSecGeo = showSec && secPt != null && Math.abs(sec) > 1e-8
-  const showCotGeo = showCot && cotEnd != null && Math.abs(cot) > 1e-8
-  const showCscGeo = showCsc && cscPt != null && Math.abs(csc) > 1e-8
-  const anyRecip = showTanGeo || showSecGeo || showCotGeo || showCscGeo
+  const showTanGeo = showTan && tanBase != null && tanTip != null && Math.abs(tan) > 1e-8
+  const showSecGeo = showSec && secTip != null && sec != null && Math.abs(sec) > 1e-8
+  const showCotGeo = showCot && cotTip != null && cot != null && Math.abs(cot) > 1e-8
+  const showCscGeo = showCsc && cscTip != null && csc != null && Math.abs(csc) > 1e-8
 
   // Wider snap so exact √ forms show while scrubbing near common angles
   const nearCommon = snapCommonAngle(angle, 1.5)
@@ -613,6 +586,7 @@ export default function WavesPage() {
       }
 
       if (mode === 'cos') {
+        // Cos free end sits on the x-axis at (cos, 0)
         const c = Math.max(-1, Math.min(1, u))
         const sSign = Math.abs(v) > 1e-6 ? Math.sign(v) : Math.sign(sin) || 1
         const s = sSign * Math.sqrt(Math.max(0, 1 - c * c))
@@ -620,20 +594,12 @@ export default function WavesPage() {
       }
 
       if (mode === 'sec') {
-        // sec tip at (1/cos, 0); |u| < 1 is inside the circle → clamp to |cos|≈1 edge
-        let c
-        if (Math.abs(u) < 1 + 1e-9) {
-          c = Math.sign(u || cos || 1) * 0.999999
-        } else {
-          c = 1 / u
-        }
-        c = Math.max(-1, Math.min(1, c))
-        const sSign = Math.abs(v) > 1e-6 ? Math.sign(v) : Math.sign(sin) || 1
-        const s = sSign * Math.sqrt(Math.max(0, 1 - c * c))
-        return degFromUV(c, s, angleAsInt)
+        // Exterior tan/sec tip lies on ray OP
+        return degFromUV(u, v, angleAsInt)
       }
 
       if (mode === 'csc') {
+        // csc tip at (0, 1/sin) on the y-axis
         let s
         if (Math.abs(v) < 1 + 1e-9) {
           s = Math.sign(v || sin || 1) * 0.999999
@@ -810,13 +776,13 @@ export default function WavesPage() {
       if (showEndpoints) {
         tips.push({ mode: 'point', x: px, y: py })
         if (showSin) tips.push({ mode: 'point', x: px, y: py })
-        // Cos is drawn elevated at height sin (not on the x-axis with sec);
-        // drag handle sits on the free end at (0, sin) in unit coords.
-        if (showCos) tips.push({ mode: 'cos', x: cx, y: py })
-        if (showTanGeo && tanEnd) tips.push({ mode: 'sec', x: tanEnd.x, y: tanEnd.y })
-        if (showSecGeo && secPt) tips.push({ mode: 'sec', x: secPt.x, y: secPt.y })
-        if (showCotGeo && cotEnd) tips.push({ mode: 'csc', x: cotEnd.x, y: cotEnd.y })
-        if (showCscGeo && cscPt) tips.push({ mode: 'csc', x: cscPt.x, y: cscPt.y })
+        // Cos free end on the x-axis at (cos, 0)
+        if (showCos) tips.push({ mode: 'cos', x: footX, y: footY })
+        // Exterior tan/sec corner (on ray OP); csc/cot share the y-intercept (0, csc)
+        if (showTanGeo && tanTip) tips.push({ mode: 'sec', x: tanTip.x, y: tanTip.y })
+        if (showSecGeo && secTip) tips.push({ mode: 'sec', x: secTip.x, y: secTip.y })
+        if (showCotGeo && cotTip) tips.push({ mode: 'csc', x: cotTip.x, y: cotTip.y })
+        if (showCscGeo && cscTip) tips.push({ mode: 'csc', x: cscTip.x, y: cscTip.y })
       }
 
       let mode = null
@@ -1594,104 +1560,76 @@ export default function WavesPage() {
               )}
 
               {/*
-                Segment geometry — port of mathsisfun.com circle-unit.js (Names mode):
-                  sec: O → (sec, 0) on the x-axis
-                  csc: O → (0, csc) on the y-axis
-                  cot: P → (0, csc) along the tangent at P
-                  tan: P → (sec, 0) along the tangent at P
-                  sin: (cos, 0) → P   cos: elevated (0,sin) → (cos,sin)
-
-                Soft fills (same hue as the stroke):
-                  cos → rectangle under elevated cos: (0,sin)–(cos,sin)–(cos,0)–(0,0)
-                        matches the elevated x-component at height of P
-                  sin → right-triangle strip O–foot–P (vertical opp side)
-                  tan / sec → O–P–(sec,0)
-                  cot / csc → O–P–(0,csc)
+                Identity-based segments (reference: all six at 45°):
+                  cos: O → (cos, 0)     sin: (cos, 0) → P
+                  tan: vertical on x = ±1   sec: O → tan tip (through P)
+                  csc: O → (0, csc)        cot: P → (0, csc)
+                tan/1 = sin/cos by similar triangles; |cot| = dist(P, (0,csc)).
               */}
 
               {/* ── Soft fills (under strokes) ── */}
-              {showCos && (
-                <polygon
-                  /* Under elevated cos (0,sin)→(cos,sin) down to the x-axis */
-                  points={`${cx},${py} ${px},${py} ${footX},${footY} ${cx},${cy}`}
-                  fill={softFill(cosColor, isLight)}
-                  stroke="none"
-                />
-              )}
-              {showSin && (
+              {(showCos || showSin) && (
                 <polygon
                   points={`${cx},${cy} ${footX},${footY} ${px},${py}`}
-                  fill={softFill(sinColor, isLight)}
+                  fill={softFill(showSin ? sinColor : cosColor, isLight)}
                   stroke="none"
                 />
               )}
-              {showSecGeo && secPt && (
+              {/* Exterior right triangle O–(±1,0)–tan tip (shared by tan & sec) */}
+              {(showTanGeo || showSecGeo) && tanBase && tanTip && (
                 <polygon
-                  points={`${cx},${cy} ${px},${py} ${secPt.x},${secPt.y}`}
-                  fill={softFill(FN_COLORS.sec, isLight)}
+                  points={`${cx},${cy} ${tanBase.x},${tanBase.y} ${tanTip.x},${tanTip.y}`}
+                  fill={softFill(showTanGeo ? tanColor : FN_COLORS.sec, isLight)}
                   stroke="none"
                 />
               )}
-              {showTanGeo && tanEnd && (
+              {/* Triangle O–P–(0,csc) for cot/csc */}
+              {(showCotGeo || showCscGeo) && cscTip && (
                 <polygon
-                  points={`${cx},${cy} ${px},${py} ${tanEnd.x},${tanEnd.y}`}
-                  fill={softFill(tanColor, isLight)}
-                  stroke="none"
-                />
-              )}
-              {showCscGeo && cscPt && (
-                <polygon
-                  points={`${cx},${cy} ${px},${py} ${cscPt.x},${cscPt.y}`}
-                  fill={softFill(FN_COLORS.csc, isLight)}
-                  stroke="none"
-                />
-              )}
-              {showCotGeo && cotEnd && (
-                <polygon
-                  points={`${cx},${cy} ${px},${py} ${cotEnd.x},${cotEnd.y}`}
-                  fill={softFill(FN_COLORS.cot, isLight)}
+                  points={`${cx},${cy} ${px},${py} ${cscTip.x},${cscTip.y}`}
+                  fill={softFill(showCotGeo ? FN_COLORS.cot : FN_COLORS.csc, isLight)}
                   stroke="none"
                 />
               )}
 
-              {/* Full tangent line guide (through P, intercepts axes) */}
-              {anyRecip && secPt && cscPt && (
+              {/* Guide: vertical tangent line x = ±1 when tan/sec are on */}
+              {(showTanGeo || showSecGeo) && tanBase && (
                 <line
-                  x1={cscPt.x}
-                  y1={cscPt.y}
-                  x2={secPt.x}
-                  y2={secPt.y}
+                  x1={tanBase.x}
+                  y1={cy - MAX_GEO * R}
+                  x2={tanBase.x}
+                  y2={cy + MAX_GEO * R}
                   stroke={ink}
-                  strokeOpacity="0.15"
+                  strokeOpacity="0.12"
                   strokeWidth="1"
                   strokeDasharray="3 5"
                 />
               )}
 
-              {/* sec — O → (sec, 0)  [mathsisfun: fnLineDraw(0,1, secWd, 0)] */}
-              {showSecGeo && secPt && (
+              {/* sec — O → exterior tan tip (through P; length |sec|) */}
+              {showSecGeo && secTip && (
                 <g>
                   <line
                     x1={cx}
                     y1={cy}
-                    x2={secPt.x}
-                    y2={secPt.y}
+                    x2={secTip.x}
+                    y2={secTip.y}
                     stroke={FN_COLORS.sec}
                     strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
                   {showEndpoints && (
-                    <TipDot x={secPt.x} y={secPt.y} color={FN_COLORS.sec} />
+                    <TipDot x={secTip.x} y={secTip.y} color={FN_COLORS.sec} />
                   )}
                   {showNames && (
                     <text
-                      x={(cx + secPt.x) / 2}
-                      y={cy + 16}
+                      x={(cx + secTip.x) / 2 + (sC > 0 ? 10 : -10)}
+                      y={(cy + secTip.y) / 2}
                       fontSize="12"
                       fill={FN_COLORS.sec}
                       fontFamily="JetBrains Mono, monospace"
                       fontWeight="600"
-                      textAnchor="middle"
+                      textAnchor={sC > 0 ? 'start' : 'end'}
                     >
                       sec
                     </text>
@@ -1699,25 +1637,25 @@ export default function WavesPage() {
                 </g>
               )}
 
-              {/* csc — O → (0, csc)  [mathsisfun: fnLineDraw(0,0, 0, cscHt)] */}
-              {showCscGeo && cscPt && (
+              {/* csc — O → (0, csc) on the y-axis */}
+              {showCscGeo && cscTip && (
                 <g>
                   <line
                     x1={cx}
                     y1={cy}
-                    x2={cscPt.x}
-                    y2={cscPt.y}
+                    x2={cscTip.x}
+                    y2={cscTip.y}
                     stroke={FN_COLORS.csc}
                     strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
                   {showEndpoints && (
-                    <TipDot x={cscPt.x} y={cscPt.y} color={FN_COLORS.csc} />
+                    <TipDot x={cscTip.x} y={cscTip.y} color={FN_COLORS.csc} />
                   )}
                   {showNames && (
                     <text
                       x={cx - 12}
-                      y={Math.max(TOP_PAD + 14, (cy + cscPt.y) / 2)}
+                      y={(cy + cscTip.y) / 2}
                       fontSize="12"
                       fill={FN_COLORS.csc}
                       fontFamily="JetBrains Mono, monospace"
@@ -1730,25 +1668,25 @@ export default function WavesPage() {
                 </g>
               )}
 
-              {/* cot — P → (0, csc)  [mathsisfun: fnLineDraw(cX,cY, -cX, -cY+cscHt)] */}
-              {showCotGeo && cotEnd && (
+              {/* cot — P → (0, csc); length = |cot θ| */}
+              {showCotGeo && cotTip && (
                 <g>
                   <line
                     x1={px}
                     y1={py}
-                    x2={cotEnd.x}
-                    y2={cotEnd.y}
+                    x2={cotTip.x}
+                    y2={cotTip.y}
                     stroke={FN_COLORS.cot}
                     strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
                   {showEndpoints && (
-                    <TipDot x={cotEnd.x} y={cotEnd.y} color={FN_COLORS.cot} />
+                    <TipDot x={cotTip.x} y={cotTip.y} color={FN_COLORS.cot} />
                   )}
                   {showNames && (
                     <text
-                      x={(px + cotEnd.x) / 2 + 10}
-                      y={Math.max(TOP_PAD + 14, (py + cotEnd.y) / 2 - 4)}
+                      x={(px + cotTip.x) / 2 + 10}
+                      y={(py + cotTip.y) / 2 - 4}
                       fontSize="12"
                       fill={FN_COLORS.cot}
                       fontFamily="JetBrains Mono, monospace"
@@ -1760,29 +1698,31 @@ export default function WavesPage() {
                 </g>
               )}
 
-              {/* tan — P → (sec, 0)  [mathsisfun: fnLineDraw(cX,cY, -tanLen*sin, -cY)] */}
-              {showTanGeo && tanEnd && (
+              {/* tan — vertical on x = ±1: (±1, 0) → (±1, tan·±1)
+                  Height equals tan θ by similar triangles (tan/1 = sin/cos). */}
+              {showTanGeo && tanBase && tanTip && (
                 <g>
                   <line
-                    x1={px}
-                    y1={py}
-                    x2={tanEnd.x}
-                    y2={tanEnd.y}
+                    x1={tanBase.x}
+                    y1={tanBase.y}
+                    x2={tanTip.x}
+                    y2={tanTip.y}
                     stroke={tanColor}
                     strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
                   {showEndpoints && (
-                    <TipDot x={tanEnd.x} y={tanEnd.y} color={tanColor} />
+                    <TipDot x={tanTip.x} y={tanTip.y} color={tanColor} />
                   )}
                   {showNames && (
                     <text
-                      x={(px + tanEnd.x) / 2 + 8}
-                      y={(py + tanEnd.y) / 2}
+                      x={tanTip.x + (sC > 0 ? 10 : -10)}
+                      y={(tanBase.y + tanTip.y) / 2}
                       fontSize="12"
                       fill={tanColor}
                       fontFamily="JetBrains Mono, monospace"
                       fontWeight="600"
+                      textAnchor={sC > 0 ? 'start' : 'end'}
                     >
                       tan
                     </text>
@@ -1790,27 +1730,25 @@ export default function WavesPage() {
                 </g>
               )}
 
-              {/* cos — elevated x-component: (0, sin) → (cos, sin)
-                  Drawn at the height of P so the segment does not paint on top
-                  of sec along the x-axis (same ray O → (sec, 0) in Q1). */}
+              {/* cos — O → (cos, 0) on the x-axis */}
               {showCos && (
                 <g>
                   <line
                     x1={cx}
-                    y1={py}
-                    x2={px}
-                    y2={py}
+                    y1={cy}
+                    x2={footX}
+                    y2={footY}
                     stroke={cosColor}
                     strokeWidth={GEO_STROKE}
                     strokeLinecap="round"
                   />
                   {showEndpoints && (
-                    <TipDot x={cx} y={py} color={cosColor} />
+                    <TipDot x={footX} y={footY} color={cosColor} />
                   )}
                   {showNames && (
                     <text
-                      x={(cx + px) / 2}
-                      y={py + (sin >= 0 ? -10 : 16)}
+                      x={(cx + footX) / 2}
+                      y={cy + (sin >= 0 ? 16 : -10)}
                       fontSize="12"
                       fill={cosColor}
                       fontFamily="JetBrains Mono, monospace"
@@ -1822,8 +1760,8 @@ export default function WavesPage() {
                   )}
                   {cosScanY != null && (
                     <line
-                      x1={px}
-                      y1={py}
+                      x1={footX}
+                      y1={footY}
                       x2={scanX}
                       y2={cosScanY}
                       stroke={cosColor}
@@ -1888,10 +1826,10 @@ export default function WavesPage() {
               />
 
               {/* Dashed links construction tips → wave markers */}
-              {showTanGeo && tanEnd && tanScanY != null && (
+              {showTanGeo && tanTip && tanScanY != null && (
                 <line
-                  x1={tanEnd.x}
-                  y1={tanEnd.y}
+                  x1={tanTip.x}
+                  y1={tanTip.y}
                   x2={scanX}
                   y2={tanScanY}
                   stroke={tanColor}
@@ -1899,10 +1837,10 @@ export default function WavesPage() {
                   strokeDasharray="4 4"
                 />
               )}
-              {showSecGeo && secPt && secScanY != null && (
+              {showSecGeo && secTip && secScanY != null && (
                 <line
-                  x1={secPt.x}
-                  y1={secPt.y}
+                  x1={secTip.x}
+                  y1={secTip.y}
                   x2={scanX}
                   y2={secScanY}
                   stroke={FN_COLORS.sec}
@@ -1910,10 +1848,10 @@ export default function WavesPage() {
                   strokeDasharray="4 4"
                 />
               )}
-              {showCotGeo && cotEnd && cotScanY != null && (
+              {showCotGeo && cotTip && cotScanY != null && (
                 <line
-                  x1={cotEnd.x}
-                  y1={cotEnd.y}
+                  x1={cotTip.x}
+                  y1={cotTip.y}
                   x2={scanX}
                   y2={cotScanY}
                   stroke={FN_COLORS.cot}
@@ -1921,10 +1859,10 @@ export default function WavesPage() {
                   strokeDasharray="4 4"
                 />
               )}
-              {showCscGeo && cscPt && cscScanY != null && (
+              {showCscGeo && cscTip && cscScanY != null && (
                 <line
-                  x1={cscPt.x}
-                  y1={cscPt.y}
+                  x1={cscTip.x}
+                  y1={cscTip.y}
                   x2={scanX}
                   y2={cscScanY}
                   stroke={FN_COLORS.csc}
