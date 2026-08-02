@@ -4,9 +4,10 @@
  * Calc 1 bridge, number types, and optional “bonus” constants (φ, Fibonacci).
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import EulerSpiral3D from '../components/EulerSpiral3D'
 
 const PHI = (1 + Math.sqrt(5)) / 2
 const E = Math.E
@@ -71,20 +72,95 @@ const COURSE_META = {
 }
 
 /**
+ * Tiny circular logo for sections with drag / play / orbit modules (Thales, Euler, …).
+ * Icon-only — sits next to course tags and in Browse-by-level hover panels.
+ */
+function InteractiveBadge({ compact = false }) {
+  const uid = useId().replace(/:/g, '')
+  return (
+    <span
+      className={`id-interactive-badge${compact ? ' id-interactive-badge--compact' : ''}`}
+      title="Interactive module — drag or explore in this section"
+      aria-label="Interactive module"
+    >
+      <svg
+        className="id-interactive-badge-icon"
+        viewBox="0 0 24 24"
+        width="22"
+        height="22"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <defs>
+          <linearGradient id={`${uid}-ring`} x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#f0d9a8" />
+            <stop offset="55%" stopColor="#e8b86d" />
+            <stop offset="100%" stopColor="#c084fc" />
+          </linearGradient>
+          <radialGradient id={`${uid}-core`} cx="50%" cy="42%" r="55%">
+            <stop offset="0%" stopColor="#fdf6e8" stopOpacity="0.95" />
+            <stop offset="55%" stopColor="#f0d9a8" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#f0d9a8" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        {/* soft core glow */}
+        <circle cx="12" cy="12" r="7.5" fill={`url(#${uid}-core)`} />
+        {/* outer orbit */}
+        <circle
+          cx="12"
+          cy="12"
+          r="8.2"
+          fill="none"
+          stroke={`url(#${uid}-ring)`}
+          strokeWidth="1.35"
+          opacity="0.95"
+        />
+        {/* dashed inner track (motion) */}
+        <circle
+          cx="12"
+          cy="12"
+          r="5.1"
+          fill="none"
+          stroke="#f0d9a8"
+          strokeWidth="1"
+          strokeDasharray="2.2 2.4"
+          opacity="0.55"
+        />
+        {/* unit-circle point */}
+        <circle cx="16.9" cy="8.6" r="1.85" fill="#f0d9a8" />
+        <circle cx="16.9" cy="8.6" r="0.7" fill="#1a1520" opacity="0.55" />
+        {/* radius tick */}
+        <line
+          x1="12"
+          y1="12"
+          x2="16.2"
+          y2="9.1"
+          stroke="#f0d9a8"
+          strokeWidth="1.1"
+          strokeLinecap="round"
+          opacity="0.75"
+        />
+        {/* center */}
+        <circle cx="12" cy="12" r="1.15" fill="#f0d9a8" />
+      </svg>
+    </span>
+  )
+}
+
+/**
  * @param {object} props
  * @param {import('react').ReactNode} props.children
  * @param {string} [props.sectionId] — looks up tags from CHEAT_SECTIONS
  * @param {Array<keyof typeof COURSE_META>} [props.courses] — override if needed
  */
 function SectionLabel({ children, sectionId, courses }) {
-  const fromCatalog = sectionId
-    ? CHEAT_SECTIONS.find((s) => s.id === sectionId)?.courses
-    : null
-  const tags = courses ?? fromCatalog ?? []
+  const catalog = sectionId ? CHEAT_SECTIONS.find((s) => s.id === sectionId) : null
+  const tags = courses ?? catalog?.courses ?? []
+  const interactive = Boolean(catalog?.interactive)
   return (
     <div className="id-section-head">
       <h2 className="id-section-title">{children}</h2>
-      {tags.length > 0 && (
+      {(tags.length > 0 || interactive) && (
         <div className="id-course-tags" aria-label="Course levels">
           {tags.map((key) => {
             const meta = COURSE_META[key]
@@ -95,6 +171,7 @@ function SectionLabel({ children, sectionId, courses }) {
               </span>
             )
           })}
+          {interactive && <InteractiveBadge />}
         </div>
       )}
     </div>
@@ -1165,6 +1242,7 @@ const CHEAT_SECTIONS = [
     title: 'Thales’ theorem',
     note: 'Right angle in a semicircle — geometry warm-up',
     courses: ['geometry', 'precalc'],
+    interactive: true,
   },
   {
     id: 'first-principles',
@@ -1195,6 +1273,7 @@ const CHEAT_SECTIONS = [
     title: 'Unit circle & Euler',
     note: 'Points (cos θ, sin θ) and e^{iθ}',
     courses: ['precalc', 'calc1'],
+    interactive: true,
   },
   {
     id: 'calc-bridge',
@@ -1259,6 +1338,7 @@ const GRADE_TRACKS = /** @type {const} */ (['trig', 'precalc', 'calc1', 'calc2']
     href: `#${s.id}`,
     title: s.title,
     note: s.note,
+    interactive: Boolean(s.interactive),
   })),
 }))
 
@@ -1333,10 +1413,13 @@ function GradeBrowse() {
                       <li key={t.href + t.title}>
                         <a
                           href={t.href}
-                          className="id-grade-topic"
+                          className={`id-grade-topic${t.interactive ? ' id-grade-topic--interactive' : ''}`}
                           onClick={() => setOpenId(null)}
                         >
-                          <span className="id-grade-topic-title">{t.title}</span>
+                          <span className="id-grade-topic-title-row">
+                            <span className="id-grade-topic-title">{t.title}</span>
+                            {t.interactive && <InteractiveBadge compact />}
+                          </span>
                           <span className="id-grade-topic-note">{t.note}</span>
                         </a>
                       </li>
@@ -2169,81 +2252,64 @@ export default function IdentitiesPage() {
           <div className="id-grid">
             <section className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
-                <span className="panel-title">On the unit circle at π</span>
-                <span className="panel-hint">−1 = cos π + i sin π</span>
+                <span className="panel-title">Euler’s formula</span>
+                <span className="panel-hint">e^{'{iθ}'} · drag the spiral · side view → sine</span>
               </div>
-              <div className="id-body id-body--split">
-                <div>
-                  <div className="id-formula id-formula--hero id-formula--yellow">
-                    <span>−1</span>
-                    <span className="id-eq">=</span>
-                    <span>cos(π)</span>
-                    <span className="id-eq">+</span>
-                    <span>i · sin(π)</span>
-                  </div>
+              <div className="id-body id-body--euler-formula">
+                <div className="id-euler-formula-copy">
+                  <Formula math={String.raw`e^{i\theta}=\cos\theta+i\sin\theta`} className="id-katex--hero" />
                   <p>
-                    At angle π radians (180°), cosine is −1 and sine is 0, so the complex number on
-                    the unit circle is exactly −1. That is the geometric stepping-stone to Euler’s
-                    identity.
+                    Parametrize θ = πt and plot the complex number in 3D with time as the third
+                    axis: z = e<sup>iπt</sup> = cos(πt) + i sin(πt) for t ∈ [0, 4]. The curve is a
+                    helix. Turn the camera to a pure side view (looking along the real axis) and the
+                    imaginary part becomes the familiar sine wave.
                   </p>
-                  <Check>
-                    <p>
-                      cos(π) = −1, sin(π) = 0 → −1 + i·0 = <strong>−1</strong>
-                    </p>
-                  </Check>
+                  <ul className="id-list">
+                    <li>
+                      θ = 0 → e<sup>0</sup> = 1
+                    </li>
+                    <li>
+                      θ = π/2 → e<sup>iπ/2</sup> = i
+                    </li>
+                    <li>
+                      θ = π → e<sup>iπ</sup> = −1
+                    </li>
+                  </ul>
+                  <UseWhen>
+                    Complex numbers, rotations, signals / waves, and connecting polar form to sin/cos
+                    (Calc 2 / Diff Eq / physics).
+                  </UseWhen>
                 </div>
-                <MiniUnitCircle deg={180} cosLabel="−1" sinLabel="0" />
+                <EulerSpiral3D />
               </div>
             </section>
 
-            <section className="panel content-panel id-card">
+            <section className="panel content-panel id-card id-card--unit-pi">
               <div className="panel-header">
-                <span className="panel-title">Euler’s formula</span>
-                <span className="panel-hint">e^{'{iθ}'} on the circle</span>
+                <span className="panel-title">On the unit circle at π</span>
+                <span className="panel-hint">−1 = cos π + i sin π</span>
               </div>
-              <div className="id-body">
-                <Formula math={String.raw`e^{i\theta}=\cos\theta+i\sin\theta`} className="id-katex--hero" />
-                <div className="id-euler-diagram" aria-hidden="true">
-                  <svg viewBox="0 0 320 220" className="id-svg">
-                    <circle cx="120" cy="110" r="70" fill="none" stroke="currentColor" strokeOpacity="0.25" />
-                    <line x1="30" y1="110" x2="280" y2="110" stroke="currentColor" strokeOpacity="0.2" />
-                    <line x1="120" y1="20" x2="120" y2="200" stroke="currentColor" strokeOpacity="0.2" />
-                    <line x1="120" y1="110" x2="165" y2="56" stroke="#7dd3fc" strokeWidth="2" />
-                    <line x1="120" y1="110" x2="165" y2="110" stroke="#2563eb" strokeWidth="2.5" />
-                    <line x1="165" y1="110" x2="165" y2="56" stroke="#dc2626" strokeWidth="2.5" />
-                    <circle cx="165" cy="56" r="5" fill="#7dd3fc" />
-                    <text x="175" y="52" fontSize="12" fill="#7dd3fc" fontFamily="JetBrains Mono, monospace">
-                      e^{'iθ'}
-                    </text>
-                    <text x="138" y="126" fontSize="11" fill="#2563eb">
-                      cos θ
-                    </text>
-                    <text x="170" y="88" fontSize="11" fill="#dc2626">
-                      sin θ
-                    </text>
-                    <text x="250" y="114" fontSize="11" fill="currentColor" opacity="0.5">
-                      Re
-                    </text>
-                    <text x="126" y="32" fontSize="11" fill="currentColor" opacity="0.5">
-                      Im
-                    </text>
-                  </svg>
+              <div className="id-body id-body--unit-pi">
+                <div className="id-formula id-formula--hero id-formula--yellow">
+                  <span>−1</span>
+                  <span className="id-eq">=</span>
+                  <span>cos(π)</span>
+                  <span className="id-eq">+</span>
+                  <span>i · sin(π)</span>
                 </div>
-                <ul className="id-list">
-                  <li>
-                    θ = 0 → e<sup>0</sup> = 1
-                  </li>
-                  <li>
-                    θ = π/2 → e<sup>iπ/2</sup> = i
-                  </li>
-                  <li>
-                    θ = π → e<sup>iπ</sup> = −1
-                  </li>
-                </ul>
-                <UseWhen>
-                  Complex numbers, rotations, signals / waves, and connecting polar form to sin/cos
-                  (Calc 2 / Diff Eq / physics).
-                </UseWhen>
+                <div className="id-unit-pi-diagram">
+                  <MiniUnitCircle deg={180} cosLabel="−1" sinLabel="0" />
+                </div>
+                <p>
+                  At angle π radians (180°), cosine is −1 and sine is 0, so the complex number on
+                  the unit circle is exactly −1. That is the geometric stepping-stone to Euler’s
+                  identity.
+                </p>
+                <Check>
+                  <p>
+                    cos(π) = −1, sin(π) = 0 → −1 + i·0 = <strong>−1</strong>
+                  </p>
+                </Check>
               </div>
             </section>
 
