@@ -109,6 +109,8 @@ export default function UnitCircle({
   }
 
   const handlePointerDown = (e) => {
+    // Prevent page scroll / text selection while dragging on touchscreens
+    e.preventDefault()
     setIsDragging(true)
     e.currentTarget.setPointerCapture(e.pointerId)
     onAngleChange(getAngleFromEvent(e.clientX, e.clientY))
@@ -116,6 +118,7 @@ export default function UnitCircle({
 
   const handlePointerMove = (e) => {
     if (!isDragging) return
+    e.preventDefault()
     onAngleChange(getAngleFromEvent(e.clientX, e.clientY))
   }
 

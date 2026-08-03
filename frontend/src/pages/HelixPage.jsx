@@ -209,11 +209,13 @@ export default function HelixPage() {
     if (!canvas) return
 
     const onDown = (e) => {
+      e.preventDefault()
       dragRef.current = { x: e.clientX, y: e.clientY, yaw: rotRef.current.yaw, pitch: rotRef.current.pitch }
       canvas.setPointerCapture(e.pointerId)
     }
     const onMove = (e) => {
       if (!dragRef.current) return
+      e.preventDefault()
       const dx = e.clientX - dragRef.current.x
       const dy = e.clientY - dragRef.current.y
       rotRef.current.yaw = dragRef.current.yaw + dx * 0.008

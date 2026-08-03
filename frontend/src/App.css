@@ -110,9 +110,54 @@ body {
   overflow: hidden;
 }
 
-/* Allow sticky/fixed history panel to follow viewport scroll */
+/* History: lock to viewport — no vertical page scroll (horizontal cards only) */
+html.hist-page,
+html.hist-page body {
+  height: 100%;
+  overflow: hidden;
+}
+
 html.hist-page .app {
-  overflow: visible;
+  height: 100svh;
+  max-height: 100svh;
+  overflow: hidden;
+}
+
+html.hist-page .shell {
+  max-width: min(1100px, 100%);
+  height: 100svh;
+  max-height: 100svh;
+  padding: 0.55rem 0 0.35rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+html.hist-page .nav {
+  flex-shrink: 0;
+  padding: 0.15rem 0 0.45rem;
+}
+
+html.hist-page .hist-h-hero {
+  flex-shrink: 0;
+}
+
+html.hist-page .hist-h {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+html.hist-page .footer {
+  flex-shrink: 0;
+  margin-top: 0.3rem;
+  padding-top: 0.4rem;
+}
+
+html.hist-page .scroll-top-btn {
+  display: none;
 }
 
 .app-bg {
@@ -803,6 +848,10 @@ html[data-theme='light'] .panel {
   width: 100%;
   height: 4px;
   border-radius: 999px;
+  touch-action: none;
+  /* Invisible padding so the track is easy to hit with a finger */
+  padding: 0.65rem 0;
+  margin: -0.65rem 0;
   background: linear-gradient(
     90deg,
     var(--accent) 0%,
@@ -815,8 +864,8 @@ html[data-theme='light'] .panel {
 
 .slider-wrap input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: var(--text);
   border: 3px solid var(--bg-deep);
@@ -834,8 +883,8 @@ html[data-theme='light'] .panel {
 }
 
 .slider-wrap input[type='range']::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: var(--text);
   border: 3px solid var(--bg-deep);
@@ -1236,6 +1285,180 @@ html[data-theme='light'] .panel {
 
 .workspace--helix {
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.75fr);
+}
+
+.workspace--pendulum {
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.72fr);
+  align-items: start;
+}
+
+.pendulum-viz {
+  padding: 0.5rem 1.25rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pendulum-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.15);
+  /* Visualization is not drag-interactive — allow page pan on touch */
+  touch-action: pan-y;
+  user-select: none;
+}
+
+html[data-theme='light'] .pendulum-svg {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.pendulum-trace {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-md);
+}
+
+.pendulum-controls {
+  padding: 0 1.25rem 1.25rem;
+}
+
+.pendulum-shapes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.pendulum-sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.pendulum-link-params {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.55rem 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+html[data-theme='light'] .pendulum-link-params {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.pendulum-link-label {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pendulum-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.pendulum-slider strong {
+  color: var(--text);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 500;
+}
+
+.pendulum-slider input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+  /* Larger finger target on touch devices */
+  min-height: 1.75rem;
+  touch-action: none;
+}
+
+.pendulum-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pendulum-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.25rem 1.25rem 1rem;
+}
+
+.pendulum-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--border);
+}
+
+html[data-theme='light'] .pendulum-metric {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.pendulum-metric .label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.pendulum-metric .val {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.82rem;
+  color: var(--text);
+  text-align: right;
+}
+
+.pendulum-formulas {
+  padding: 0.25rem 1.25rem 1.35rem;
+  border-top: 1px solid var(--border);
+}
+
+.pendulum-formulas h3 {
+  margin: 0.9rem 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pendulum-formulas h3:first-child {
+  margin-top: 0.5rem;
+}
+
+.pendulum-eq {
+  margin: 0.2rem 0;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.84rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.pendulum-note {
+  margin: 0.65rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+@media (max-width: 960px) {
+  .workspace--pendulum {
+    grid-template-columns: 1fr;
+  }
 }
 
 .viz-body {
@@ -1766,472 +1989,594 @@ html[data-theme='light'] .zoom-controls {
   cursor: grabbing;
 }
 
-/* ── History timeline (left text + fixed right portraits) ── */
-.hist-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.85fr);
-  gap: 1.5rem 2rem;
-  align-items: start;
-  width: 100%;
-  padding-bottom: 3rem;
-  overflow: visible;
-}
+/* ── History: horizontal one-era pages + flat date odometer ── */
 
-.hist-left {
-  min-width: 0;
-  text-align: left;
-}
-
-/* Sits under hero copy — not in the timeline column (keeps first marker clean) */
-.tl-intro {
-  margin: 1rem 0 0;
-  max-width: 52ch;
-  color: var(--text-muted);
-  font-weight: 300;
-  font-size: 0.95rem;
-  line-height: 1.65;
-}
-
-.tl-intro strong {
-  color: var(--text);
-  font-weight: 500;
-}
-
-/* First era: rail/dot align to card year like every other stop */
-.timeline > .tl-item:first-child .tl-rail {
-  padding-top: 1.35rem;
-}
-
-/* Continuous rail + traveling playhead */
-.timeline-wrap {
-  position: relative;
-}
-
-.tl-track {
-  position: absolute;
-  left: 13px; /* center of 28px rail column */
-  top: 0;
-  bottom: 0;
-  width: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.tl-track-line {
-  position: absolute;
-  left: 0;
-  top: 0;
-  /* height set in JS: first marker → last marker (no stub above Pythagoras) */
-  height: 0;
-  width: 2px;
-  transform: translateX(-50%);
-  background: var(--border);
-  border-radius: 1px;
-}
-
-/* Completed rail up to the active circle — solid, no glow */
-.tl-track-past {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 2px;
-  height: 0;
-  transform: translateX(-50%);
-  background: rgba(125, 211, 252, 0.45);
-  border-radius: 1px;
-  will-change: height;
-}
-
-/* Only the active segment under the traveling playhead glows */
-.tl-track-glow {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 2px;
-  height: 0;
-  transform: translateX(-50%);
-  background: linear-gradient(
-    180deg,
-    var(--accent),
-    rgba(125, 211, 252, 0.95)
-  );
-  border-radius: 1px;
-  box-shadow: 0 0 12px var(--accent-glow);
-  will-change: height, top;
-}
-
-.tl-playhead {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 14px;
-  height: 14px;
-  margin-top: -7px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--accent);
-  box-shadow:
-    0 0 0 3px rgba(125, 211, 252, 0.2),
-    0 0 22px var(--accent-glow);
-  transform: translate3d(-50%, 0, 0);
-  will-change: transform;
-  z-index: 3;
-}
-
-.timeline {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.tl-item {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 0.85rem 1rem;
-}
-
-.tl-rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 1.35rem;
-  position: relative;
-  z-index: 1;
-}
-
-/* Static era markers — empty until arrived; filled when past/active */
-.tl-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: transparent;
-  border: 2px solid var(--border);
-  flex-shrink: 0;
-  transition:
-    background 0.35s var(--ease),
-    border-color 0.35s var(--ease),
-    box-shadow 0.35s var(--ease);
-}
-
-/* Past people: solid filled circle, no glow (segment already completed) */
-.tl-item.is-past .tl-dot {
-  border-color: rgba(125, 211, 252, 0.55);
-  background: rgba(125, 211, 252, 0.55);
-  box-shadow: none;
-}
-
-/* Arrived at this person: fill the empty circle at the top of the segment */
-.tl-item.is-active .tl-dot {
-  border-color: var(--accent);
-  background: var(--accent);
-  box-shadow: 0 0 14px var(--accent-glow);
-}
-
-.tl-card {
-  margin-bottom: 1.75rem;
-  padding: 1.15rem 1.2rem 1.35rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid transparent;
-  background: transparent;
-  text-align: left;
-  transition:
-    border-color 0.4s var(--ease),
-    background 0.4s var(--ease),
-    box-shadow 0.4s var(--ease);
-}
-
-.tl-item.is-active .tl-card {
-  border-color: var(--border-accent);
-  background: var(--metric-bg);
-  box-shadow: 0 0 32px rgba(125, 211, 252, 0.06);
-}
-
-.tl-item.is-highlight.is-active .tl-card {
-  border-color: var(--border-accent);
-}
-
-.tl-year {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  /* Keep source casing so decades stay "1660s", not "1660S" */
-  text-transform: none;
-  color: var(--text-faint);
+.hist-h-hero {
   margin-bottom: 0.35rem;
-  transition: color 0.3s var(--ease);
+  gap: 1rem;
 }
 
-.tl-item.is-active .tl-year,
-.tl-item.is-past .tl-year {
-  color: var(--accent);
+.hist-h-hero h1 {
+  font-size: clamp(1.25rem, 2.6vw, 1.65rem);
 }
 
-.tl-title {
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  font-weight: 400;
-  line-height: 1.3;
-  color: var(--text);
-  margin: 0 0 0.3rem;
-  max-width: 38ch;
-}
-
-.tl-figure {
-  font-size: 0.85rem;
-  color: var(--text-faint);
-  margin: 0 0 0.65rem;
-}
-
-.tl-body {
-  font-size: 0.95rem;
-  line-height: 1.75;
+.hist-h-hero .tl-intro {
+  margin: 0.3rem 0 0;
+  max-width: 48ch;
   color: var(--text-muted);
   font-weight: 300;
-  margin: 0;
-  max-width: 50ch;
-}
-
-.tl-diagram {
-  margin: 1rem 0 0;
-  max-width: min(100%, 420px);
-  border-radius: var(--radius-md, 12px);
-  border: 1px solid var(--border);
-  background: #f8fafc;
-  overflow: hidden;
-}
-
-.tl-diagram img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-html[data-theme='light'] .tl-diagram {
-  background: #fff;
-  border-color: var(--border);
-}
-
-.tl-footnote {
-  padding: 0.5rem 0 1rem 2.5rem;
-  max-width: 50ch;
   font-size: 0.8rem;
-  color: var(--text-faint);
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
-/* Right column spacer — panel is fixed and measured to this slot */
-.hist-right-slot {
-  min-height: 1px;
+.hist-h-hero .live-angle .value {
+  font-size: 1.05rem !important;
+}
+
+.hist-h-hero .live-angle .sub {
+  font-size: 0.75rem;
+}
+
+.hist-h {
   width: 100%;
-}
-
-/* Fixed stage: left/width/top set in JS (column-centered; top tracks active card mid) */
-.hist-right {
-  position: fixed;
-  /* Fallback before JS measures */
-  top: 6.5rem;
-  z-index: 20;
-  pointer-events: none;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  box-sizing: border-box;
-  padding: 0 0.5rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  padding-bottom: 0;
+  min-height: 0;
+  user-select: none;
 }
 
-.hist-slides {
-  position: relative;
-  min-height: 380px;
-  width: 100%;
-  max-width: 320px;
-  margin: 0 auto;
-}
-
-.hist-slide {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+/* Portrait stage — compact so cards stay in view; swipe to change era */
+.hist-h-portrait-block {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  /* Fade only — no vertical motion */
+  padding: 0 0.5rem;
+  flex-shrink: 0;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.hist-h.is-scrubbing .hist-h-portrait-block,
+.hist-h.is-scrubbing .hist-h-odo-window,
+.hist-h-portrait-block:active {
+  cursor: grabbing;
+}
+
+.hist-h-faces {
+  position: relative;
+  width: min(112px, 26vw);
+  aspect-ratio: 1;
+  margin: 0 auto 0.35rem;
+}
+
+.hist-h-face {
+  position: absolute;
+  inset: 0;
   opacity: 0;
-  pointer-events: none;
   visibility: hidden;
   transition:
-    opacity 0.5s var(--ease),
-    visibility 0s linear 0.5s;
+    opacity 0.45s var(--ease),
+    visibility 0s linear 0.45s;
+  pointer-events: none;
 }
 
-.hist-slide.is-active {
+.hist-h-face.is-active {
   opacity: 1;
-  pointer-events: auto;
-  z-index: 2;
   visibility: visible;
   transition-delay: 0s, 0s;
-  will-change: opacity;
+  z-index: 1;
 }
 
-.hist-slide-photo {
-  width: min(220px, 72%);
-  aspect-ratio: 1;
+.hist-h-photo {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: top center;
   border-radius: 50%;
-  border: 2px solid var(--border-accent);
-  box-shadow: 0 0 40px var(--accent-glow);
+  border: 1.5px solid var(--border-accent);
+  box-shadow: 0 0 20px var(--accent-glow);
   background: #000;
-  margin-bottom: 1rem;
+  display: block;
 }
 
-/* Slight zoom-out only (~10%): still cover-cropped, just a bit less tight */
-.hist-slide-photo--pull-back {
-  object-fit: cover;
+.hist-h-photo--pull-back {
   object-position: center 22%;
-  /* Cover a slightly smaller paint area so more of the source shows, with a thin edge of bg */
   padding: 5%;
   box-sizing: border-box;
   background: #000;
 }
 
-.hist-slide-photo--placeholder {
+.hist-h-photo--placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-serif);
-  font-size: 2.15rem;
-  color: var(--accent);
-  background: var(--accent-soft);
+  font-size: 1.75rem;
+  color: var(--text-faint);
 }
 
-.hist-slide-name {
-  font-size: 0.95rem;
-  font-weight: 500;
+.hist-h-name {
+  margin: 0 0 0.15rem;
+  font-family: var(--font-serif);
+  font-size: 0.98rem;
+  font-weight: 400;
   color: var(--text);
-  margin: 0 0 0.25rem;
+  line-height: 1.25;
 }
 
-.hist-slide-year {
+.hist-h-katex {
+  min-height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hist-h-katex .katex-display {
+  margin: 0;
+}
+
+.hist-h-katex .katex {
+  font-size: 0.95em;
+  color: var(--gold, #f0d9a8);
+}
+
+html[data-theme='light'] .hist-h-katex .katex {
+  color: #9a6b2f;
+}
+
+.hist-h-formula-note {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  max-width: 36ch;
+  line-height: 1.3;
+}
+
+/* Flat date odometer / speedometer strip */
+.hist-h-odometer {
+  width: 100%;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.hist-h-odo-window {
+  position: relative;
+  /* Taller hit target for fingers */
+  height: 3.75rem;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.18);
+  touch-action: none; /* we own horizontal scrub */
+  cursor: grab;
+  user-select: none;
+}
+
+.hist-h-odometer.is-scrubbing .hist-h-odo-window {
+  cursor: grabbing;
+}
+
+html[data-theme='light'] .hist-h-odo-window {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.hist-h-odo-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* Narrow soft edge — most of the strip stays readable */
+  width: 8%;
+  min-width: 1.25rem;
+  max-width: 3.5rem;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.hist-h-odo-fade--left {
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bg-deep) 75%, transparent),
+    transparent
+  );
+}
+
+.hist-h-odo-fade--right {
+  right: 0;
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--bg-deep) 75%, transparent),
+    transparent
+  );
+}
+
+html[data-theme='light'] .hist-h-odo-fade--left {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bg-deep, #f4f6fa) 80%, transparent),
+    transparent
+  );
+}
+
+html[data-theme='light'] .hist-h-odo-fade--right {
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--bg-deep, #f4f6fa) 80%, transparent),
+    transparent
+  );
+}
+
+/* Present marker — center highlight like an odometer window */
+.hist-h-odo-present {
+  position: absolute;
+  left: 50%;
+  top: 0.2rem;
+  bottom: 0.2rem;
+  width: 4.4rem;
+  transform: translateX(-50%);
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 18%, transparent);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/*
+ * Timeline as a continuous ruler:
+ * every mark (major + micro) shares the same horizontal pitch;
+ * date labels float below majors and do not open gaps in the scale.
+ */
+.hist-h-odo-track {
+  --ruler-pitch: 0.36rem;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding: 0.3rem 0.35rem 0.2rem;
+  will-change: transform;
+  transition: transform 0.28s cubic-bezier(0.22, 0.82, 0.25, 1);
+  z-index: 1;
+}
+
+/* Instant track follow while scrubbing — no laggy easing fight */
+.hist-h.is-scrubbing .hist-h-odo-track,
+.hist-h-odometer.is-scrubbing .hist-h-odo-track {
+  transition: none;
+}
+
+/* Major date mark — same pitch as micros; label is out of flow */
+.hist-h-tick {
+  flex: 0 0 var(--ruler-pitch);
+  width: var(--ruler-pitch);
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  cursor: grab;
+  z-index: 1;
+  transition: opacity 0.15s linear, color 0.12s linear;
+}
+
+/* Expand hit target without widening the ruler pitch */
+.hist-h-tick::before {
+  content: '';
+  position: absolute;
+  top: -0.15rem;
+  bottom: -1.35rem;
+  left: 50%;
+  width: 1.35rem;
+  transform: translateX(-50%);
+  z-index: -1;
+}
+
+.hist-h.is-scrubbing .hist-h-tick,
+.hist-h-odometer.is-scrubbing .hist-h-tick {
+  transition: none;
+  pointer-events: none;
+}
+
+.hist-h-tick-mark {
+  display: block;
+  width: 2px;
+  height: 1.1rem;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--text-muted) 60%, var(--border));
+  transition:
+    height 0.25s var(--ease),
+    background 0.25s var(--ease),
+    box-shadow 0.25s var(--ease);
+}
+
+.hist-h-tick.is-present .hist-h-tick-mark {
+  height: 1.4rem;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.hist-h-tick.is-highlight .hist-h-tick-mark {
+  background: color-mix(in srgb, var(--gold, #f0d9a8) 70%, var(--accent));
+}
+
+/* Labels sit under the mark; absolute so they never stretch the scale */
+.hist-h-tick-label {
+  position: absolute;
+  top: 1.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  color: var(--text-faint);
+  pointer-events: none;
+  transition: color 0.25s var(--ease);
+  line-height: 1.1;
+}
+
+.hist-h-tick.is-present .hist-h-tick-label {
+  top: 1.48rem;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.64rem;
+}
+
+.hist-h-tick:hover .hist-h-tick-label {
+  color: var(--text);
+}
+
+.hist-h-tick:focus-visible {
+  outline: none;
+}
+
+.hist-h-tick:focus-visible .hist-h-tick-mark {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+/* Micro ticks — identical pitch to majors, shorter marks from the top */
+.hist-h-micro {
+  flex: 0 0 var(--ruler-pitch);
+  width: var(--ruler-pitch);
+  height: 0.9rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hist-h-micro::before {
+  content: '';
+  display: block;
+  width: 1px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--text-faint) 72%, transparent);
+}
+
+.hist-h-micro--sm::before {
+  height: 0.48rem;
+  opacity: 0.5;
+}
+
+.hist-h-micro--md::before {
+  height: 0.75rem;
+  width: 1.5px;
+  opacity: 0.62;
+  background: color-mix(in srgb, var(--text-muted) 52%, transparent);
+}
+
+html[data-theme='light'] .hist-h-micro--sm::before {
+  opacity: 0.45;
+  background: color-mix(in srgb, var(--text-faint) 88%, transparent);
+}
+
+html[data-theme='light'] .hist-h-micro--md::before {
+  opacity: 0.55;
+  background: color-mix(in srgb, var(--text-muted) 58%, transparent);
+}
+
+.hist-h-odo-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.hist-h-odo-caption {
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: none;
-  color: var(--accent);
-  margin: 0 0 1.1rem;
+  color: var(--text-muted);
+  min-width: 11ch;
+  text-align: center;
+  padding: 0 0.35rem;
 }
 
-.hist-slide-katex {
-  width: 100%;
-  overflow-x: auto;
-  padding: 0.25rem 0.5rem;
+.hist-h-nav-btn {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    opacity 0.2s ease;
 }
 
-.hist-slide-katex .katex-display {
-  margin: 0.25rem 0;
+.hist-h-nav-btn--jump {
+  font-size: 1.05rem;
+  letter-spacing: -0.06em;
+  color: var(--text-muted);
 }
 
-.hist-slide-katex .katex {
-  font-size: 1.2em;
+.hist-h-nav-btn:hover:not(:disabled) {
+  border-color: var(--border-accent);
+  background: var(--accent-soft);
   color: var(--text);
 }
 
-html[data-theme='light'] .hist-slide-katex .katex {
-  color: #0f172a;
+.hist-h-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
-.hist-slide-note {
-  margin: 0.65rem 0 0;
-  font-size: 0.82rem;
-  /* Stronger than --text-faint so formula subtitles stay readable */
-  color: var(--text-muted);
+/* Horizontal story pages — fill remaining viewport height */
+.hist-h-scroller {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  /* auto: only JS scrollTo({behavior:'smooth'}) animates — avoids fighting snap */
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  gap: 1rem;
+  padding: 0.1rem 0 0;
+  scrollbar-width: none;
+}
+
+/* Side pads: first/last cards can sit centered (no empty “before Thales” zone) */
+.hist-h-scroller-pad {
+  flex: 0 0 max(0.5rem, calc((100% - min(46rem, 96vw)) / 2));
+  pointer-events: none;
+}
+
+/* While we programmatically scroll to an era, turn off snap so it can't thrash */
+.hist-h-scroller.is-driving {
+  scroll-snap-type: none;
+  pointer-events: none;
+}
+
+.hist-h-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.hist-h-page {
+  /* Wide enough for long biography paragraphs */
+  flex: 0 0 min(46rem, 96vw);
+  max-height: 100%;
+  min-height: 0;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  opacity: 0.45;
+  transform: scale(0.985);
+  transition:
+    opacity 0.28s var(--ease),
+    transform 0.28s var(--ease);
+  display: flex;
+  flex-direction: column;
+}
+
+.hist-h-page.is-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Don't animate every card while scrubbing the date strip / portrait */
+.hist-h.is-scrubbing .hist-h-page {
+  transition: none;
+}
+
+.hist-h-card {
+  padding: 0.85rem 1.2rem 0.95rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--metric-bg, rgba(0, 0, 0, 0.22));
+  text-align: left;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  /* Stay inside the stage — long eras scroll inside the card only */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  user-select: text;
+  touch-action: pan-y;
+}
+
+.hist-h-page.is-highlight .hist-h-card {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.hist-h-card-title {
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
   font-weight: 400;
-  max-width: 28ch;
+  line-height: 1.3;
+  color: var(--text);
+  margin: 0 0 0.55rem;
 }
 
-@media (max-width: 900px) {
-  .hist-layout {
-    grid-template-columns: 1fr;
-    padding-bottom: 8.5rem;
+.hist-h-card-body {
+  font-size: 0.88rem;
+  line-height: 1.58;
+  color: var(--text-muted);
+  font-weight: 300;
+  margin: 0;
+  max-width: none;
+}
+
+.hist-h-footnote {
+  flex-shrink: 0;
+  margin: 0.15rem auto 0;
+  max-width: 52ch;
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  line-height: 1.35;
+  padding: 0 1rem;
+}
+
+@media (max-width: 640px) {
+  .hist-h-faces {
+    width: min(96px, 28vw);
   }
 
-  .hist-right-slot {
-    display: none;
-  }
-
-  .hist-right {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    top: auto !important;
-    bottom: 0 !important;
-    z-index: 30;
-    padding: 0.65rem 0.85rem calc(0.65rem + env(safe-area-inset-bottom));
-    background: linear-gradient(180deg, transparent, var(--bg-deep) 28%);
-    pointer-events: none;
-    justify-content: center;
-  }
-
-  .hist-slides {
-    min-height: 120px;
-    max-width: 520px;
-    margin: 0 auto;
-  }
-
-  .hist-slide {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.35rem 0.85rem;
-    text-align: left;
-    align-items: center;
-    padding: 0.5rem 0.75rem;
-    background: var(--bg-glass);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    backdrop-filter: blur(12px);
-  }
-
-  .hist-slide-photo {
-    width: 64px;
-    height: 64px;
-    min-width: 64px;
-    margin: 0;
-  }
-
-  .hist-slide-name {
+  .hist-h-name {
     font-size: 0.9rem;
-    margin: 0;
   }
 
-  .hist-slide-year {
-    margin: 0;
-    width: 100%;
-    order: 3;
+  .hist-h-odo-window {
+    height: 3.5rem;
   }
 
-  .hist-slide-katex {
-    order: 2;
-    flex: 1;
-    min-width: 120px;
+  .hist-h-tick {
+    min-width: 3.1rem;
   }
 
-  .hist-slide-katex .katex {
-    font-size: 0.95em;
+  .hist-h-page {
+    flex-basis: min(46rem, 96vw);
   }
 
-  .hist-slide-note {
-    display: none;
-  }
-
-  .tl-track {
-    left: 13px;
+  .hist-h-card {
+    padding: 0.75rem 0.95rem 0.85rem;
   }
 }
 
@@ -2241,7 +2586,7 @@ html[data-theme='light'] .hist-slide-katex .katex {
 /* Grade-level hover / tap browse panels */
 .id-grade-browse {
   position: relative;
-  z-index: 20;
+  z-index: 40;
   padding: 1rem 1.15rem 1.15rem;
   margin-bottom: 0.85rem;
   overflow: visible;
@@ -2370,7 +2715,7 @@ html[data-theme='light'] .hist-slide-katex .katex {
   left: 0;
   right: 0;
   top: calc(100% + 0.45rem);
-  z-index: 30;
+  z-index: 50;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -2379,6 +2724,8 @@ html[data-theme='light'] .hist-slide-katex .katex {
     opacity 0.18s var(--ease, ease),
     transform 0.18s var(--ease, ease),
     visibility 0.18s;
+  /* Allow nested card flyouts to spill outside the panel width */
+  overflow: visible;
 }
 
 /* Desktop hover + keyboard focus */
@@ -2411,6 +2758,7 @@ html[data-theme='light'] .hist-slide-katex .katex {
     0 0 0 1px rgba(255, 255, 255, 0.04);
   padding: 0.95rem 1rem 0.85rem;
   min-width: min(100%, 16rem);
+  overflow: visible;
 }
 
 /* First two chips: panel aligns left; last two: grow left so they stay on-screen */
@@ -2459,6 +2807,10 @@ html[data-theme='light'] .hist-slide-katex .katex {
   gap: 0.2rem;
 }
 
+.id-grade-topic-wrap {
+  position: relative;
+}
+
 .id-grade-topic {
   display: flex;
   flex-direction: column;
@@ -2468,24 +2820,244 @@ html[data-theme='light'] .hist-slide-katex .katex {
   text-decoration: none;
   color: inherit;
   transition: background 0.15s ease;
+  cursor: pointer;
 }
 
+.id-grade-topic-wrap:hover > .id-grade-topic,
+.id-grade-topic-wrap.is-open > .id-grade-topic,
 .id-grade-topic:hover,
 .id-grade-topic:focus-visible {
   background: rgba(125, 211, 252, 0.1);
   outline: none;
 }
 
+.id-grade-topic-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .id-grade-topic-title {
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+.id-grade-topic-chevron {
+  flex-shrink: 0;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--text-faint);
+  opacity: 0.85;
 }
 
 .id-grade-topic-note {
   font-size: 0.75rem;
   line-height: 1.35;
   color: var(--text-faint);
+}
+
+/* Nested subsection flyout (hover a section → cards) */
+.id-grade-subpanel {
+  position: absolute;
+  left: calc(100% + 0.4rem);
+  top: 0;
+  z-index: 40;
+  min-width: 13.5rem;
+  max-width: min(18rem, calc(100vw - 2rem));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(6px);
+  transition:
+    opacity 0.16s var(--ease, ease),
+    transform 0.16s var(--ease, ease),
+    visibility 0.16s;
+}
+
+/* Hover bridge so the flyout doesn’t close in the gap */
+.id-grade-topic-wrap.has-subs::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: 0;
+  width: 0.5rem;
+  height: 100%;
+}
+
+.id-grade-topic-wrap:hover .id-grade-subpanel,
+.id-grade-topic-wrap.is-open .id-grade-subpanel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+/* Right-aligned grade panels: flyout opens to the left */
+.id-grade-chip-wrap[data-grade='calc1'] .id-grade-subpanel,
+.id-grade-chip-wrap[data-grade='calc2'] .id-grade-subpanel {
+  left: auto;
+  right: calc(100% + 0.4rem);
+  transform: translateX(-6px);
+}
+
+.id-grade-chip-wrap[data-grade='calc1'] .id-grade-topic-wrap.has-subs::after,
+.id-grade-chip-wrap[data-grade='calc2'] .id-grade-topic-wrap.has-subs::after {
+  left: auto;
+  right: 100%;
+}
+
+.id-grade-chip-wrap[data-grade='calc1'] .id-grade-topic-wrap:hover .id-grade-subpanel,
+.id-grade-chip-wrap[data-grade='calc1'] .id-grade-topic-wrap.is-open .id-grade-subpanel,
+.id-grade-chip-wrap[data-grade='calc2'] .id-grade-topic-wrap:hover .id-grade-subpanel,
+.id-grade-chip-wrap[data-grade='calc2'] .id-grade-topic-wrap.is-open .id-grade-subpanel {
+  transform: translateX(0);
+}
+
+.id-grade-subpanel-inner {
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--border-hover, var(--border));
+  background: var(--bg-glass-strong, rgba(22, 25, 38, 0.97));
+  backdrop-filter: blur(16px) saturate(1.12);
+  box-shadow:
+    0 10px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  padding: 0.55rem 0.55rem 0.5rem;
+}
+
+:root[data-theme='light'] .id-grade-subpanel-inner {
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+}
+
+.id-grade-subpanel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.15rem 0.35rem 0.4rem;
+  margin-bottom: 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.id-grade-subpanel-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.id-grade-subpanel-all {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.15rem 0.25rem;
+  border-radius: 4px;
+}
+
+.id-grade-subpanel-all:hover {
+  background: rgba(125, 211, 252, 0.12);
+}
+
+.id-grade-sublist {
+  list-style: none;
+  margin: 0;
+  padding: 0.15rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  max-height: min(50vh, 18rem);
+  overflow-y: auto;
+}
+
+.id-grade-sublink {
+  display: block;
+  padding: 0.4rem 0.45rem;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.3;
+  transition: background 0.12s ease;
+}
+
+.id-grade-sublink:hover,
+.id-grade-sublink:focus-visible {
+  background: rgba(125, 211, 252, 0.12);
+  outline: none;
+}
+
+/* Flash highlight when jumping from browse menus */
+.id-block,
+.id-card {
+  scroll-margin-top: 5.5rem;
+}
+
+@keyframes id-flash-pulse {
+  0% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent),
+      0 0 0 0 transparent;
+  }
+  25% {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent),
+      0 0 28px color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 transparent,
+      0 0 0 0 transparent;
+  }
+}
+
+.id-flash {
+  animation: id-flash-pulse 1.25s ease-out 1;
+  border-radius: var(--radius-lg, 16px);
+}
+
+@media (max-width: 720px) {
+  /* On narrow screens flyouts stack under the topic instead of beside */
+  .id-grade-subpanel,
+  .id-grade-chip-wrap[data-grade='calc1'] .id-grade-subpanel,
+  .id-grade-chip-wrap[data-grade='calc2'] .id-grade-subpanel {
+    position: static;
+    left: auto;
+    right: auto;
+    min-width: 0;
+    max-width: none;
+    transform: none;
+    margin: 0.15rem 0 0.35rem 0.35rem;
+    opacity: 0;
+    visibility: hidden;
+    max-height: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition:
+      opacity 0.16s ease,
+      max-height 0.2s ease,
+      visibility 0.16s;
+  }
+
+  .id-grade-topic-wrap:hover .id-grade-subpanel,
+  .id-grade-topic-wrap.is-open .id-grade-subpanel {
+    opacity: 1;
+    visibility: visible;
+    max-height: 20rem;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  .id-grade-topic-wrap.has-subs::after {
+    display: none;
+  }
 }
 
 @media (max-width: 720px) {
@@ -2829,6 +3401,27 @@ html[data-theme='light'] .hist-slide-katex .katex {
   color: var(--text);
 }
 
+.id-pendulum-fbd-figure {
+  margin: 0.25rem 0 0;
+  text-align: center;
+}
+
+.id-pendulum-fbd-img {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+
+html[data-theme='dark'] .id-pendulum-fbd-img {
+  /* keep diagram readable (black ink on white) */
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
 .id-svg--mini-circle {
   width: 100%;
   max-width: 200px;
@@ -2858,6 +3451,13 @@ html[data-theme='light'] .hist-slide-katex .katex {
   border: 1px solid var(--border);
   background: #f5e6b8;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+/* Printed diagrams (not notebook photos) — keep ink on white */
+.id-note-img--diagram {
+  background: #fff;
+  max-width: 320px;
+  margin: 0 auto;
 }
 
 .id-note-figure .id-caption {

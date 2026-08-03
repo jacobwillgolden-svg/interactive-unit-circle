@@ -302,6 +302,7 @@ export default function EulerSpiral3D() {
     if (!canvas) return
 
     const onDown = (e) => {
+      e.preventDefault()
       dragRef.current = {
         x: e.clientX,
         y: e.clientY,
@@ -313,6 +314,7 @@ export default function EulerSpiral3D() {
 
     const onMove = (e) => {
       if (!dragRef.current) return
+      e.preventDefault()
       const dx = e.clientX - dragRef.current.x
       const dy = e.clientY - dragRef.current.y
       let yaw = dragRef.current.yaw + dx * 0.009

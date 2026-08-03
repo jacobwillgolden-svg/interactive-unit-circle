@@ -1,20 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 
 /**
- * Left: text timeline with a continuous rail + traveling glow playhead.
- * Right: fixed, column-centered portrait + formula slides (crossfade by era).
- *
- * Performance notes:
- * - Portrait panel position via direct DOM style (no setState on scroll)
- * - Playhead via transform on rAF
- * - Active era state only when the index changes
+ * Horizontal history: one era per “page.”
+ * Centered portrait → flat date odometer → centered story card.
+ * Scroll/drag the strip or swipe cards; ticks fade by distance from present.
  */
 
 const EVENTS = [
   {
     year: 'c. 624–546 BCE',
+    tick: '624 BCE',
     title: 'Thales of Miletus — geometry before proofs had a name',
     figure: 'Thales of Miletus',
     centralFigure: 'Thales of Miletus',
@@ -26,6 +23,7 @@ const EVENTS = [
   },
   {
     year: 'c. 570–495 BCE',
+    tick: '570 BCE',
     title: 'Number, ratio, and the Pythagorean school',
     figure: 'Pythagoras of Samos',
     centralFigure: 'Pythagoras',
@@ -36,6 +34,7 @@ const EVENTS = [
   },
   {
     year: 'c. 300 BCE',
+    tick: '300 BCE',
     title: 'Euclid’s Elements as the template',
     figure: 'Euclid of Alexandria',
     centralFigure: 'Euclid',
@@ -47,19 +46,18 @@ const EVENTS = [
   },
   {
     year: 'c. 276–194 BCE',
+    tick: '276 BCE',
     title: 'Measuring the Earth and sieving primes',
     figure: 'Eratosthenes of Cyrene',
     centralFigure: 'Eratosthenes of Cyrene',
     portrait: '/portraits/eratosthenes.jpg',
-    diagram: '/portraits/eratosthenes-diagram.jpg',
-    diagramAlt:
-      'Eratosthenes’ measurement of Earth: sunlight at Alexandria and Syene, 7.2° shadow angle, well at Syene',
     latex: String.raw`C = 2\pi r \quad\cdot\quad \text{sieve}`,
     formulaNote: 'Circumference · latitude · prime numbers',
-    body: `Eratosthenes ran the great library at Alexandria and was nicknamed “Beta” — second-best at everything — and also “Pentathlos,” a five-event all-rounder. With a stick’s shadow in one city and a deep well in another, he estimated the size of the whole Earth, shockingly well for the age. He also invented the prime-number “sieve”: cross out multiples until only primes remain. He mixed measurement, maps, and pure number — the same mix calculus would use when rates and totals had to become precise.`,
+    body: `Eratosthenes ran the great library at Alexandria and was nicknamed “Beta” — second-best at everything — and also “Pentathlos,” a five-event all-rounder. With a stick’s shadow in one city and a deep well in another, he estimated the size of the whole Earth, shockingly well for the age. (The geometry of that measurement lives on the Cheat Sheet.) He also invented the prime-number “sieve”: cross out multiples until only primes remain. He mixed measurement, maps, and pure number — the same mix calculus would use when rates and totals had to become precise.`,
   },
   {
     year: 'c. 250 BCE',
+    tick: '250 BCE',
     title: 'Archimedes & the method of exhaustion',
     figure: 'Archimedes of Syracuse',
     centralFigure: 'Archimedes',
@@ -71,6 +69,7 @@ const EVENTS = [
   },
   {
     year: '14th–16th c.',
+    tick: '1400s',
     title: 'Medieval & Renaissance precursors',
     figure: 'Oresme · Kepler · Cavalieri',
     centralFigure: 'Johannes Kepler',
@@ -81,6 +80,7 @@ const EVENTS = [
   },
   {
     year: '1637',
+    tick: '1637',
     title: 'Analytic geometry',
     figure: 'René Descartes',
     centralFigure: 'René Descartes',
@@ -91,6 +91,7 @@ const EVENTS = [
   },
   {
     year: 'c. 1630s–1660s',
+    tick: '1630s',
     title: 'Tangents, maxima, and “adequality”',
     figure: 'Pierre de Fermat',
     centralFigure: 'Pierre de Fermat',
@@ -102,6 +103,7 @@ const EVENTS = [
   },
   {
     year: '1660s',
+    tick: '1660s',
     title: 'Barrow and the fundamental link',
     figure: 'Isaac Barrow',
     centralFigure: 'Isaac Barrow',
@@ -113,6 +115,7 @@ const EVENTS = [
   },
   {
     year: '1665–1666',
+    tick: '1665',
     title: 'The method of fluxions',
     figure: 'Isaac Newton',
     centralFigure: 'Isaac Newton',
@@ -124,6 +127,7 @@ const EVENTS = [
   },
   {
     year: '1673–1684',
+    tick: '1673',
     title: 'Differentials & modern notation',
     figure: 'Gottfried Wilhelm Leibniz',
     centralFigure: 'Gottfried Wilhelm Leibniz',
@@ -135,6 +139,7 @@ const EVENTS = [
   },
   {
     year: '1690s–1710s',
+    tick: '1690s',
     title: 'The priority dispute',
     figure: 'Newton · Leibniz · the Royal Society',
     centralFigure: 'Isaac Newton',
@@ -145,6 +150,7 @@ const EVENTS = [
   },
   {
     year: '1690s–1730s',
+    tick: '1700',
     title: 'The Bernoulli circle & l’Hôpital',
     figure: 'Jacob & Johann Bernoulli · Guillaume de l’Hôpital',
     centralFigure: 'Jacob Bernoulli',
@@ -155,6 +161,7 @@ const EVENTS = [
   },
   {
     year: '18th century',
+    tick: '1700s',
     title: 'Analysis becomes a language',
     figure: 'Leonhard Euler',
     centralFigure: 'Leonhard Euler',
@@ -167,6 +174,7 @@ One circle-constant wrinkle still echoes today: early on (for example in a 1727 
   },
   {
     year: '19th century',
+    tick: '1800s',
     title: 'Rigorous foundations',
     figure: 'Augustin-Louis Cauchy',
     centralFigure: 'Augustin-Louis Cauchy',
@@ -178,6 +186,7 @@ One circle-constant wrinkle still echoes today: early on (for example in a 1727 
   },
   {
     year: '20th century →',
+    tick: '1900s',
     title: 'Beyond the classical derivative',
     figure: 'Lebesgue · distributions · computers',
     centralFigure: 'Henri Lebesgue',
@@ -188,9 +197,6 @@ One circle-constant wrinkle still echoes today: early on (for example in a 1727 
     body: `Henri Lebesgue reworked integration so it could handle rougher, wilder functions — the kind that make classical derivatives sulk. Later “distribution” theory and weak derivatives stretched calculus again. Then computers arrived: automatic differentiation now sits inside physics engines and machine-learning stacks, computing rates of change billions of times a second. Lebesgue himself was a quiet academic through world wars, not a celebrity — but the idea Newton and Leibniz crystallized, measuring instantaneous change, still runs the modern world.`,
   },
 ]
-
-/** px of focus-line stickiness before switching eras */
-const ACTIVE_HYSTERESIS_PX = 48
 
 function renderLatex(tex) {
   try {
@@ -205,324 +211,599 @@ function renderLatex(tex) {
   }
 }
 
-function EraSlide({ event, active }) {
+/** Opacity for major date labels by distance from the active index (no scale — keeps ruler pitch) */
+function tickStyle(distance) {
+  const d = Math.abs(distance)
+  if (d === 0) return { opacity: 1 }
+  if (d === 1) return { opacity: 0.92 }
+  if (d === 2) return { opacity: 0.8 }
+  if (d === 3) return { opacity: 0.68 }
+  if (d === 4) return { opacity: 0.56 }
+  if (d === 5) return { opacity: 0.46 }
+  return { opacity: 0.38 }
+}
+
+function PortraitFace({ event, active }) {
   const [imgOk, setImgOk] = useState(true)
   const name = event.centralFigure || event.figure
-
   return (
-    <div className={`hist-slide${active ? ' is-active' : ''}`} aria-hidden={!active}>
+    <div className={`hist-h-face${active ? ' is-active' : ''}`} aria-hidden={!active}>
       {event.portrait && imgOk ? (
         <img
-          className={`hist-slide-photo${event.portraitPullBack ? ' hist-slide-photo--pull-back' : ''}`}
+          className={`hist-h-photo${event.portraitPullBack ? ' hist-h-photo--pull-back' : ''}`}
           src={event.portrait}
-          alt={name}
+          alt=""
           referrerPolicy="no-referrer"
-          loading="lazy"
+          loading={active ? 'eager' : 'lazy'}
           decoding="async"
           onError={() => setImgOk(false)}
         />
       ) : (
-        <div className="hist-slide-photo hist-slide-photo--placeholder" aria-hidden="true">
+        <div className="hist-h-photo hist-h-photo--placeholder" aria-hidden="true">
           <span>{name.trim().slice(0, 1)}</span>
         </div>
       )}
-      <p className="hist-slide-name">{name}</p>
-      <p className="hist-slide-year">{event.year}</p>
-      <div
-        className="hist-slide-katex"
-        dangerouslySetInnerHTML={{ __html: renderLatex(event.latex) }}
-      />
-      <p className="hist-slide-note">{event.formulaNote}</p>
     </div>
   )
 }
 
-/**
- * Playhead lives on the *current* rail segment only:
- * - past markers are filled; past rail is solid (no glow)
- * - arriving at a person fills that circle; glow starts from there
- * - as you scroll that era, the glow travels down toward the next marker
- */
-function computeScrollState(nodes, trackEl, currentActive, focusY) {
-  if (!nodes.length || !trackEl) {
-    return { active: 0, playheadY: 0, pastH: 0, glowTop: 0, glowH: 0 }
-  }
+const LAST_ERA = EVENTS.length - 1
+const TICK_SCRUB_PX = 40 // drag distance per era step on the odometer
+/** Ruler subdivisions between major date marks: s = small, m = medium */
+const RULER_MICROS = ['s', 's', 's', 'm', 's', 's', 's', 'm', 's', 's', 's', 'm', 's', 's', 's']
 
-  const trackRect = trackEl.getBoundingClientRect()
-
-  // Measure actual dot centers so the playhead seats in each empty circle
-  const centers = nodes.map((n) => {
-    const dot = n.querySelector('.tl-dot')
-    const r = (dot || n).getBoundingClientRect()
-    return r.top + r.height / 2 - trackRect.top
-  })
-
-  // Active = last era whose card top has crossed the focus line
-  let candidate = 0
-  for (let i = 0; i < nodes.length; i++) {
-    const top = nodes[i].getBoundingClientRect().top
-    if (top <= focusY) candidate = i
-    else break
-  }
-
-  let active = candidate
-  if (candidate !== currentActive) {
-    const currentNode = nodes[currentActive]
-    if (currentNode) {
-      const currentTop = currentNode.getBoundingClientRect().top
-      if (Math.abs(currentTop - focusY) < ACTIVE_HYSTERESIS_PX) {
-        active = currentActive
-      }
-    }
-  }
-
-  const first = centers[0]
-  const a = centers[active]
-  let playheadY = a
-
-  if (active < centers.length - 1) {
-    const b = centers[active + 1]
-    const topA = nodes[active].getBoundingClientRect().top
-    const topB = nodes[active + 1].getBoundingClientRect().top
-    const span = Math.max(1, topB - topA)
-    // How far through this era’s card → next era
-    const t = Math.min(1, Math.max(0, (focusY - topA) / span))
-    playheadY = a + t * (b - a)
-  }
-
-  // Past rail: solid *from the first marker* to the active marker only.
-  // Do not paint from y=0 — that looked like a fake segment above Pythagoras
-  // (intro copy is outside the track, but the first dot sits below track top).
-  const pastTop = first
-  const pastH = active > 0 ? Math.max(0, a - first) : 0
-  // Glow only on the active segment: from filled circle down to playhead
-  const glowTop = a
-  const glowH = Math.max(0, playheadY - a)
-  // Dim base line only spans first → last marker (no stub above Pythagoras)
-  const lineTop = first
-  const lineH = Math.max(0, centers[centers.length - 1] - first)
-
-  return { active, playheadY, pastTop, pastH, glowTop, glowH, lineTop, lineH }
+function clampEra(i) {
+  return Math.max(0, Math.min(LAST_ERA, i))
 }
 
+/**
+ * Navigation modes (mutually exclusive intent):
+ *  idle         — free; card scroll may update index
+ *  driving      — we are scrolling cards to match index (ignore scroll→index)
+ *  scrubbing    — user dragging odometer / portrait; index updates, cards catch up on release
+ */
 export default function HistoryPage() {
-  const [active, setActive] = useState(0)
-  const itemRefs = useRef([])
-  const activeRef = useRef(0)
-  const rafRef = useRef(0)
-  const slotRef = useRef(null)
-  const panelRef = useRef(null)
-  const trackRef = useRef(null)
-  const trackLineRef = useRef(null)
-  const playheadRef = useRef(null)
-  const pastRef = useRef(null)
-  const glowRef = useRef(null)
+  const [index, setIndex] = useState(0)
+  const [scrubbing, setScrubbing] = useState(false)
+  const scrollerRef = useRef(null)
+  const pageRefs = useRef([])
+  const stripTrackRef = useRef(null)
+  const odoWindowRef = useRef(null)
+  const portraitRef = useRef(null)
+  const indexRef = useRef(0)
+  const modeRef = useRef('idle') // 'idle' | 'driving' | 'scrubbing'
+  const scrubRef = useRef(null)
+  const suppressTickClickRef = useRef(false)
+  const wheelAccRef = useRef(0)
+  const wheelFlushTimerRef = useRef(0)
+  const driveTimerRef = useRef(0)
+
+  const setEraIndex = useCallback((i) => {
+    const next = clampEra(i)
+    if (next === indexRef.current) return next
+    indexRef.current = next
+    setIndex(next)
+    return next
+  }, [])
+
+  /** Center the active tick under the present marker (geometry-based, layout-safe). */
+  const centerOdoTrack = useCallback((i = indexRef.current) => {
+    const track = stripTrackRef.current
+    const win = odoWindowRef.current
+    if (!track || !win) return
+    const tick = track.querySelector(`[data-tick="${i}"]`)
+    if (!tick) return
+    // Use live rects + current transform so nested/decorative nodes never skew math
+    const winRect = win.getBoundingClientRect()
+    const tickRect = tick.getBoundingClientRect()
+    let currentX = 0
+    try {
+      currentX = new DOMMatrix(getComputedStyle(track).transform).m41
+    } catch {
+      currentX = 0
+    }
+    const delta =
+      winRect.left + winRect.width / 2 - (tickRect.left + tickRect.width / 2)
+    track.style.transform = `translate3d(${currentX + delta}px, 0, 0)`
+  }, [])
+
+  /**
+   * Center a card using live geometry (works with side pads; avoids “ghost” space before Thales).
+   */
+  const scrollCardsTo = useCallback((i, { smooth = true, fromIndex } = {}) => {
+    const scroller = scrollerRef.current
+    const el = pageRefs.current[i]
+    if (!scroller || !el) return
+
+    const sRect = scroller.getBoundingClientRect()
+    const eRect = el.getBoundingClientRect()
+    const delta = eRect.left + eRect.width / 2 - (sRect.left + sRect.width / 2)
+    const left = scroller.scrollLeft + delta
+    const dist = Math.abs(i - (fromIndex ?? indexRef.current))
+
+    modeRef.current = 'driving'
+    scroller.classList.add('is-driving')
+    window.clearTimeout(driveTimerRef.current)
+
+    scroller.scrollTo({
+      left: Math.max(0, left),
+      behavior: smooth ? 'smooth' : 'auto',
+    })
+
+    const unlock = () => {
+      scroller.classList.remove('is-driving')
+      if (modeRef.current === 'driving') modeRef.current = 'idle'
+      // Snap clamp: never rest before first / after last
+      const first = pageRefs.current[0]
+      const last = pageRefs.current[LAST_ERA]
+      if (first && last) {
+        const fr = first.getBoundingClientRect()
+        const lr = last.getBoundingClientRect()
+        const sr = scroller.getBoundingClientRect()
+        const center = sr.left + sr.width / 2
+        if (fr.left + fr.width / 2 > center + 2) {
+          const d = fr.left + fr.width / 2 - center
+          scroller.scrollLeft += d
+        } else if (lr.left + lr.width / 2 < center - 2) {
+          const d = lr.left + lr.width / 2 - center
+          scroller.scrollLeft += d
+        }
+      }
+    }
+
+    const onEnd = () => {
+      scroller.removeEventListener('scrollend', onEnd)
+      window.clearTimeout(driveTimerRef.current)
+      unlock()
+    }
+    scroller.addEventListener('scrollend', onEnd, { once: true })
+    driveTimerRef.current = window.setTimeout(unlock, smooth ? Math.min(900, 220 + dist * 45) : 50)
+  }, [])
+
+  const goTo = useCallback(
+    (i, { smooth = true } = {}) => {
+      const fromIndex = indexRef.current
+      const next = setEraIndex(i)
+      scrollCardsTo(next, { smooth, fromIndex })
+    },
+    [setEraIndex, scrollCardsTo],
+  )
+
+  // Card strip → index only when user is free-scrolling (not while we drive / scrub)
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    if (!scroller) return
+    let raf = 0
+
+    const nearestIndex = () => {
+      const sRect = scroller.getBoundingClientRect()
+      const center = sRect.left + sRect.width / 2
+      let best = 0
+      let bestDist = Infinity
+      for (let i = 0; i < pageRefs.current.length; i++) {
+        const el = pageRefs.current[i]
+        if (!el) continue
+        const r = el.getBoundingClientRect()
+        const mid = r.left + r.width / 2
+        const d = Math.abs(mid - center)
+        if (d < bestDist) {
+          bestDist = d
+          best = i
+        }
+      }
+      return best
+    }
+
+    const onScroll = () => {
+      if (modeRef.current !== 'idle') return
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        if (modeRef.current !== 'idle') return
+        setEraIndex(nearestIndex())
+      })
+    }
+
+    scroller.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      scroller.removeEventListener('scroll', onScroll)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [setEraIndex])
+
+  // Keyboard + wheel
+  useEffect(() => {
+    const onKey = (e) => {
+      const tag = (e.target && e.target.tagName) || ''
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        goTo(indexRef.current + 1)
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        goTo(indexRef.current - 1)
+      } else if (e.key === 'Home') {
+        e.preventDefault()
+        goTo(0, { smooth: false })
+      } else if (e.key === 'End') {
+        e.preventDefault()
+        goTo(LAST_ERA, { smooth: false })
+      }
+    }
+
+    let stepLock = 0
+    const onWheel = (e) => {
+      const overOdo = e.target?.closest?.('.hist-h-odo-window, .hist-h-portrait-block')
+      if (overOdo) {
+        e.preventDefault()
+        const dominant =
+          Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
+        if (Math.abs(dominant) < 1) return
+
+        modeRef.current = 'scrubbing'
+        setScrubbing(true)
+        wheelAccRef.current += dominant
+        const steps = Math.trunc(wheelAccRef.current / 48)
+        if (steps !== 0) {
+          wheelAccRef.current -= steps * 48
+          setEraIndex(indexRef.current + steps)
+        }
+        window.clearTimeout(wheelFlushTimerRef.current)
+        wheelFlushTimerRef.current = window.setTimeout(() => {
+          wheelAccRef.current = 0
+          setScrubbing(false)
+          modeRef.current = 'idle'
+          scrollCardsTo(indexRef.current, { smooth: true })
+        }, 140)
+        return
+      }
+
+      const overCard = e.target?.closest?.('.hist-h-card')
+      if (overCard && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) return
+
+      const dominant =
+        Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
+      if (Math.abs(dominant) < 10) return
+      const now = performance.now()
+      if (now < stepLock) return
+      stepLock = now + 260
+      e.preventDefault()
+      goTo(indexRef.current + (dominant > 0 ? 1 : -1))
+    }
+
+    window.addEventListener('keydown', onKey)
+    const root = document.querySelector('main.hist-h')
+    root?.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      root?.removeEventListener('wheel', onWheel)
+      window.clearTimeout(wheelFlushTimerRef.current)
+      window.clearTimeout(driveTimerRef.current)
+    }
+  }, [goTo, setEraIndex, scrollCardsTo])
+
+  // Shared horizontal scrub helper (odometer + portrait faces)
+  const attachScrubSurface = useCallback(
+    (el, { pxPerStep = TICK_SCRUB_PX } = {}) => {
+      if (!el) return () => {}
+
+      const onPointerDown = (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return
+        scrubRef.current = {
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          startIndex: indexRef.current,
+          lastIndex: indexRef.current,
+          moved: false,
+          captured: false,
+          surface: el,
+          pxPerStep,
+        }
+      }
+
+      const onPointerMove = (e) => {
+        const s = scrubRef.current
+        if (!s || s.pointerId !== e.pointerId || s.surface !== el) return
+        const dx = e.clientX - s.startX
+        if (!s.moved && Math.abs(dx) < 10) return
+
+        if (!s.moved) {
+          s.moved = true
+          modeRef.current = 'scrubbing'
+          setScrubbing(true)
+          try {
+            el.setPointerCapture(e.pointerId)
+            s.captured = true
+          } catch {
+            /* */
+          }
+        }
+
+        // Drag right → earlier eras (strip / faces follow finger)
+        const delta = Math.round(-dx / s.pxPerStep)
+        const next = clampEra(s.startIndex + delta)
+        if (next !== s.lastIndex) {
+          s.lastIndex = next
+          setEraIndex(next)
+        }
+      }
+
+      const endScrub = (e) => {
+        const s = scrubRef.current
+        if (!s || s.surface !== el || (e && s.pointerId !== e.pointerId)) return
+        const wasDrag = s.moved
+        const final = s.lastIndex
+        if (s.captured) {
+          try {
+            el.releasePointerCapture(s.pointerId)
+          } catch {
+            /* */
+          }
+        }
+        scrubRef.current = null
+        setScrubbing(false)
+
+        if (wasDrag) {
+          suppressTickClickRef.current = true
+          scrollCardsTo(final, { smooth: Math.abs(final - s.startIndex) > 1 })
+        } else {
+          modeRef.current = 'idle'
+        }
+      }
+
+      el.addEventListener('pointerdown', onPointerDown)
+      el.addEventListener('pointermove', onPointerMove)
+      el.addEventListener('pointerup', endScrub)
+      el.addEventListener('pointercancel', endScrub)
+      return () => {
+        el.removeEventListener('pointerdown', onPointerDown)
+        el.removeEventListener('pointermove', onPointerMove)
+        el.removeEventListener('pointerup', endScrub)
+        el.removeEventListener('pointercancel', endScrub)
+      }
+    },
+    [setEraIndex, scrollCardsTo],
+  )
+
+  useEffect(() => attachScrubSurface(odoWindowRef.current, { pxPerStep: TICK_SCRUB_PX }), [attachScrubSurface])
+  useEffect(
+    () => attachScrubSurface(portraitRef.current, { pxPerStep: 56 }),
+    [attachScrubSurface],
+  )
+
+  // Keep active tick centered under the present marker
+  useEffect(() => {
+    centerOdoTrack(index)
+  }, [index, centerOdoTrack])
 
   useEffect(() => {
     document.documentElement.classList.add('hist-page')
     return () => document.documentElement.classList.remove('hist-page')
   }, [])
 
+  // Initial layout — always land on Thales (index 0), after layout is measurable
   useEffect(() => {
-    const sync = () => {
-      const nodes = itemRefs.current.filter(Boolean)
-      const track = trackRef.current
-      const focusY = window.innerHeight * 0.34
-
-      // ── Playhead + active era first (need active index for portrait align)
-      let activeIdx = activeRef.current
-      if (nodes.length && track) {
-        const {
-          active: next,
-          playheadY,
-          pastTop,
-          pastH,
-          glowTop,
-          glowH,
-          lineTop,
-          lineH,
-        } = computeScrollState(nodes, track, activeRef.current, focusY)
-
-        activeIdx = next
-
-        const playhead = playheadRef.current
-        const past = pastRef.current
-        const glow = glowRef.current
-        const line = trackLineRef.current
-        if (playhead) {
-          playhead.style.transform = `translate3d(-50%, ${playheadY}px, 0)`
-        }
-        if (past) {
-          past.style.top = `${pastTop}px`
-          past.style.height = `${pastH}px`
-        }
-        if (glow) {
-          glow.style.top = `${glowTop}px`
-          glow.style.height = `${glowH}px`
-        }
-        if (line) {
-          line.style.top = `${lineTop}px`
-          line.style.height = `${lineH}px`
-          line.style.bottom = 'auto'
-        }
-
-        if (next !== activeRef.current) {
-          activeRef.current = next
-          setActive(next)
-        }
-      }
-
-      // ── Fixed portrait column: column-centered + vertically centered on active card
-      const slot = slotRef.current
-      const panel = panelRef.current
-      if (slot && panel) {
-        const r = slot.getBoundingClientRect()
-        panel.style.position = 'fixed'
-        panel.style.left = `${r.left}px`
-        panel.style.width = `${r.width}px`
-        panel.style.right = 'auto'
-
-        const activeNode = nodes[activeIdx]
-        const card = activeNode?.querySelector('.tl-card') || activeNode
-        const panelH = panel.offsetHeight || 420
-        // Stay under nav / Span card; keep fully on-screen
-        const minTop = 6.5 * 16
-        const maxTop = Math.max(minTop, window.innerHeight - panelH - 16)
-
-        if (card) {
-          const cardRect = card.getBoundingClientRect()
-          const cardMid = cardRect.top + cardRect.height / 2
-          let top = cardMid - panelH / 2
-          top = Math.max(minTop, Math.min(maxTop, top))
-          panel.style.top = `${top}px`
-        } else {
-          panel.style.top = `${minTop}px`
-        }
-      }
+    let cancelled = false
+    const settleAtThales = () => {
+      if (cancelled) return
+      indexRef.current = 0
+      setIndex(0)
+      centerOdoTrack(0)
+      scrollCardsTo(0, { smooth: false, fromIndex: 0 })
     }
 
-    const onScrollOrResize = () => {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = requestAnimationFrame(sync)
-    }
+    // Double rAF: wait for flex/viewport layout + fonts
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(settleAtThales)
+    })
 
-    sync()
-    window.addEventListener('scroll', onScrollOrResize, { passive: true })
-    window.addEventListener('resize', onScrollOrResize)
+    // Re-center odometer if the shell resizes (mobile URL bar, rotate, etc.)
+    const scroller = scrollerRef.current
+    const odo = odoWindowRef.current
     const ro =
-      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onScrollOrResize) : null
-    if (ro && slotRef.current) ro.observe(slotRef.current)
-    if (ro && trackRef.current) ro.observe(trackRef.current)
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            centerOdoTrack(indexRef.current)
+          })
+        : null
+    if (ro) {
+      if (scroller) ro.observe(scroller)
+      if (odo) ro.observe(odo)
+    }
+
+    // One more settle after images/fonts may shift layout
+    const t = window.setTimeout(settleAtThales, 120)
 
     return () => {
-      cancelAnimationFrame(rafRef.current)
-      window.removeEventListener('scroll', onScrollOrResize)
-      window.removeEventListener('resize', onScrollOrResize)
+      cancelled = true
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+      window.clearTimeout(t)
       ro?.disconnect()
     }
-  }, [])
+  }, [centerOdoTrack, scrollCardsTo])
+
+  const ev = EVENTS[index]
+  const atStart = index <= 0
+  const atEnd = index >= LAST_ERA
 
   return (
     <>
-      <header className="hero hero--compact">
+      <header className="hero hero--compact hist-h-hero">
         <div>
           <p className="hero-eyebrow">History of mathematics</p>
           <h1>
             A timeline of <em>calculus</em>
           </h1>
-          {/* Intro lives in the hero so it never sits above the first rail marker
-              (that orphan block was throwing off Pythagoras’s circle). */}
           <p className="tl-intro">
-            <strong>Calculus</strong> is the math of change. Think of a moving object:{' '}
-            <strong>position</strong> is where it is; the <strong>first derivative</strong> of
-            position is <strong>velocity</strong> (how fast that place is changing); the{' '}
-            <strong>second derivative</strong> is <strong>acceleration</strong> (how fast the
-            speed is changing). A <strong>third derivative</strong> would be how acceleration
-            itself changes — but the main idea is already there: each derivative asks “how quickly
-            is the thing before it changing?” That simple habit — tracking change, then change of
-            change — is what this timeline is about.
+            Swipe the portrait or date strip · swipe cards · « » jump ends · arrows step one era.
           </p>
         </div>
         <div className="hero-stats">
           <div className="live-angle">
-            <span className="label">Span</span>
-            <div className="value" style={{ fontSize: '1.35rem' }}>
-              ~2,600 yrs
+            <span className="label">Era</span>
+            <div className="value" style={{ fontSize: '1.25rem' }}>
+              {index + 1}
+              <span style={{ opacity: 0.45, fontSize: '0.85rem' }}> / {EVENTS.length}</span>
             </div>
-            <div className="sub">Thales → modern analysis</div>
+            <div className="sub">{ev.year}</div>
           </div>
         </div>
       </header>
 
-      <main className="hist-layout">
-        <div className="hist-left">
-          <div className="timeline-wrap">
-            <div className="tl-track" ref={trackRef} aria-hidden="true">
-              <div className="tl-track-line" ref={trackLineRef} />
-              {/* Solid completed rail — no glow once you’ve left a segment */}
-              <div className="tl-track-past" ref={pastRef} />
-              {/* Glow only on the active segment under the playhead */}
-              <div className="tl-track-glow" ref={glowRef} />
-              <div className="tl-playhead" ref={playheadRef} />
-            </div>
-
-            <ol className="timeline">
-              {EVENTS.map((ev, i) => {
-                const isPast = i < active
-                const isActive = i === active
-                return (
-                  <li
-                    key={ev.year + ev.title}
-                    ref={(el) => {
-                      itemRefs.current[i] = el
-                    }}
-                    data-index={i}
-                    className={`tl-item${isActive ? ' is-active' : ''}${isPast ? ' is-past' : ''}${ev.highlight ? ' is-highlight' : ''}`}
-                  >
-                    <div className="tl-rail" aria-hidden="true">
-                      <span className="tl-dot" />
-                    </div>
-                    <article className="tl-card">
-                      <time className="tl-year">{ev.year}</time>
-                      <h2 className="tl-title">{ev.title}</h2>
-                      <p className="tl-figure">{ev.figure}</p>
-                      <p className="tl-body">{ev.body}</p>
-                      {ev.diagram && (
-                        <figure className="tl-diagram">
-                          <img
-                            src={ev.diagram}
-                            alt={ev.diagramAlt || ''}
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        </figure>
-                      )}
-                    </article>
-                  </li>
-                )
-              })}
-            </ol>
-          </div>
-
-          <div className="tl-footnote">
-            <p>
-              Further reading: St Andrews History of Mathematics; Wikipedia’s{' '}
-              <em>History of calculus</em> and <em>Leibniz–Newton calculus controversy</em>.
-              Portraits via Wikimedia Commons and local archive.
-            </p>
-          </div>
-        </div>
-
-        {/* Spacer reserves the right grid column; panel is position:fixed over it */}
-        <div className="hist-right-slot" ref={slotRef} aria-hidden="true" />
-
-        <aside className="hist-right hist-right--slides" ref={panelRef} aria-live="polite">
-          <div className="hist-slides">
-            {EVENTS.map((ev, i) => (
-              <EraSlide key={ev.year + ev.title} event={ev} active={i === active} />
+      <main className={`hist-h${scrubbing ? ' is-scrubbing' : ''}`}>
+        {/* Portrait + identity — swipe horizontally to change era */}
+        <section
+          className="hist-h-portrait-block"
+          ref={portraitRef}
+          aria-live="polite"
+          title="Swipe left/right to change era"
+        >
+          <div className="hist-h-faces">
+            {EVENTS.map((e, i) => (
+              <PortraitFace key={e.year + e.title} event={e} active={i === index} />
             ))}
           </div>
-        </aside>
+          <p className="hist-h-name">{ev.centralFigure || ev.figure}</p>
+          <div
+            className="hist-h-katex"
+            dangerouslySetInnerHTML={{ __html: renderLatex(ev.latex) }}
+          />
+          <p className="hist-h-formula-note">{ev.formulaNote}</p>
+        </section>
+
+        {/* Flat date odometer */}
+        <section
+          className={`hist-h-odometer${scrubbing ? ' is-scrubbing' : ''}`}
+          aria-label="Timeline dates"
+          role="listbox"
+          aria-activedescendant={`hist-tick-${index}`}
+        >
+          <div
+            className="hist-h-odo-window"
+            ref={odoWindowRef}
+            title="Drag or swipe to scrub dates"
+          >
+            <div className="hist-h-odo-fade hist-h-odo-fade--left" aria-hidden="true" />
+            <div className="hist-h-odo-fade hist-h-odo-fade--right" aria-hidden="true" />
+            <div className="hist-h-odo-present" aria-hidden="true" />
+            <div className="hist-h-odo-track" ref={stripTrackRef}>
+              {EVENTS.map((e, i) => {
+                const st = tickStyle(i - index)
+                return (
+                  <Fragment key={e.year + e.tick}>
+                    {/* Major date mark — same pitch as micro ticks; label floats below */}
+                    <button
+                      type="button"
+                      id={`hist-tick-${i}`}
+                      data-tick={i}
+                      role="option"
+                      aria-selected={i === index}
+                      className={`hist-h-tick${i === index ? ' is-present' : ''}${e.highlight ? ' is-highlight' : ''}`}
+                      style={{ opacity: st.opacity }}
+                      onClick={(evClick) => {
+                        if (suppressTickClickRef.current) {
+                          suppressTickClickRef.current = false
+                          evClick.preventDefault()
+                          return
+                        }
+                        goTo(i)
+                      }}
+                    >
+                      <span className="hist-h-tick-mark" aria-hidden="true" />
+                      <span className="hist-h-tick-label">{e.tick}</span>
+                    </button>
+                    {/* Continuous ruler ticks between majors only */}
+                    {i < LAST_ERA &&
+                      RULER_MICROS.map((kind, mi) => (
+                        <span
+                          key={`m-${i}-${mi}`}
+                          className={`hist-h-micro hist-h-micro--${kind === 'm' ? 'md' : 'sm'}`}
+                          aria-hidden="true"
+                        />
+                      ))}
+                  </Fragment>
+                )
+              })}
+            </div>
+          </div>
+          <div className="hist-h-odo-nav">
+            <button
+              type="button"
+              className="hist-h-nav-btn hist-h-nav-btn--jump"
+              onClick={() => goTo(0, { smooth: false })}
+              disabled={atStart}
+              aria-label="First era"
+              title="First era (Home)"
+            >
+              «
+            </button>
+            <button
+              type="button"
+              className="hist-h-nav-btn"
+              onClick={() => goTo(index - 1)}
+              disabled={atStart}
+              aria-label="Previous era"
+              title="Previous era"
+            >
+              ←
+            </button>
+            <span className="hist-h-odo-caption">{ev.year}</span>
+            <button
+              type="button"
+              className="hist-h-nav-btn"
+              onClick={() => goTo(index + 1)}
+              disabled={atEnd}
+              aria-label="Next era"
+              title="Next era"
+            >
+              →
+            </button>
+            <button
+              type="button"
+              className="hist-h-nav-btn hist-h-nav-btn--jump"
+              onClick={() => goTo(LAST_ERA, { smooth: false })}
+              disabled={atEnd}
+              aria-label="Last era"
+              title="Last era (End)"
+            >
+              »
+            </button>
+          </div>
+        </section>
+
+        {/* Horizontal card pages */}
+        <section
+          className="hist-h-scroller"
+          ref={scrollerRef}
+          aria-label="Era stories"
+        >
+          {/* Side pads so first/last cards can sit dead-center (no empty “before Thales” zone) */}
+          <div className="hist-h-scroller-pad" aria-hidden="true" />
+          {EVENTS.map((e, i) => (
+            <article
+              key={e.year + e.title}
+              ref={(el) => {
+                pageRefs.current[i] = el
+              }}
+              className={`hist-h-page${i === index ? ' is-active' : ''}${e.highlight ? ' is-highlight' : ''}`}
+              aria-hidden={i !== index}
+            >
+              <div className="hist-h-card">
+                <h2 className="hist-h-card-title">{e.title}</h2>
+                <p className="hist-h-card-body">{e.body}</p>
+              </div>
+            </article>
+          ))}
+          <div className="hist-h-scroller-pad" aria-hidden="true" />
+        </section>
+
+        <p className="hist-h-footnote">
+          Further reading: St Andrews History of Mathematics; Wikipedia’s{' '}
+          <em>History of calculus</em> and <em>Leibniz–Newton calculus controversy</em>. Portraits
+          via Wikimedia Commons and local archive.
+        </p>
       </main>
     </>
   )

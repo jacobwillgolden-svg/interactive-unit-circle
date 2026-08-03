@@ -1216,10 +1216,16 @@ function FibonacciSpiral() {
   )
 }
 
-function NoteFigure({ src, alt, caption }) {
+function NoteFigure({ src, alt, caption, diagram = false }) {
   return (
     <figure className="id-note-figure">
-      <img src={src} alt={alt} className="id-note-img" loading="lazy" decoding="async" />
+      <img
+        src={src}
+        alt={alt}
+        className={`id-note-img${diagram ? ' id-note-img--diagram' : ''}`}
+        loading="lazy"
+        decoding="async"
+      />
       {caption && <figcaption className="id-caption">{caption}</figcaption>}
     </figure>
   )
@@ -1236,6 +1242,15 @@ const CHEAT_SECTIONS = [
     title: 'Core trig identities',
     note: 'SOH-CAH-TOA, Pythagorean, sum/double-angle, ranges',
     courses: ['trig', 'precalc'],
+    subsections: [
+      { id: 'core-trig-defs', title: 'Definitions · SOH-CAH-TOA' },
+      { id: 'core-trig-pythag', title: 'Pythagorean identities' },
+      { id: 'core-trig-ranges', title: 'Ranges & undefined values' },
+      { id: 'core-trig-even-odd', title: 'Even, odd & co-function' },
+      { id: 'core-trig-sum-diff', title: 'Sum & difference' },
+      { id: 'core-trig-double', title: 'Double-angle formulas' },
+      { id: 'core-trig-laws', title: 'Law of sines & cosines' },
+    ],
   },
   {
     id: 'thales',
@@ -1243,30 +1258,57 @@ const CHEAT_SECTIONS = [
     note: 'Right angle in a semicircle — geometry warm-up',
     courses: ['geometry', 'precalc'],
     interactive: true,
+    subsections: [
+      { id: 'thales-roll', title: 'Roll · mean · square' },
+      { id: 'thales-why', title: 'Why the geometry works' },
+    ],
+  },
+  {
+    id: 'eratosthenes',
+    title: 'Eratosthenes · measuring Earth',
+    note: 'Circumference from a shadow angle and C = 2πr',
+    courses: ['geometry', 'precalc'],
+    subsections: [
+      { id: 'eratosthenes-earth', title: 'Alexandria · Syene · 7.2°' },
+    ],
   },
   {
     id: 'first-principles',
     title: 'Differentiation from first principles',
     note: 'The limit definition of f′(x)',
     courses: ['calc1'],
+    subsections: [
+      { id: 'first-principles-def', title: 'From two points to dy/dx' },
+      { id: 'first-principles-x2', title: 'Worked example · y = x²' },
+    ],
   },
   {
     id: 'liate',
     title: 'Integration by parts · LIATE',
     note: 'Pick u and dv without guessing every time',
     courses: ['calc2'],
+    subsections: [
+      { id: 'liate-formula', title: 'The parts formula' },
+      { id: 'liate-order', title: 'LIATE priority order' },
+    ],
   },
   {
     id: 'close-points',
     title: 'Close points · max, min & inflection',
     note: 'Sign charts without graphing everything',
     courses: ['calc1'],
+    subsections: [
+      { id: 'close-points-tests', title: 'First & second derivative tests' },
+      { id: 'close-points-check', title: 'Close-points checklist' },
+      { id: 'close-points-indet', title: 'Indeterminate forms (side note)' },
+    ],
   },
   {
     id: 'logs',
     title: 'Logarithms · bases & derivative',
     note: 'Change of base, ln, and d/dx[ln x]',
     courses: ['precalc', 'calc1'],
+    subsections: [{ id: 'logs-bases', title: 'Bases by field' }],
   },
   {
     id: 'unit-circle-bridge',
@@ -1274,36 +1316,76 @@ const CHEAT_SECTIONS = [
     note: 'Points (cos θ, sin θ) and e^{iθ}',
     courses: ['precalc', 'calc1'],
     interactive: true,
+    subsections: [
+      { id: 'euler-formula', title: 'Euler’s formula' },
+      { id: 'unit-circle-pi', title: 'On the unit circle at π' },
+      { id: 'euler-identity', title: 'Euler’s identity' },
+    ],
   },
   {
     id: 'calc-bridge',
     title: 'Why identities show up in calculus',
     note: 'Chain rule, related rates, sin² / cos² tricks',
     courses: ['calc1'],
+    subsections: [
+      { id: 'calc-bridge-deriv', title: 'Derivatives of sin & cos' },
+      { id: 'calc-bridge-integrals', title: 'Integrals that need identities' },
+      { id: 'calc-bridge-limits', title: 'Limits · undefined vs indeterminate' },
+    ],
   },
   {
     id: 'inverse-trig',
     title: 'Inverse trig',
     note: 'arctan vs cot vs −tan; principal values',
     courses: ['precalc', 'calc1', 'graphs'],
+    subsections: [
+      { id: 'inverse-trig-terms', title: 'Terminology · tan family' },
+      { id: 'inverse-trig-how', title: 'How an inverse trig function works' },
+      { id: 'inverse-trig-three', title: 'Three “inverses” — do not mix them' },
+      { id: 'inverse-trig-cycle', title: 'sin · cos · −sin · −cos cycle' },
+    ],
+  },
+  {
+    id: 'pendulums',
+    title: 'Pendulums · simple to triple',
+    note: 'Isochronism, sin θ, ODEs, and chaotic multi-links',
+    courses: ['calc1'],
+    subsections: [
+      { id: 'pendulums-isochronism', title: 'Isochronism · Galileo' },
+      { id: 'pendulums-fbd', title: 'Free body → ODE' },
+      { id: 'pendulums-analogy', title: 'Linear ↔ angular analogy' },
+      { id: 'pendulums-small-angle', title: 'Small angle vs full sin θ' },
+      { id: 'pendulums-multi', title: 'Double & triple · chaos' },
+      { id: 'pendulums-toolkit', title: 'Formula toolkit' },
+    ],
   },
   {
     id: 'number-types',
     title: 'What kind of number is that?',
     note: 'Natural → real: vocabulary for every level',
     courses: ['trig', 'precalc', 'calc1', 'calc2'],
+    subsections: [{ id: 'number-types-map', title: 'Number systems map' }],
   },
   {
     id: 'constants',
     title: 'Constants worth knowing',
     note: 'e, π, and friends in limits and integrals',
     courses: ['calc1', 'calc2'],
+    subsections: [
+      { id: 'constants-e', title: 'Euler’s number' },
+      { id: 'constants-pi', title: 'π on the circle' },
+    ],
   },
   {
     id: 'bonus',
     title: 'Golden ratio & Fibonacci',
     note: 'Enrichment — not required on most syllabi',
     courses: ['bonus'],
+    subsections: [
+      { id: 'bonus-phi', title: 'The golden ratio' },
+      { id: 'bonus-angle', title: 'Golden angle on the circle' },
+      { id: 'bonus-fib', title: 'Fibonacci spiral' },
+    ],
   },
 ]
 
@@ -1321,7 +1403,7 @@ const GRADE_META = {
   calc1: {
     label: 'Calc 1',
     short: 'Differential calc',
-    blurb: 'Sections tagged Calc 1 — derivatives, limits, and the calc bridge.',
+    blurb: 'Sections tagged Calc 1 — derivatives, limits, ODEs (pendulums), and the calc bridge.',
   },
   calc2: {
     label: 'Calc 2',
@@ -1330,30 +1412,151 @@ const GRADE_META = {
   },
 }
 
+/** Cancel in-flight jump timers when the user picks another card quickly */
+let jumpFlashCleanup = null
+
+/**
+ * Scroll to a section/card, then flash once the page has finished scrolling.
+ * Sequence: click → smooth scroll → flash (not during the scroll).
+ */
+function jumpToSection(id) {
+  const el = document.getElementById(id)
+  if (!el) return
+
+  try {
+    history.replaceState(null, '', `#${id}`)
+  } catch {
+    /* */
+  }
+
+  // Abort any previous jump’s pending flash
+  if (typeof jumpFlashCleanup === 'function') {
+    jumpFlashCleanup()
+    jumpFlashCleanup = null
+  }
+  el.classList.remove('id-flash')
+
+  let clearFlashId = 0
+  const flash = () => {
+    // Force reflow so re-triggering the same target still animates
+    void el.offsetWidth
+    el.classList.add('id-flash')
+    clearFlashId = window.setTimeout(() => {
+      el.classList.remove('id-flash')
+    }, 1400)
+  }
+
+  const prefersReduced =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  if (prefersReduced) {
+    el.scrollIntoView({ behavior: 'auto', block: 'start' })
+    // Next paint after instant jump
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(flash)
+    })
+    jumpFlashCleanup = () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+      window.clearTimeout(clearFlashId)
+      el.classList.remove('id-flash')
+    }
+    return
+  }
+
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+  let done = false
+  let pollId = 0
+  let fallbackId = 0
+  let settleId = 0
+
+  const finish = () => {
+    if (done) return
+    done = true
+    window.removeEventListener('scrollend', onScrollEnd)
+    window.clearTimeout(pollId)
+    window.clearTimeout(fallbackId)
+    // Brief settle so layout after scroll is painted before the flash
+    settleId = window.setTimeout(flash, 60)
+  }
+
+  const onScrollEnd = () => finish()
+
+  // Modern browsers: fires when smooth scrolling stops
+  if ('onscrollend' in window) {
+    window.addEventListener('scrollend', onScrollEnd, { once: true })
+  }
+
+  // Fallback: poll until the target sits near the focus band (or timeout)
+  const start = performance.now()
+  const scrollMargin = 5.5 * 16 // matches .id-card scroll-margin-top
+  const poll = () => {
+    if (done) return
+    const rect = el.getBoundingClientRect()
+    const elapsed = performance.now() - start
+    // “Arrived” when the card top is near the sticky offset (or already on-screen mid-band)
+    const nearFocus = Math.abs(rect.top - scrollMargin) < 28
+    const alreadyVisible =
+      rect.top >= 0 && rect.top < window.innerHeight * 0.4 && elapsed > 100
+    if ((nearFocus && elapsed > 120) || alreadyVisible || elapsed > 1100) {
+      finish()
+      return
+    }
+    pollId = window.setTimeout(poll, 40)
+  }
+  pollId = window.setTimeout(poll, 40)
+
+  // Absolute safety net if neither scrollend nor poll settles
+  fallbackId = window.setTimeout(finish, 1200)
+
+  jumpFlashCleanup = () => {
+    done = true
+    window.removeEventListener('scrollend', onScrollEnd)
+    window.clearTimeout(pollId)
+    window.clearTimeout(fallbackId)
+    window.clearTimeout(settleId)
+    window.clearTimeout(clearFlashId)
+    el.classList.remove('id-flash')
+  }
+}
+
 /** Hover panels: only sections that carry this grade’s tag. */
 const GRADE_TRACKS = /** @type {const} */ (['trig', 'precalc', 'calc1', 'calc2']).map((id) => ({
   id,
   ...GRADE_META[id],
   topics: CHEAT_SECTIONS.filter((s) => s.courses.includes(id)).map((s) => ({
+    id: s.id,
     href: `#${s.id}`,
     title: s.title,
     note: s.note,
     interactive: Boolean(s.interactive),
+    subsections: s.subsections || [],
   })),
 }))
 
 function GradeBrowse() {
   const [openId, setOpenId] = useState(null)
+  /** Pinned section id for nested subsection flyout (touch + hover) */
+  const [openTopicId, setOpenTopicId] = useState(null)
   const rootRef = useRef(null)
 
   // Close pinned panel on outside click / Escape (touch + keyboard)
   useEffect(() => {
-    if (!openId) return
+    if (!openId && !openTopicId) return
     const onPointer = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpenId(null)
+      if (rootRef.current && !rootRef.current.contains(e.target)) {
+        setOpenId(null)
+        setOpenTopicId(null)
+      }
     }
     const onKey = (e) => {
-      if (e.key === 'Escape') setOpenId(null)
+      if (e.key === 'Escape') {
+        setOpenTopicId(null)
+        setOpenId(null)
+      }
     }
     document.addEventListener('pointerdown', onPointer)
     document.addEventListener('keydown', onKey)
@@ -1361,11 +1564,17 @@ function GradeBrowse() {
       document.removeEventListener('pointerdown', onPointer)
       document.removeEventListener('keydown', onKey)
     }
-  }, [openId])
+  }, [openId, openTopicId])
 
   const onChipClick = (id) => {
-    // Toggle pin for touch devices; desktop mainly uses hover
+    setOpenTopicId(null)
     setOpenId((prev) => (prev === id ? null : id))
+  }
+
+  const go = (id) => {
+    setOpenTopicId(null)
+    setOpenId(null)
+    jumpToSection(id)
   }
 
   return (
@@ -1376,7 +1585,7 @@ function GradeBrowse() {
     >
       <div className="id-grade-browse-head">
         <span className="id-grade-browse-label">Browse by level</span>
-        <span className="id-grade-browse-hint">Hover or tap a course</span>
+        <span className="id-grade-browse-hint">Hover a course → section → card</span>
       </div>
       <div className="id-grade-row">
         {GRADE_TRACKS.map((track) => {
@@ -1409,21 +1618,82 @@ function GradeBrowse() {
                     <p className="id-grade-panel-blurb">{track.blurb}</p>
                   </header>
                   <ul className="id-grade-topic-list">
-                    {track.topics.map((t) => (
-                      <li key={t.href + t.title}>
-                        <a
-                          href={t.href}
-                          className={`id-grade-topic${t.interactive ? ' id-grade-topic--interactive' : ''}`}
-                          onClick={() => setOpenId(null)}
+                    {track.topics.map((t) => {
+                      const hasSubs = t.subsections && t.subsections.length > 0
+                      const topicOpen = openTopicId === t.id
+                      return (
+                        <li
+                          key={t.id}
+                          className={`id-grade-topic-wrap${topicOpen ? ' is-open' : ''}${hasSubs ? ' has-subs' : ''}`}
+                          onMouseEnter={() => hasSubs && setOpenTopicId(t.id)}
+                          onMouseLeave={() => {
+                            // Only clear if this topic still owns the flyout
+                            setOpenTopicId((prev) => (prev === t.id ? null : prev))
+                          }}
                         >
-                          <span className="id-grade-topic-title-row">
-                            <span className="id-grade-topic-title">{t.title}</span>
-                            {t.interactive && <InteractiveBadge compact />}
-                          </span>
-                          <span className="id-grade-topic-note">{t.note}</span>
-                        </a>
-                      </li>
-                    ))}
+                          <a
+                            href={t.href}
+                            className={`id-grade-topic${t.interactive ? ' id-grade-topic--interactive' : ''}`}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              if (hasSubs && !topicOpen) {
+                                // Touch: first tap opens subsections; second goes to section
+                                setOpenTopicId(t.id)
+                                return
+                              }
+                              go(t.id)
+                            }}
+                          >
+                            <span className="id-grade-topic-title-row">
+                              <span className="id-grade-topic-title">{t.title}</span>
+                              {t.interactive && <InteractiveBadge compact />}
+                              {hasSubs && (
+                                <span className="id-grade-topic-chevron" aria-hidden="true">
+                                  ›
+                                </span>
+                              )}
+                            </span>
+                            <span className="id-grade-topic-note">{t.note}</span>
+                          </a>
+                          {hasSubs && (
+                            <div
+                              className="id-grade-subpanel"
+                              role="region"
+                              aria-label={`${t.title} cards`}
+                            >
+                              <div className="id-grade-subpanel-inner">
+                                <header className="id-grade-subpanel-head">
+                                  <span className="id-grade-subpanel-title">Cards</span>
+                                  <button
+                                    type="button"
+                                    className="id-grade-subpanel-all"
+                                    onClick={() => go(t.id)}
+                                  >
+                                    Whole section
+                                  </button>
+                                </header>
+                                <ul className="id-grade-sublist">
+                                  {t.subsections.map((sub) => (
+                                    <li key={sub.id}>
+                                      <a
+                                        href={`#${sub.id}`}
+                                        className="id-grade-sublink"
+                                        onClick={(e) => {
+                                          e.preventDefault()
+                                          go(sub.id)
+                                        }}
+                                      >
+                                        {sub.title}
+                                      </a>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
+                        </li>
+                      )
+                    })}
                   </ul>
                 </div>
               </div>
@@ -1436,6 +1706,14 @@ function GradeBrowse() {
 }
 
 export default function IdentitiesPage() {
+  // Deep-link flash when landing with a hash (e.g. /cheat-sheet#pendulums-fbd)
+  useEffect(() => {
+    const raw = window.location.hash.replace(/^#/, '')
+    if (!raw) return
+    const t = window.setTimeout(() => jumpToSection(raw), 80)
+    return () => clearTimeout(t)
+  }, [])
+
   return (
     <>
       <header className="hero hero--compact">
@@ -1448,28 +1726,12 @@ export default function IdentitiesPage() {
             The trig identities you actually use in high school and undergrad — plus differentiation
             from first principles, LIATE for integration by parts, the close-points method for
             max/min/inflection, unit-circle geometry, and optional extras (Euler, e, φ). Hover a
-            grade level below to jump to the right sections.
+            grade level → section → card to jump (with a flash so you know where you landed).
           </p>
         </div>
       </header>
 
       <main className="workspace workspace--single">
-        {/* Flat jump links — full map of the page */}
-        <nav className="id-toc panel" aria-label="All cheat sheet sections">
-          <a href="#core-trig">Core trig</a>
-          <a href="#thales">Thales</a>
-          <a href="#first-principles">First principles</a>
-          <a href="#liate">LIATE</a>
-          <a href="#close-points">Close points</a>
-          <a href="#logs">Logs</a>
-          <a href="#unit-circle-bridge">Unit circle & Euler</a>
-          <a href="#calc-bridge">Calc 1 bridge</a>
-          <a href="#inverse-trig">Inverse trig</a>
-          <a href="#number-types">Number types</a>
-          <a href="#constants">Constants</a>
-          <a href="#bonus">Bonus · φ & Fibonacci</a>
-        </nav>
-
         <GradeBrowse />
 
         <p className="id-radian-note panel">
@@ -1490,7 +1752,7 @@ export default function IdentitiesPage() {
 
           <div className="id-grid">
             {/* Definitions */}
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="core-trig-defs" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Definitions · SOH-CAH-TOA</span>
                 <span className="panel-hint">Right triangle · unit circle</span>
@@ -1524,7 +1786,7 @@ export default function IdentitiesPage() {
             </section>
 
             {/* Pythagorean */}
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="core-trig-pythag" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Pythagorean identities</span>
                 <span className="panel-hint">The workhorse of simplification</span>
@@ -1582,7 +1844,7 @@ export default function IdentitiesPage() {
             </section>
 
             {/* Ranges & undefined — from unit-circle all-six diagram */}
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="core-trig-ranges" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Ranges & undefined values</span>
                 <span className="panel-hint">What the unit circle allows</span>
@@ -1644,7 +1906,7 @@ export default function IdentitiesPage() {
             </section>
 
             {/* Even / odd / cofunction */}
-            <section className="panel content-panel id-card">
+            <section id="core-trig-even-odd" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">Even, odd & co-function</span>
                 <span className="panel-hint">Signs · complementary angles</span>
@@ -1669,7 +1931,7 @@ export default function IdentitiesPage() {
             </section>
 
             {/* Sum and difference */}
-            <section className="panel content-panel id-card">
+            <section id="core-trig-sum-diff" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">Sum & difference</span>
                 <span className="panel-hint">α ± β</span>
@@ -1698,7 +1960,7 @@ export default function IdentitiesPage() {
             </section>
 
             {/* Double angle */}
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="core-trig-double" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Double-angle formulas</span>
                 <span className="panel-hint">2θ · power-reducing cousins</span>
@@ -1738,7 +2000,7 @@ export default function IdentitiesPage() {
             </section>
 
             {/* Law of sines / cosines */}
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="core-trig-laws" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Law of sines & cosines</span>
                 <span className="panel-hint">Any triangle · leave the unit circle</span>
@@ -1782,7 +2044,7 @@ export default function IdentitiesPage() {
           </p>
 
           <div className="id-grid">
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="thales-roll" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Roll · mean · square</span>
                 <span className="panel-hint">Drag the circle in step 2 · half turn = πr</span>
@@ -1853,7 +2115,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="thales-why" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Why the geometry works</span>
                 <span className="panel-hint">Thales + altitude mean</span>
@@ -1884,6 +2146,70 @@ export default function IdentitiesPage() {
         </section>
 
         {/* ═══════════════════════════════════════════
+            ERATOSTHENES · measuring Earth
+            ═══════════════════════════════════════════ */}
+        <section id="eratosthenes" className="id-block">
+          <SectionLabel sectionId="eratosthenes">Eratosthenes · measuring Earth</SectionLabel>
+          <p className="id-block-lead">
+            Same circumference idea as Thales’ roll — C = 2πr — used at planetary scale: one shadow
+            angle and the distance between two cities.
+          </p>
+
+          <div className="id-grid">
+            <section id="eratosthenes-earth" className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">Alexandria · Syene · 7.2°</span>
+                <span className="panel-hint">Parallel rays · similar angles · full turn</span>
+              </div>
+              <div className="id-body id-body--split">
+                <div>
+                  <p>
+                    At noon on the summer solstice, sunlight fell straight down a deep well at{' '}
+                    <strong>Syene</strong> (no shadow). The same day at <strong>Alexandria</strong>,
+                    a stick cast a shadow of about <strong>7.2°</strong> from the vertical.
+                  </p>
+                  <p>
+                    Treat sun rays as parallel. Then that shadow angle equals the central angle
+                    between the two cities on Earth’s sphere. A full circle is 360°, so:
+                  </p>
+                  <Formula
+                    math={String.raw`\dfrac{7.2^{\circ}}{360^{\circ}}=\dfrac{1}{50}
+                      \quad\Rightarrow\quad
+                      C_{\text{Earth}}=50\cdot d_{\text{Alexandria–Syene}}`}
+                  />
+                  <p>
+                    With the measured north–south distance between the cities, he recovered the
+                    whole circumference — then radius from the usual relation:
+                  </p>
+                  <Formula math={String.raw`C=2\pi r \quad\Rightarrow\quad r=\dfrac{C}{2\pi}`} />
+                  <UseWhen>
+                    Linking central angles to arc length; seeing why C = 2πr is not just a unit-circle
+                    formula but a scale tool; classical geometry that prefigures measured rates.
+                  </UseWhen>
+                  <WatchOut>
+                    The method assumes the cities share a meridian, rays are parallel, and Earth is
+                    a sphere — good first-order model, not modern geodesy.
+                  </WatchOut>
+                  <Check>
+                    <p>
+                      7.2° is 1/50 of a turn. If the city-to-city arc is about 5000 stadia, C ≈
+                      250{'\u2009'}000 stadia — within tens of percent of the modern value depending
+                      on which stadium length you use.
+                    </p>
+                  </Check>
+                </div>
+                <NoteFigure
+                  src="/notes/eratosthenes-earth.jpg"
+                  alt="Eratosthenes’ measurement of Earth: parallel sunlight at Alexandria and Syene, 7.2° shadow angle at Alexandria, well with no shadow at Syene"
+                  caption="Sunlight · stick shadow at Alexandria · well at Syene · central angle 7.2°"
+                  diagram
+                />
+              </div>
+            </section>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════
             FIRST PRINCIPLES (from notebook pages)
             ═══════════════════════════════════════════ */}
         <section id="first-principles" className="id-block">
@@ -1894,7 +2220,7 @@ export default function IdentitiesPage() {
           </p>
 
           <div className="id-grid">
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="first-principles-def" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">From two points to dy/dx</span>
                 <span className="panel-hint">Close points · difference quotient</span>
@@ -1942,7 +2268,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="first-principles-x2" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Worked example · y = x²</span>
                 <span className="panel-hint">Then the power rule</span>
@@ -1989,7 +2315,7 @@ export default function IdentitiesPage() {
           </p>
 
           <div className="id-grid">
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="liate-formula" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">The parts formula</span>
                 <span className="panel-hint">∫ u dv = uv − ∫ v du</span>
@@ -2012,7 +2338,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="liate-order" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">LIATE priority order</span>
                 <span className="panel-hint">Pick u from the top of the list</span>
@@ -2073,7 +2399,7 @@ export default function IdentitiesPage() {
           </p>
 
           <div className="id-grid">
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="close-points-tests" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">First & second derivative tests</span>
                 <span className="panel-hint">Concavity · extrema · inflection</span>
@@ -2124,7 +2450,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card">
+            <section id="close-points-check" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">Close-points checklist</span>
                 <span className="panel-hint">Left of c · at c · right of c</span>
@@ -2153,7 +2479,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card">
+            <section id="close-points-indet" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">Indeterminate forms (side note)</span>
                 <span className="panel-hint">1^∞ · ∞/∞</span>
@@ -2182,7 +2508,7 @@ export default function IdentitiesPage() {
           </p>
 
           <div className="id-grid">
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="logs-bases" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Bases by field</span>
                 <span className="panel-hint">e · 10 · 2</span>
@@ -2250,7 +2576,7 @@ export default function IdentitiesPage() {
           </p>
 
           <div className="id-grid">
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="euler-formula" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Euler’s formula</span>
                 <span className="panel-hint">e^{'{iθ}'} · drag the spiral · side view → sine</span>
@@ -2284,7 +2610,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card id-card--unit-pi">
+            <section id="unit-circle-pi" className="panel content-panel id-card id-card--unit-pi">
               <div className="panel-header">
                 <span className="panel-title">On the unit circle at π</span>
                 <span className="panel-hint">−1 = cos π + i sin π</span>
@@ -2313,7 +2639,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card">
+            <section id="euler-identity" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">Euler’s identity</span>
                 <span className="panel-hint">Five constants, one line</span>
@@ -2362,7 +2688,7 @@ export default function IdentitiesPage() {
           </p>
 
           <div className="id-grid">
-            <section className="panel content-panel id-card">
+            <section id="calc-bridge-deriv" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">Derivatives of sin & cos</span>
                 <span className="panel-hint">Chain rule ready</span>
@@ -2384,7 +2710,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card">
+            <section id="calc-bridge-integrals" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">Integrals that need identities</span>
                 <span className="panel-hint">Power-reducing</span>
@@ -2403,7 +2729,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="calc-bridge-limits" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Limits · undefined vs indeterminate</span>
                 <span className="panel-hint">1/0 vs 1^∞ · ties to l’Hôpital</span>
@@ -2465,7 +2791,7 @@ export default function IdentitiesPage() {
 
           <div className="id-grid">
             {/* Terminology from user table + full family */}
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="inverse-trig-terms" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Terminology · tan family (works the same for sin / cos)</span>
                 <span className="panel-hint">Name · meaning · notation · example</span>
@@ -2587,7 +2913,7 @@ export default function IdentitiesPage() {
             </section>
 
             {/* How inverse functions work */}
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="inverse-trig-how" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">How an inverse trig function works</span>
                 <span className="panel-hint">Undo the forward map · principal values</span>
@@ -2658,7 +2984,7 @@ export default function IdentitiesPage() {
             </section>
 
             {/* Three-way confusion card */}
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="inverse-trig-three" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Three “inverses” — do not mix them</span>
                 <span className="panel-hint">Reciprocal · inverse function · additive flip</span>
@@ -2716,7 +3042,7 @@ export default function IdentitiesPage() {
             </section>
 
             {/* Derivative cycle — phase flips, not inverse functions */}
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="inverse-trig-cycle" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">sin · cos · −sin · −cos · the derivative cycle</span>
                 <span className="panel-hint">Additive flips · not arctrig · RADIAN mode</span>
@@ -2794,12 +3120,275 @@ export default function IdentitiesPage() {
         </section>
 
         {/* ═══════════════════════════════════════════
+            PENDULUMS · simple → double → triple
+            (inspired by physical-pendulum lab writeup)
+            ═══════════════════════════════════════════ */}
+        <section id="pendulums" className="id-block">
+          <SectionLabel sectionId="pendulums">Pendulums · simple to triple</SectionLabel>
+          <p className="id-block-lead">
+            Restoring torque is proportional to{' '}
+            <Formula math={String.raw`\sin\theta`} display={false} />; for small angles that is
+            almost proportional to θ itself — simple harmonic motion (Calc 1 / Diff Eq). Link
+            several bobs and the same sine becomes a chaotic system. Live single · double · triple
+            simulation: <a href="/pendulums">Pendulums</a>.
+          </p>
+
+          <div className="id-grid">
+            {/* Galileo / isochronism */}
+            <section id="pendulums-isochronism" className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">Isochronism · Galileo’s observation</span>
+                <span className="panel-hint">Period independent of mass (and ≈ amplitude if small)</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  In <em>De motu antiquiora</em> (and later work), Galileo noticed that heavier and
+                  lighter pendulums of the same length keep nearly the same time —{' '}
+                  <strong>isochronism</strong>. The period is mass-independent and, for modest
+                  swings, proportional to the square root of length. That idea powered centuries of
+                  pendulum clocks before quartz took over; the pendulum is still the cleanest lab
+                  for circular motion, torque, and second-order ODEs.
+                </p>
+                <Formula
+                  math={String.raw`T=2\pi\sqrt{\dfrac{L}{g}}\qquad(\text{simple pendulum, small }\theta)`}
+                />
+                <UseWhen>
+                  Timing problems, estimating g from a measured period, or checking whether mass
+                  “should” appear in T (it should not, for an ideal simple pendulum).
+                </UseWhen>
+                <WatchOut>
+                  Large release angles break the small-angle story: the true period grows with
+                  amplitude. Dropping from θ ≳ 30° without measuring θ is a classic lab confounder.
+                </WatchOut>
+              </div>
+            </section>
+
+            {/* Free body + ODE */}
+            <section id="pendulums-fbd" className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">Simple pendulum · free body → ODE</span>
+                <span className="panel-hint">Static FBD · Calc 1+ · not interactive</span>
+              </div>
+              <div className="id-body id-body--split">
+                <div>
+                  <p>
+                    Model a bob of mass m on a massless string (or rod) of length ℓ. Measure θ(t)
+                    from the downward vertical (dashed). Gravity mg acts straight down; the
+                    restoring component tangent to the arc is mg sin θ (toward equilibrium), so the
+                    torque about the pivot is
+                  </p>
+                  <Formula math={String.raw`\tau=-mg\ell\sin\theta`} />
+                  <p>
+                    With moment of inertia I = mℓ² about the pivot, τ = Iα = I θ̈ gives
+                  </p>
+                  <Formula
+                    math={String.raw`-mg\ell\sin\theta=m\ell^{2}\,\ddot\theta
+                      \quad\Rightarrow\quad
+                      \ddot\theta+\dfrac{g}{\ell}\sin\theta=0`}
+                  />
+                  <p>
+                    That is a nonlinear second-order ODE — standard Calc 1 / Diff Eq material. Only
+                    the small-angle limit{' '}
+                    <Formula math={String.raw`\sin\theta\approx\theta`} display={false} /> (θ in
+                    radians!) turns it into simple harmonic motion:
+                  </p>
+                  <Formula
+                    math={String.raw`\ddot\theta+\dfrac{g}{\ell}\theta=0,\qquad
+                      \omega_{0}=\sqrt{\dfrac{g}{\ell}},\qquad
+                      T=\dfrac{2\pi}{\omega_{0}}`}
+                  />
+                  <Check>
+                    <p>
+                      For ℓ = 1 m and g ≈ 9.81 m/s², T ≈ 2π√(1/9.81) ≈ <strong>2.0 s</strong> — a
+                      useful mental check.
+                    </p>
+                  </Check>
+                </div>
+                <div>
+                  <figure className="id-pendulum-fbd-figure">
+                    <img
+                      src="/notes/simple-pendulum-fbd.jpg"
+                      alt="Free-body diagram of a simple pendulum: pivot, angle θ(t) from the vertical, length ℓ, weight mg downward, and restoring component mg sin θ"
+                      className="id-pendulum-fbd-img"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <figcaption className="id-caption">
+                      Free-body diagram (static reference · Calc 1+). Live single / double / triple
+                      motion: <a href="/pendulums">Pendulums</a>.
+                    </figcaption>
+                  </figure>
+                </div>
+              </div>
+            </section>
+
+            {/* Linear ↔ angular analogy */}
+            <section id="pendulums-analogy" className="panel content-panel id-card">
+              <div className="panel-header">
+                <span className="panel-title">Linear ↔ angular analogy</span>
+                <span className="panel-hint">Why I = mr² shows up</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  Arc length s = Lθ (radians). Differentiating, v = Lω and a = Lα when L is fixed.
+                  Matching linear and rotational forms:
+                </p>
+                <div className="id-formula-stack">
+                  <Formula
+                    math={String.raw`p=mv \;\longleftrightarrow\; L_{\text{ang}}=mr^{2}\omega`}
+                  />
+                  <Formula
+                    math={String.raw`F=ma \;\longleftrightarrow\; \tau=mr^{2}\alpha`}
+                  />
+                </div>
+                <p>
+                  The factor mr² is the <strong>moment of inertia</strong> of a point mass a
+                  distance r from the axis. Extended bodies sum (or integrate) that idea; the
+                  interactive lab uses ideal point-mass links, so each bob still contributes mᵢLᵢ²
+                  geometry through the Lagrangian.
+                </p>
+                <UseWhen>
+                  Translating F = ma intuition into torque and angular acceleration; reading lab
+                  writeups that compare p and L, F and τ.
+                </UseWhen>
+              </div>
+            </section>
+
+            {/* Small vs large angle */}
+            <section id="pendulums-small-angle" className="panel content-panel id-card">
+              <div className="panel-header">
+                <span className="panel-title">Small angle vs full sin θ</span>
+                <span className="panel-hint">When the sine wave “looks wrong”</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  Both pendulums and sine waves oscillate — but 2π is always the period of sin(ωt),
+                  while a real pendulum’s period is T = 2π√(L/g) only under{' '}
+                  <Formula math={String.raw`\sin\theta\approx\theta`} display={false} />. As
+                  amplitude grows, the graph of θ(t) stretches and is no longer a pure sinusoid.
+                </p>
+                <Formula
+                  math={String.raw`\text{error in }\sin\theta\approx\theta
+                    \text{ is }<\sim 1\%\text{ for }|\theta|\lesssim 14^{\circ}
+                    \text{ (}\sim 0.24\text{ rad)}`}
+                />
+                <WatchOut>
+                  Fitting a pure sine to a large-angle swing and reading “T = 2π” from the fit is
+                  misleading — the ODE is nonlinear. Use the interactive page’s full sin θ mode to
+                  see the stretch.
+                </WatchOut>
+                <UseWhen>
+                  Deciding whether a SHM formula is legal; debugging lab data where large drops
+                  inflate the measured period.
+                </UseWhen>
+              </div>
+            </section>
+
+            {/* Double / triple */}
+            <section id="pendulums-multi" className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">Double & triple pendulums · chaos</span>
+                <span className="panel-hint">Coupled angles · colored trails</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  A <strong>double pendulum</strong> is two simple links: angles θ₁, θ₂, lengths
+                  L₁, L₂, masses m₁, m₂. Energy still conserves (with no damping), but trajectories
+                  in the plane become sensitive to initial conditions — classic low-dimensional
+                  chaos. A <strong>triple</strong> link adds a third angle and even richer motion.
+                </p>
+                <div className="id-formula-stack">
+                  <Formula
+                    math={String.raw`\text{single:}\quad
+                      \ddot\theta+\dfrac{g}{L}\sin\theta=0`}
+                  />
+                  <Formula
+                    math={String.raw`\text{multi-link:}\quad
+                      \mathbf{M}(\boldsymbol\theta)\,\ddot{\boldsymbol\theta}
+                      +\mathbf{C}(\boldsymbol\theta,\dot{\boldsymbol\theta})
+                      +\mathbf{G}(\boldsymbol\theta)=\mathbf{0}`}
+                  />
+                </div>
+                <p>
+                  Here M is a configuration-dependent mass matrix (from kinetic energy), C collects
+                  Coriolis / centrifugal terms, and G comes from gravity — each Gᵢ still carries a{' '}
+                  <Formula math={String.raw`\sin\theta_{i}`} display={false} /> factor. The site
+                  integrates these with RK4 and paints a trail for every bob.
+                </p>
+                <ul className="id-list">
+                  <li>
+                    <strong style={{ color: '#f87171' }}>Bob 1</strong> — red trail (upper link)
+                  </li>
+                  <li>
+                    <strong style={{ color: '#38bdf8' }}>Bob 2</strong> — blue trail
+                  </li>
+                  <li>
+                    <strong style={{ color: '#a78bfa' }}>Bob 3</strong> — violet trail (triple only)
+                  </li>
+                </ul>
+                <UseWhen>
+                  Diff Eq / dynamics demos, chaos intuition, or comparing “looks random” motion to
+                  a deterministic ODE with no noise term.
+                </UseWhen>
+                <Check>
+                  <p>
+                    On <a href="/pendulums">Pendulums</a>: pause, set large unequal θ₀ for a
+                    double pendulum, play, and clear trails — the path fills a region instead of
+                    retracing a single curve.
+                  </p>
+                </Check>
+              </div>
+            </section>
+
+            {/* Toolkit card */}
+            <section id="pendulums-toolkit" className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">Formula toolkit</span>
+                <span className="panel-hint">Copy-ready · radians for ODEs</span>
+              </div>
+              <div className="id-body">
+                <div className="id-formula-stack">
+                  <Formula
+                    math={String.raw`\ddot\theta+\dfrac{g}{L}\sin\theta=0
+                      \quad\text{(simple, exact)}`}
+                  />
+                  <Formula
+                    math={String.raw`T=2\pi\sqrt{\dfrac{L}{g}}
+                      \quad\text{(simple, small }\theta\text{)}`}
+                  />
+                  <Formula
+                    math={String.raw`\tau=-mgL\sin\theta,\qquad I_{\text{pivot}}=mL^{2}`}
+                  />
+                  <Formula
+                    math={String.raw`s=L\theta,\quad v=L\omega,\quad
+                      \omega=\dot\theta,\quad\alpha=\ddot\theta`}
+                  />
+                </div>
+                <p>
+                  Interactive controls: lengths, masses, g, light damping, release angles, and
+                  trail fade — all on{' '}
+                  <a href="/pendulums">
+                    <strong>Pendulums</strong>
+                  </a>
+                  . Pair with <a href="#calc-bridge">Calc 1 bridge</a> (derivatives of sin/cos) and{' '}
+                  <a href="/waves">Trig Functions</a> (graph of sin itself).
+                </p>
+                <WatchOut>
+                  Always use <strong>radians</strong> in the ODE and in numerical integrators.
+                  Degree mode on a calculator will wreck sin θ ≈ θ checks.
+                </WatchOut>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════
             NUMBER TYPES
             ═══════════════════════════════════════════ */}
         <section id="number-types" className="id-block">
           <SectionLabel sectionId="number-types">What kind of number is that?</SectionLabel>
 
-          <section className="panel content-panel id-card id-card--wide">
+          <section id="number-types-map" className="panel content-panel id-card id-card--wide">
             <div className="panel-header">
               <span className="panel-title">Number systems map</span>
               <span className="panel-hint">Vi Hart–style nest · colored by type</span>
@@ -3023,7 +3612,7 @@ export default function IdentitiesPage() {
           <SectionLabel sectionId="constants">Constants worth knowing</SectionLabel>
 
           <div className="id-grid">
-            <section className="panel content-panel id-card">
+            <section id="constants-e" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">Euler’s number</span>
                 <span className="panel-hint">e · natural growth</span>
@@ -3053,7 +3642,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card">
+            <section id="constants-pi" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">π on the circle</span>
                 <span className="panel-hint">Irrational · radians</span>
@@ -3090,7 +3679,7 @@ export default function IdentitiesPage() {
           </p>
 
           <div className="id-grid">
-            <section className="panel content-panel id-card">
+            <section id="bonus-phi" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">The golden ratio</span>
                 <span className="panel-hint">φ · optional</span>
@@ -3115,7 +3704,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card">
+            <section id="bonus-angle" className="panel content-panel id-card">
               <div className="panel-header">
                 <span className="panel-title">Golden angle on the circle</span>
                 <span className="panel-hint">≈ 137.5°</span>
@@ -3138,7 +3727,7 @@ export default function IdentitiesPage() {
               </div>
             </section>
 
-            <section className="panel content-panel id-card id-card--wide">
+            <section id="bonus-fib" className="panel content-panel id-card id-card--wide">
               <div className="panel-header">
                 <span className="panel-title">Fibonacci spiral</span>
                 <span className="panel-hint">1, 1, 2, 3, 5, 8, 13…</span>
@@ -3211,8 +3800,8 @@ export default function IdentitiesPage() {
         <p className="id-footnote panel" style={{ padding: '0.85rem 1.15rem' }}>
           Core trig layout follows standard precalc / Calc 1 reference sheets (definitions,
           Pythagorean, sum/difference, double-angle, laws of sines & cosines). Open the{' '}
-          <a href="/">Unit Circle</a> or <a href="/waves">Waves</a> pages to see the same angles
-          move live.
+          <a href="/">Unit Circle</a>, <a href="/waves">Trig Functions</a>, or{' '}
+          <a href="/pendulums">Pendulums</a> pages to see the same ideas move live.
         </p>
       </main>
     </>

@@ -65,6 +65,23 @@ const GEO_STROKE = 1.5
 /** Wave-plot stroke weights */
 const WAVE_STROKE_MAIN = 1.55
 const WAVE_STROKE_OTHER = 1.35
+/** Base uniform samples across 0…θ (extra points are clustered at asymptotes) */
+const WAVE_BASE_STEPS = 1600
+/** Vertical asymptotes of tan/sec (odd multiples of 90°) and cot/csc (multiples of 180°) */
+const WAVE_ASYMPTOTE_DEGS = [0, 90, 180, 270, 360]
+/**
+ * Keep-out band (degrees) around vertical asymptotes for tan/cot/sec/csc.
+ * Large enough that stroke width cannot visually “lip” onto the dotted guide
+ * (~4–5 px on the default wave width). Curves still approach; they never touch.
+ */
+const ASYMP_CLEAR_DEG = 3.2
+/**
+ * Offsets (degrees) from each asymptote for dense approach sampling.
+ * Only offsets ≥ ASYMP_CLEAR_DEG are used in the drawn path.
+ */
+const WAVE_ASYMP_OFFSETS = [
+  3.2, 3.6, 4.2, 5, 6, 7.5, 9, 12, 16, 22, 30,
+]
 
 /** θ animation: degrees per second at speed = 1 (see play loop) */
 const ANIM_DEG_PER_SEC = 40
@@ -154,13 +171,110 @@ function negate(v) {
  *
  * Across the wave panel we map θ-progress 0°…360° → x ∈ [−INV_X_MAX, +INV_X_MAX]
  * so one full sweep draws the full inverse curve left→right (0 at panel center).
+ * Larger range → tan⁻¹ / sec⁻¹ / csc⁻¹ hug horizontal asymptotes more closely.
  */
-const INV_X_MAX = 10
+const INV_X_MAX = 64
 
 /** Map unwrapped θ (degrees, 0…360) → real input for inverse-trig plots. */
 function invInputFromTheta(tDeg) {
   const t = Math.max(0, Math.min(360, tDeg))
   return -INV_X_MAX + (t / 360) * (2 * INV_X_MAX)
+}
+
+/** θ (deg) where inv-input x equals the given real value */
+function thetaAtInvX(x) {
+  return (360 * (x + INV_X_MAX)) / (2 * INV_X_MAX)
+}
+
+/** Vertical asymptote locations (deg) for an unbounded primary trig key */
+function vertAsymptotesForKey(key) {
+  if (key === 'tan' || key === 'sec') return [90, 270]
+  if (key === 'cot' || key === 'csc') return [0, 180, 360]
+  return []
+}
+
+/** True if θ is inside the keep-out band around a vertical asymptote for this key */
+function nearVerticalAsymptote(tDeg, key, clearDeg = ASYMP_CLEAR_DEG) {
+  const asymptotes = vertAsymptotesForKey(key)
+  if (asymptotes.length === 0) return false
+  const t = ((tDeg % 360) + 360) % 360
+  for (const a of asymptotes) {
+    const d = Math.min(Math.abs(t - a), Math.abs(t - a + 360), Math.abs(t - a - 360))
+    if (d < clearDeg) return true
+  }
+  // 0° and 360° are the same asymptote for cot/csc
+  if ((key === 'cot' || key === 'csc') && (t < clearDeg || t > 360 - clearDeg)) {
+    return true
+  }
+  return false
+}
+
+/**
+ * Sample θ values on [0, end] with uniform base coverage plus dense clusters
+ * around vertical asymptotes and inverse-trig domain / far-field regions.
+ */
+function buildWaveSampleAngles(endDeg) {
+  const end = Math.max(0, Math.min(360, endDeg))
+  const set = new Set()
+  for (let i = 0; i <= WAVE_BASE_STEPS; i++) {
+    set.add((i / WAVE_BASE_STEPS) * end)
+  }
+
+  // Vertical-asymptote approach (tan/sec/cot/csc)
+  for (const a of WAVE_ASYMPTOTE_DEGS) {
+    if (a < -1e-9 || a > end + 1e-9) continue
+    for (const o of WAVE_ASYMP_OFFSETS) {
+      const lo = a - o
+      const hi = a + o
+      if (lo >= 0 && lo <= end) set.add(lo)
+      if (hi >= 0 && hi <= end) set.add(hi)
+    }
+  }
+
+  // Inverse sec/csc: dense near domain edges |x|=1 and far field (horizontal asymptotes)
+  const invClusterX = [
+    -INV_X_MAX,
+    -INV_X_MAX * 0.85,
+    -INV_X_MAX * 0.55,
+    -12,
+    -4,
+    -2,
+    -1.5,
+    -1.2,
+    -1.08,
+    -1.03,
+    -1.01,
+    -1,
+    1,
+    1.01,
+    1.03,
+    1.08,
+    1.2,
+    1.5,
+    2,
+    4,
+    12,
+    INV_X_MAX * 0.55,
+    INV_X_MAX * 0.85,
+    INV_X_MAX,
+  ]
+  const invEdgeOffsets = [
+    0.02, 0.05, 0.1, 0.2, 0.4, 0.8, 1.5, 3, 6, 12, 24,
+  ]
+  for (const x of invClusterX) {
+    const a = thetaAtInvX(x)
+    if (a < -1e-9 || a > end + 1e-9) continue
+    if (a >= 0 && a <= end) set.add(a)
+    for (const o of invEdgeOffsets) {
+      const lo = a - o
+      const hi = a + o
+      if (lo >= 0 && lo <= end) set.add(lo)
+      if (hi >= 0 && hi <= end) set.add(hi)
+    }
+  }
+
+  set.add(end)
+  return [...set].sort((a, b) => a - b)
 }
 
 /** y = arctan(x), x real → (−π/2, π/2) */
@@ -200,24 +314,71 @@ function formatAngleNumber(n, asInt) {
 }
 
 /**
- * Build an SVG path that breaks at vertical asymptotes / clipped extremes.
+ * Soft-map ℝ → (−lim, lim) so large |v| still plots near the panel edge.
+ * Soft ceiling (0.88·lim) avoids a flat top that reads as “clipped onto” guides.
+ */
+function compressTowardAsymptote(v, lim) {
+  if (v == null || !Number.isFinite(v)) return null
+  if (!(lim > 0)) return v
+  return lim * 0.88 * Math.tanh(v / (lim * 0.75))
+}
+
+/**
+ * Build an SVG path that breaks at singularities / keep-out bands.
+ * When compressLim > 0, large values are soft-mapped so unbounded graphs climb
+ * steeply without needing samples inside the asymptote keep-out band.
+ * Optional asymptoteXs + clearPx force a hard pixel gap from vertical guides
+ * so strokes cannot lip onto the dotted lines.
  * getValue(point) → number | null
  */
-function buildClippedPath(pts, getValue, cy, amp, yClip) {
+function buildClippedPath(
+  pts,
+  getValue,
+  cy,
+  amp,
+  compressLim = 0,
+  asymptoteXs = null,
+  clearPx = 0
+) {
   let d = ''
   let drawing = false
   for (const p of pts) {
-    const v = getValue(p)
-    if (v == null || !Number.isFinite(v) || Math.abs(v) > yClip) {
+    let v = getValue(p)
+    if (v == null || !Number.isFinite(v)) {
       drawing = false
       continue
     }
+    if (compressLim > 0) {
+      v = compressTowardAsymptote(v, compressLim)
+      if (v == null || !Number.isFinite(v)) {
+        drawing = false
+        continue
+      }
+    }
+    let x = p.x
+    // Hard pixel clearance from vertical asymptote guides (anti-lipping)
+    if (asymptoteXs && asymptoteXs.length > 0 && clearPx > 0) {
+      for (const ax of asymptoteXs) {
+        const dx = x - ax
+        if (Math.abs(dx) < clearPx) {
+          // Too close — drop this sample (path break)
+          v = null
+          break
+        }
+      }
+      if (v == null) {
+        drawing = false
+        continue
+      }
+    }
     const y = cy - v * amp
+    const xx = Math.round(x * 100) / 100
+    const yy = Math.round(y * 100) / 100
     if (!drawing) {
-      d += `M ${p.x} ${y} `
+      d += `M ${xx} ${yy} `
       drawing = true
     } else {
-      d += `L ${p.x} ${y} `
+      d += `L ${xx} ${yy} `
     }
   }
   return d.trim()
@@ -1114,12 +1275,12 @@ export default function WavesPage() {
 
   // Wave history: θ from 0 → current (forward + phase flips).
   // Inverse trig use the same x-position but y = f⁻¹(real input), not f⁻¹(f(θ)).
+  // Adaptive samples cluster near vertical asymptotes so curves approach without crossing.
   const history = useMemo(() => {
-    const pts = []
-    const steps = 720 // denser sampling for vertical asymptotes
     const end = Math.min(angle, 360)
-    for (let i = 0; i <= steps; i++) {
-      const t = (i / steps) * end
+    const angles = buildWaveSampleAngles(end)
+    const pts = []
+    for (const t of angles) {
       const tr = (t * Math.PI) / 180
       const s = Math.sin(tr)
       const c = Math.cos(tr)
@@ -1148,34 +1309,100 @@ export default function WavesPage() {
     return pts
   }, [angle, waveW, waveX0])
 
-  const makePath = (key) =>
-    buildClippedPath(history, (p) => p[key], cy, amp, yClip)
-  const sinPath = useMemo(() => makePath('sin'), [history, cy, amp, yClip])
-  const cosPath = useMemo(() => makePath('cos'), [history, cy, amp, yClip])
-  const tanPath = useMemo(() => makePath('tan'), [history, cy, amp, yClip])
-  const cscPath = useMemo(() => makePath('csc'), [history, cy, amp, yClip])
-  const secPath = useMemo(() => makePath('sec'), [history, cy, amp, yClip])
-  const cotPath = useMemo(() => makePath('cot'), [history, cy, amp, yClip])
-  const asinPath = useMemo(() => makePath('asin'), [history, cy, amp, yClip])
-  const acosPath = useMemo(() => makePath('acos'), [history, cy, amp, yClip])
-  const atanPath = useMemo(() => makePath('atan'), [history, cy, amp, yClip])
-  const acscPath = useMemo(() => makePath('acsc'), [history, cy, amp, yClip])
-  const asecPath = useMemo(() => makePath('asec'), [history, cy, amp, yClip])
-  const acotPath = useMemo(() => makePath('acot'), [history, cy, amp, yClip])
+  // Pixel gap from vertical asymptote lines (~ half stroke + anti-alias margin)
+  const ASYMP_CLEAR_PX = 5.5
+
+  // Unbounded graphs: soft-compress + angular keep-out + pixel gap so curves
+  // approach but never lip onto the dotted asymptote guides. Inverses: raw values.
+  const makePath = (key, compress = false) => {
+    const asympDegs = compress ? vertAsymptotesForKey(key) : []
+    const asymptoteXs = asympDegs.map((deg) => waveX0 + (deg / 360) * waveW)
+    return buildClippedPath(
+      history,
+      (p) => {
+        const v = p[key]
+        if (v == null || !Number.isFinite(v)) return null
+        if (compress && nearVerticalAsymptote(p.t, key)) return null
+        return v
+      },
+      cy,
+      amp,
+      compress ? yClip : 0,
+      compress ? asymptoteXs : null,
+      compress ? ASYMP_CLEAR_PX : 0
+    )
+  }
+  // history already depends on angle / layout; rebuild paths when it changes
+  const sinPath = useMemo(() => makePath('sin'), [history, cy, amp, yClip, waveX0, waveW])
+  const cosPath = useMemo(() => makePath('cos'), [history, cy, amp, yClip, waveX0, waveW])
+  const tanPath = useMemo(() => makePath('tan', true), [history, cy, amp, yClip, waveX0, waveW])
+  const cscPath = useMemo(() => makePath('csc', true), [history, cy, amp, yClip, waveX0, waveW])
+  const secPath = useMemo(() => makePath('sec', true), [history, cy, amp, yClip, waveX0, waveW])
+  const cotPath = useMemo(() => makePath('cot', true), [history, cy, amp, yClip, waveX0, waveW])
+  const asinPath = useMemo(() => makePath('asin'), [history, cy, amp, yClip, waveX0, waveW])
+  const acosPath = useMemo(() => makePath('acos'), [history, cy, amp, yClip, waveX0, waveW])
+  const atanPath = useMemo(() => makePath('atan'), [history, cy, amp, yClip, waveX0, waveW])
+  const acscPath = useMemo(() => makePath('acsc'), [history, cy, amp, yClip, waveX0, waveW])
+  const asecPath = useMemo(() => makePath('asec'), [history, cy, amp, yClip, waveX0, waveW])
+  const acotPath = useMemo(() => makePath('acot'), [history, cy, amp, yClip, waveX0, waveW])
+
+  const isUnboundedKey = (key) =>
+    key === 'tan' || key === 'cot' || key === 'sec' || key === 'csc'
 
   const scanX = waveX0 + (angle / 360) * waveW
 
-  const scanY = (v) => {
-    if (v == null || !Number.isFinite(v) || Math.abs(v) > yClip) return null
-    return cy - v * amp
+  /** Screen y for a function value; compress=true matches unbounded path drawing */
+  const scanY = (v, compress = false, key = null) => {
+    if (v == null || !Number.isFinite(v)) return null
+    if (key && compress && nearVerticalAsymptote(angle, key)) return null
+    const yv = compress ? compressTowardAsymptote(v, yClip) : v
+    if (yv == null || !Number.isFinite(yv) || Math.abs(yv) > yClip + 1e-9) return null
+    return cy - yv * amp
   }
+
+  /**
+   * Asymptote guides for the wave plot (faint dotted grey when those fns are on).
+   * Vertical: tan/sec at π/2 + kπ; cot/csc at kπ.
+   * Horizontal: tan⁻¹ → ±π/2; cot⁻¹ → 0 and π (0 is the axis — skip).
+   */
+  const asymptotes = useMemo(() => {
+    const vertDeg = new Set()
+    if (showTan || showSec) {
+      vertDeg.add(90)
+      vertDeg.add(270)
+    }
+    if (showCot || showCsc) {
+      vertDeg.add(0)
+      vertDeg.add(180)
+      vertDeg.add(360)
+    }
+    const horizY = new Set()
+    if (showAtan) {
+      horizY.add(Math.PI / 2)
+      horizY.add(-Math.PI / 2)
+    }
+    if (showAcot) {
+      // cot⁻¹ → 0 as x→+∞ (axis already drawn); → π as x→−∞
+      horizY.add(Math.PI)
+    }
+    // sec⁻¹ → π/2 as |x|→∞ (from above on one branch); csc⁻¹ → 0 (axis)
+    if (showAsec) {
+      horizY.add(Math.PI / 2)
+    }
+    return {
+      vertical: [...vertDeg].sort((a, b) => a - b),
+      horizontal: [...horizY].filter((y) => Math.abs(y) <= yClip),
+    }
+  }, [showTan, showSec, showCot, showCsc, showAtan, showAcot, showAsec, yClip])
+
+  const asymptoteStroke = isLight ? 'rgba(100,116,139,0.45)' : 'rgba(148,163,184,0.4)'
 
   const sinScanY = scanY(sin)
   const cosScanY = scanY(cos)
-  const tanScanY = scanY(tan)
-  const cscScanY = scanY(csc)
-  const secScanY = scanY(sec)
-  const cotScanY = scanY(cot)
+  const tanScanY = scanY(tan, true, 'tan')
+  const cscScanY = scanY(csc, true, 'csc')
+  const secScanY = scanY(sec, true, 'sec')
+  const cotScanY = scanY(cot, true, 'cot')
 
   const functions = [
     {
@@ -1233,7 +1460,7 @@ export default function WavesPage() {
       setShow: setShowTan,
       value: tan,
       path: tanPath,
-      scanY: scanY(tan),
+      scanY: scanY(tan, true, 'tan'),
       color: tanColor,
     },
     {
@@ -1244,7 +1471,7 @@ export default function WavesPage() {
       setShow: setShowCot,
       value: cot,
       path: cotPath,
-      scanY: scanY(cot),
+      scanY: scanY(cot, true, 'cot'),
       color: FN_COLORS.cot,
     },
     {
@@ -1277,7 +1504,7 @@ export default function WavesPage() {
       setShow: setShowCsc,
       value: csc,
       path: cscPath,
-      scanY: scanY(csc),
+      scanY: scanY(csc, true, 'csc'),
       color: FN_COLORS.csc,
     },
     {
@@ -1288,7 +1515,7 @@ export default function WavesPage() {
       setShow: setShowSec,
       value: sec,
       path: secPath,
-      scanY: scanY(sec),
+      scanY: scanY(sec, true, 'sec'),
       color: FN_COLORS.sec,
     },
     {
@@ -1389,6 +1616,12 @@ export default function WavesPage() {
               onPointerLeave={handlePointerUp}
               onContextMenu={handleContextMenu}
             >
+              <defs>
+                {/* Clip steep asymptote approaches to the wave panel (content units) */}
+                <clipPath id="wave-plot-clip">
+                  <rect x={waveX0} y={20} width={waveW} height={H - 56} />
+                </clipPath>
+              </defs>
               <g transform={viewTransform}>
               {/* Wave axes — extended vertically for unbounded functions */}
               <line x1={waveX0} y1={cy} x2={waveX0 + waveW} y2={cy} stroke={grid} strokeWidth="1" />
@@ -1462,6 +1695,44 @@ export default function WavesPage() {
                 strokeWidth="1"
                 strokeDasharray="2 5"
               />
+
+              {/* Asymptotes — faint dotted grey when tan/cot/sec/csc (vert) or inverses (horiz) are on */}
+              {(asymptotes.vertical.length > 0 || asymptotes.horizontal.length > 0) && (
+                <g className="wave-asymptotes" aria-hidden="true">
+                  {asymptotes.vertical.map((deg) => {
+                    const x = waveX0 + (deg / 360) * waveW
+                    return (
+                      <line
+                        key={`va-${deg}`}
+                        x1={x}
+                        y1={20}
+                        x2={x}
+                        y2={H - 36}
+                        stroke={asymptoteStroke}
+                        strokeWidth="1.1"
+                        strokeDasharray="1.5 4"
+                        strokeLinecap="round"
+                      />
+                    )
+                  })}
+                  {asymptotes.horizontal.map((yv) => {
+                    const y = cy - yv * amp
+                    return (
+                      <line
+                        key={`ha-${yv}`}
+                        x1={waveX0}
+                        y1={y}
+                        x2={waveX0 + waveW}
+                        y2={y}
+                        stroke={asymptoteStroke}
+                        strokeWidth="1.1"
+                        strokeDasharray="1.5 4"
+                        strokeLinecap="round"
+                      />
+                    )
+                  })}
+                </g>
+              )}
 
               {/* Circle */}
               <circle cx={cx} cy={cy} r={R} fill={panelFill} stroke={ink} strokeOpacity="0.35" strokeWidth="1.5" />
@@ -1922,27 +2193,30 @@ export default function WavesPage() {
                 </>
               )}
 
-              {/* Function graphs (draw order: unbounded first, then sin/cos on top) */}
-              {functions
-                .filter((f) => f.show && f.path)
-                .map((f) => (
-                  <path
-                    key={f.key}
-                    d={f.path}
-                    fill="none"
-                    stroke={f.color}
-                    strokeWidth={
-                      f.key === 'sin' ||
-                      f.key === 'cos' ||
-                      f.key === 'asin' ||
-                      f.key === 'acos'
-                        ? WAVE_STROKE_MAIN
-                        : WAVE_STROKE_OTHER
-                    }
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                ))}
+              {/* Function graphs (clip to wave panel so asymptote approaches can run tall) */}
+              <g clipPath="url(#wave-plot-clip)">
+                {functions
+                  .filter((f) => f.show && f.path)
+                  .map((f) => (
+                    <path
+                      key={f.key}
+                      d={f.path}
+                      fill="none"
+                      stroke={f.color}
+                      strokeWidth={
+                        f.key === 'sin' ||
+                        f.key === 'cos' ||
+                        f.key === 'asin' ||
+                        f.key === 'acos'
+                          ? WAVE_STROKE_MAIN
+                          : WAVE_STROKE_OTHER
+                      }
+                      /* butt caps on unbounded fns — round caps were overlapping asymptotes */
+                      strokeLinecap={isUnboundedKey(f.key) ? 'butt' : 'round'}
+                      strokeLinejoin="round"
+                    />
+                  ))}
+              </g>
 
               {/* Scan line + markers */}
               <line

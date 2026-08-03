@@ -133,7 +133,10 @@ export default function SiteShell() {
               Unit Circle
             </NavLink>
             <NavLink to="/waves" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
-              Trigonometric Functions
+              Trig Functions
+            </NavLink>
+            <NavLink to="/pendulums" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
+              Pendulums
             </NavLink>
             <NavLink to="/helix" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
               Chain Rule

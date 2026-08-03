@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import SiteShell from './components/SiteShell'
 import UnitCirclePage from './pages/UnitCirclePage'
 import WavesPage from './pages/WavesPage'
+import PendulumPage from './pages/PendulumPage'
 import HelixPage from './pages/HelixPage'
 import HistoryPage from './pages/HistoryPage'
 import IdentitiesPage from './pages/IdentitiesPage'
@@ -14,6 +15,7 @@ export default function App() {
         <Route element={<SiteShell />}>
           <Route index element={<UnitCirclePage />} />
           <Route path="waves" element={<WavesPage />} />
+          <Route path="pendulums" element={<PendulumPage />} />
           <Route path="helix" element={<HelixPage />} />
           <Route path="history" element={<HistoryPage />} />
           <Route path="cheat-sheet" element={<IdentitiesPage />} />
