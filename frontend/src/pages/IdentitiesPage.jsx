@@ -1360,6 +1360,20 @@ const CHEAT_SECTIONS = [
     ],
   },
   {
+    id: 'atwood',
+    title: 'Atwood machine · Newton’s 2nd law',
+    note: 'a = g·Δm/Σm · free bodies · formula ladder from ramp to Atwood',
+    courses: ['precalc'],
+    subsections: [
+      { id: 'atwood-idea', title: 'What Atwood measures' },
+      { id: 'atwood-newton', title: 'Newton II · free bodies' },
+      { id: 'atwood-derive', title: 'Derive a and T' },
+      { id: 'atwood-lab', title: 'Lab kinematics & confounders' },
+      { id: 'atwood-ladder', title: 'Formula ladder · ramp → Atwood' },
+      { id: 'atwood-toolkit', title: 'Formula toolkit' },
+    ],
+  },
+  {
     id: 'number-types',
     title: 'What kind of number is that?',
     note: 'Natural → real: vocabulary for every level',
@@ -3199,8 +3213,8 @@ export default function IdentitiesPage() {
                   />
                   <Check>
                     <p>
-                      For ℓ = 1 m and g ≈ 9.81 m/s², T ≈ 2π√(1/9.81) ≈ <strong>2.0 s</strong> — a
-                      useful mental check.
+                      For ℓ = 1 m and g = 9.80665 m/s² (standard gravity), T ≈ 2π√(1/g) ≈{' '}
+                      <strong>2.007 s</strong> — a useful mental check.
                     </p>
                   </Check>
                 </div>
@@ -3377,6 +3391,278 @@ export default function IdentitiesPage() {
                   Always use <strong>radians</strong> in the ODE and in numerical integrators.
                   Degree mode on a calculator will wreck sin θ ≈ θ checks.
                 </WatchOut>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════
+            ATWOOD MACHINE · Newton’s 2nd law lab
+            (from Physics Lab 1 · Atwood writeup)
+            ═══════════════════════════════════════════ */}
+        <section id="atwood" className="id-block">
+          <SectionLabel sectionId="atwood">Atwood machine · Newton’s 2nd law</SectionLabel>
+          <p className="id-block-lead">
+            George Atwood (1784) gave a clean way to measure acceleration under gravity with
+            two hanging masses and a string over pulleys — a living demo of{' '}
+            <Formula math={String.raw`\sum F=ma`} display={false} />. Start from box-on-a-ramp,
+            add a hanging counterweight, flatten the ramp into a table, then go fully vertical:{' '}
+            <strong>Atwood’s law</strong>{' '}
+            <Formula math={String.raw`a=g\,\Delta m/\sum m`} display={false} />. Interactive FBDs
+            and live solve:{' '}
+            <a href="/physics">
+              <strong>Physics</strong>
+            </a>
+            .
+          </p>
+
+          <div className="id-grid">
+            <section id="atwood-idea" className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">What Atwood measures</span>
+                <span className="panel-hint">Bidirectional lift · ideal string & pulleys</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  Two masses m₁ and m₂ hang on a string that runs over one or two fixed pulleys.
+                  Unlike a box on a ramp, both masses move only vertically, so sine factors drop
+                  out (sin 90° = 1). The heavier side descends; the lighter side ascends. Ideal
+                  model: massless frictionless pulleys and string, forces drawn from each mass’s{' '}
+                  <strong>center of mass</strong>.
+                </p>
+                <Formula math={String.raw`a=g\dfrac{\Delta m}{\sum m}
+                  =g\dfrac{|m_1-m_2|}{m_1+m_2}
+                  \qquad\text{(magnitude; direction = heavier side)}`} />
+                <p>
+                  That is the same structure as Newton’s second law written as{' '}
+                  <Formula math={String.raw`a=\sum F/m`} display={false} />: net driving force
+                  (m₁ − m₂)g over total mass m₁ + m₂.
+                </p>
+                <UseWhen>
+                  Checking “does g show up in a?” (yes, scaled by Δm/Σm), comparing ideal theory
+                  to photogate data, or explaining why equal masses give a = 0.
+                </UseWhen>
+                <WatchOut>
+                  Lab setups often use a <strong>double pulley</strong> (shorter string, easier
+                  photogate). Ideal single-pulley Atwood has the same a and T formulas if the
+                  pulleys are frictionless and massless.
+                </WatchOut>
+              </div>
+            </section>
+
+            <section id="atwood-newton" className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">Newton II · free-body diagrams</span>
+                <span className="panel-hint">F_g and F_T from each CoM</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  Newton’s second law:{' '}
+                  <Formula math={String.raw`\sum F=ma`} display={false} />, or equivalently{' '}
+                  <Formula math={String.raw`a=\sum F/m`} display={false} />. Acceleration is
+                  proportional to net force and inversely proportional to mass — exactly what you
+                  “play with” by changing m₁ and m₂.
+                </p>
+                <p>
+                  On each mass draw only two ideal forces from the CoM: gravity F_g = mg straight
+                  down, and tension F_T along the string up. Assume m₁ is the descending mass
+                  (+a toward m₁ down):
+                </p>
+                <div className="id-formula-stack">
+                  <Formula math={String.raw`m_1g-T=m_1a`} />
+                  <Formula math={String.raw`T-m_2g=m_2a`} />
+                </div>
+                <Check>
+                  <p>
+                    On <a href="/physics">Physics → Atwood</a>, toggle <strong>Net force</strong>:
+                    ΣF₁ and ΣF₂ should match m₁a and m₂a, and both arrows share one origin per
+                    mass.
+                  </p>
+                </Check>
+                <WatchOut>
+                  Real weight holders attach the string at the top of the stack, not the CoM —
+                  experimental F_T is never perfectly collinear with the theoretical diagram. That
+                  mismatch is a classic lab confounder.
+                </WatchOut>
+              </div>
+            </section>
+
+            <section id="atwood-derive" className="panel content-panel id-card">
+              <div className="panel-header">
+                <span className="panel-title">Derive a and T</span>
+                <span className="panel-hint">Add the system · eliminate T</span>
+              </div>
+              <div className="id-body">
+                <p>Add the two free-body equations: T cancels.</p>
+                <Formula
+                  math={String.raw`(m_1g-T)+(T-m_2g)=m_1a+m_2a
+                    \;\Rightarrow\;
+                    (m_1-m_2)g=(m_1+m_2)a`}
+                />
+                <Formula
+                  math={String.raw`a=g\dfrac{m_1-m_2}{m_1+m_2}
+                    =g\dfrac{\Delta m}{\sum m}`}
+                />
+                <p>
+                  Substitute a back into either equation for tension (same T throughout an ideal
+                  massless string):
+                </p>
+                <Formula
+                  math={String.raw`T=\dfrac{2m_1m_2}{m_1+m_2}\,g
+                    =\dfrac{2m_1m_2g}{\sum m}`}
+                />
+                <UseWhen>
+                  Homework “find a and T”, checking that T is always less than the heavier weight
+                  and greater than the lighter one.
+                </UseWhen>
+                <Check>
+                  <p>
+                    If m₁ = m₂, then a = 0 and T = m₁g — static equilibrium. If m₂ → 0, a → g and
+                    T → 0 (free fall of m₁).
+                  </p>
+                </Check>
+              </div>
+            </section>
+
+            <section id="atwood-lab" className="panel content-panel id-card">
+              <div className="panel-header">
+                <span className="panel-title">Lab kinematics & confounders</span>
+                <span className="panel-hint">Theory vs photogate / stopwatch</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  From rest, constant acceleration over drop h in time t:
+                </p>
+                <Formula
+                  math={String.raw`\Delta y=\tfrac12 at^2
+                    \quad\Rightarrow\quad
+                    a_{\text{exp}}=\dfrac{2h}{t^2}`}
+                />
+                <p>
+                  Ideal speed after drop h:{' '}
+                  <Formula math={String.raw`v=\sqrt{2ah}`} display={false} /> (energy or
+                  kinematics). Compare a_exp to a_theory = g|Δm|/Σm; labs typically find a_exp a
+                  bit smaller.
+                </p>
+                <ul className="id-list">
+                  <li>
+                    <strong>String attach point</strong> — top of holder ≠ CoM; F_T not perfectly
+                    vertical through the mass center.
+                  </li>
+                  <li>
+                    <strong>Pulley friction / inertia</strong> — real wheels store rotation and
+                    dissipate energy; slope of v(t) still linear if a is roughly constant.
+                  </li>
+                  <li>
+                    <strong>String stretch</strong> — non-ideal tension; thin string + small
+                    diameter pulley reduces torsion noise.
+                  </li>
+                </ul>
+                <WatchOut>
+                  Do not “correct” regression noise into a new value of g without a friction model —
+                  Atwood is best as a confirmation of constant a and ΣF = ma, not a precision g
+                  meter unless the apparatus is designed for that.
+                </WatchOut>
+                <Check>
+                  <p>
+                    On <a href="/physics">Physics → Atwood</a>, set h and t under Lab kinematics
+                    and read % error vs |a_theory|.
+                  </p>
+                </Check>
+              </div>
+            </section>
+
+            <section id="atwood-ladder" className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">Formula ladder · ramp → Atwood</span>
+                <span className="panel-hint">Same Newton II, different geometry</span>
+              </div>
+              <div className="id-body">
+                <p>
+                  Atwood is the end of a family of pulley problems that all start from{' '}
+                  <Formula math={String.raw`\sum F=ma`} display={false} /> on frictionless ideal
+                  surfaces (signs: take the heavier side’s descent as +a unless noted).
+                </p>
+                <div className="id-formula-stack">
+                  <Formula
+                    math={String.raw`\textbf{1. Box on ramp (alone):}\quad
+                      a=g\sin\theta
+                      \quad\text{(down the ramp)}`}
+                  />
+                  <Formula
+                    math={String.raw`\textbf{2. Hang + box on ramp:}\quad
+                      a=\dfrac{g\bigl(m_2-m_1\sin\theta\bigr)}{m_1+m_2}
+                      \quad(m_2\text{ hanging)}`}
+                  />
+                  <Formula
+                    math={String.raw`\textbf{3. Mirror ramps (same }\theta\text{):}\quad
+                      a=\dfrac{g\sin\theta\,(m_1-m_2)}{m_1+m_2}`}
+                  />
+                  <Formula
+                    math={String.raw`\textbf{4. Unequal ramps:}\quad
+                      a=\dfrac{g\bigl(m_1\sin\alpha-m_2\sin\beta\bigr)}{m_1+m_2}`}
+                  />
+                  <Formula
+                    math={String.raw`\textbf{5. Box on table + hang (half-Atwood):}\quad
+                      a=\dfrac{m_{\text{hang}}\,g}{m_{\text{table}}+m_{\text{hang}}}`}
+                  />
+                  <Formula
+                    math={String.raw`\textbf{6. Atwood (both vertical):}\quad
+                      a=g\dfrac{\Delta m}{\sum m}`}
+                  />
+                </div>
+                <p>
+                  Steps 5 and 6 look similar because sin 90° = 1, but Atwood is bidirectional
+                  (either mass can rise or fall). Live modes 1–2 and 6:{' '}
+                  <a href="/physics">Physics</a> (Single box · Ramp + pulley · Atwood).
+                </p>
+                <UseWhen>
+                  Recognizing which ideal formula applies before you write free-body equations from
+                  scratch.
+                </UseWhen>
+              </div>
+            </section>
+
+            <section id="atwood-toolkit" className="panel content-panel id-card id-card--wide">
+              <div className="panel-header">
+                <span className="panel-title">Formula toolkit</span>
+                <span className="panel-hint">Copy-ready · ideal Atwood</span>
+              </div>
+              <div className="id-body">
+                <div className="id-formula-stack">
+                  <Formula
+                    math={String.raw`\sum F=ma,\qquad a=\dfrac{\sum F}{m}`}
+                  />
+                  <Formula
+                    math={String.raw`m_1g-T=m_1a,\qquad T-m_2g=m_2a
+                      \quad(+a=m_1\text{ down})`}
+                  />
+                  <Formula
+                    math={String.raw`a=g\dfrac{m_1-m_2}{m_1+m_2}
+                      =g\dfrac{\Delta m}{\sum m}`}
+                  />
+                  <Formula
+                    math={String.raw`T=\dfrac{2m_1m_2g}{m_1+m_2}`}
+                  />
+                  <Formula
+                    math={String.raw`a_{\text{exp}}=\dfrac{2h}{t^2}
+                      \quad\text{(from rest)},\qquad
+                      v=\sqrt{2ah}`}
+                  />
+                  <Formula
+                    math={String.raw`a_{\text{ramp}}=g\sin\theta
+                      \quad\text{(single box, no friction)}`}
+                  />
+                </div>
+                <p>
+                  Interactive diagram, force arrows from CoM, live Newton check, and lab h–t
+                  compare:{' '}
+                  <a href="/physics">
+                    <strong>Physics · Atwood machine</strong>
+                  </a>
+                  . Pair with <a href="#pendulums">Pendulums</a> (another ΣF / torque lab) and{' '}
+                  <a href="#core-trig">core trig</a> for the ramp steps of the ladder.
+                </p>
               </div>
             </section>
           </div>

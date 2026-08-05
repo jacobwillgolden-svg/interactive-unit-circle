@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import GravityControl from '../components/GravityControl'
+import { G0 } from '../utils/constants'
 
 /**
  * True pendulums: single / double / triple.
  * Lagrangian multi-link chain, RK4 integration, colored bob path traces.
  */
-
-const G0 = 9.81
 
 const BOB_COLORS = ['#f87171', '#38bdf8', '#a78bfa']
 const BOB_COLORS_LIGHT = ['#dc2626', '#2563eb', '#7c3aed']
@@ -613,19 +613,7 @@ export default function PendulumPage() {
             </div>
 
             <div className="pendulum-sliders">
-              <label className="pendulum-slider">
-                <span>
-                  g <strong>{g.toFixed(2)} m/s²</strong>
-                </span>
-                <input
-                  type="range"
-                  min={0.5}
-                  max={25}
-                  step={0.05}
-                  value={g}
-                  onChange={(e) => setG(Number(e.target.value))}
-                />
-              </label>
+              <GravityControl g={g} onChange={setG} id="pendulum-g" min={0.1} max={25} />
               <label className="pendulum-slider">
                 <span>
                   Damping <strong>{damping.toFixed(3)}</strong>

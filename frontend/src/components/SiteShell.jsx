@@ -138,6 +138,9 @@ export default function SiteShell() {
             <NavLink to="/pendulums" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
               Pendulums
             </NavLink>
+            <NavLink to="/physics" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
+              Physics
+            </NavLink>
             <NavLink to="/helix" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
               Chain Rule
             </NavLink>

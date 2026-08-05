@@ -3,6 +3,7 @@ import SiteShell from './components/SiteShell'
 import UnitCirclePage from './pages/UnitCirclePage'
 import WavesPage from './pages/WavesPage'
 import PendulumPage from './pages/PendulumPage'
+import PhysicsPage from './pages/PhysicsPage'
 import HelixPage from './pages/HelixPage'
 import HistoryPage from './pages/HistoryPage'
 import IdentitiesPage from './pages/IdentitiesPage'
@@ -16,6 +17,7 @@ export default function App() {
           <Route index element={<UnitCirclePage />} />
           <Route path="waves" element={<WavesPage />} />
           <Route path="pendulums" element={<PendulumPage />} />
+          <Route path="physics" element={<PhysicsPage />} />
           <Route path="helix" element={<HelixPage />} />
           <Route path="history" element={<HistoryPage />} />
           <Route path="cheat-sheet" element={<IdentitiesPage />} />

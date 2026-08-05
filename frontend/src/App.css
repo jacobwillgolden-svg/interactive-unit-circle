@@ -1292,6 +1292,323 @@ html[data-theme='light'] .panel {
   align-items: start;
 }
 
+.workspace--physics {
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.72fr);
+  align-items: start;
+}
+
+.physics-viz {
+  padding: 0.5rem 1.25rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.physics-diagram-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.physics-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.15);
+  touch-action: pan-y;
+  user-select: none;
+}
+
+html[data-theme='light'] .physics-svg {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+/* Single / Ramp+pulley: forces card pinned top-left over the diagram */
+.physics-force-card--overlay {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.65rem;
+  z-index: 2;
+  width: auto;
+  max-width: 9.25rem;
+  pointer-events: none;
+  background: rgba(10, 12, 18, 0.82);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+}
+
+html[data-theme='light'] .physics-force-card--overlay {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
+}
+
+/* Atwood: forces + law cards below diagram */
+.physics-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.65rem;
+}
+
+.physics-meta--atwood {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 9.5rem) minmax(0, 1fr);
+  gap: 0.65rem;
+}
+
+.physics-force-card {
+  flex: 0 0 auto;
+  width: min(9.5rem, 100%);
+  padding: 0.55rem 0.7rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+html[data-theme='light'] .physics-force-card {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.physics-force-card-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 0.4rem;
+}
+
+.physics-force-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.physics-force-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.physics-force-swatch {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 3px;
+  border-radius: 99px;
+}
+
+.physics-force-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.physics-force-note {
+  margin: 0.45rem 0 0;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  line-height: 1.3;
+}
+
+.physics-law-card {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 0.55rem 0.85rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-accent);
+  background: var(--accent-soft);
+}
+
+.physics-law-eq {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.physics-law-eq:last-child {
+  margin-bottom: 0;
+}
+
+.physics-law-eq strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.physics-law-dir {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+@media (max-width: 640px) {
+  .physics-meta--atwood {
+    grid-template-columns: 1fr;
+  }
+
+  .physics-force-card {
+    width: 100%;
+  }
+}
+
+.physics-controls {
+  padding: 0 1.25rem 1.25rem;
+}
+
+.physics-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.physics-sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.physics-body-params {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.55rem 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+html[data-theme='light'] .physics-body-params {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.physics-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.physics-atwood-lab {
+  border-top: 1px solid var(--border);
+}
+
+.physics-atwood-lab .pendulum-slider {
+  margin-top: 0.45rem;
+}
+
+.physics-atwood-lab a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.physics-atwood-lab a:hover {
+  text-decoration: underline;
+}
+
+/* ── Gravity control (typable g + slider + presets) ── */
+.gravity-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.gravity-control-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.gravity-control-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.gravity-control-unit {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  margin-left: 0.15rem;
+}
+
+.gravity-control-input {
+  width: 7.5rem;
+  max-width: 45%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--metric-bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 0.28rem 0.5rem;
+  text-align: right;
+}
+
+.gravity-control-input:focus {
+  outline: none;
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.gravity-control-range {
+  width: 100%;
+  accent-color: var(--accent);
+  min-height: 1.5rem;
+  touch-action: none;
+}
+
+.gravity-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.gravity-preset {
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.12);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 0.15s var(--ease),
+    color 0.15s var(--ease),
+    background 0.15s var(--ease);
+}
+
+html[data-theme='light'] .gravity-preset {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.gravity-preset:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.gravity-preset.is-active {
+  border-color: var(--border-accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+@media (max-width: 960px) {
+  .workspace--physics {
+    grid-template-columns: 1fr;
+  }
+}
+
 .pendulum-viz {
   padding: 0.5rem 1.25rem 0.75rem;
   display: flex;
@@ -2624,6 +2941,15 @@ html[data-theme='light'] .hist-h-micro--md::before {
 .id-grade-chip-wrap {
   position: relative;
   min-width: 0;
+  z-index: 1;
+}
+
+/* Open / hovered chip sits above later siblings so the panel isn’t covered
+   (Pre-Calc panel extends under Calc chips and was stealing/losing hover). */
+.id-grade-chip-wrap:hover,
+.id-grade-chip-wrap:focus-within,
+.id-grade-chip-wrap.is-open {
+  z-index: 80;
 }
 
 .id-grade-chip {
@@ -2745,7 +3071,9 @@ html[data-theme='light'] .hist-h-micro--md::before {
   left: 0;
   right: 0;
   top: 100%;
-  height: 0.55rem;
+  height: 0.65rem;
+  /* Keep bridge above later chips when this wrap is elevated */
+  z-index: 49;
 }
 
 .id-grade-panel-inner {
@@ -2864,7 +3192,7 @@ html[data-theme='light'] .hist-h-micro--md::before {
   position: absolute;
   left: calc(100% + 0.4rem);
   top: 0;
-  z-index: 40;
+  z-index: 90;
   min-width: 13.5rem;
   max-width: min(18rem, calc(100vw - 2rem));
   opacity: 0;
@@ -2875,6 +3203,32 @@ html[data-theme='light'] .hist-h-micro--md::before {
     opacity 0.16s var(--ease, ease),
     transform 0.16s var(--ease, ease),
     visibility 0.16s;
+}
+
+/*
+ * Pre-Calc (and Trig) panels sit under the left chips and extend right under
+ * Calc 1/2. Open card flyouts to the LEFT so the pointer never crosses a
+ * later chip (which used to steal hover and flicker the menu shut).
+ */
+.id-grade-chip-wrap[data-grade='trig'] .id-grade-subpanel,
+.id-grade-chip-wrap[data-grade='precalc'] .id-grade-subpanel {
+  left: auto;
+  right: calc(100% + 0.4rem);
+  transform: translateX(-6px);
+  z-index: 95;
+}
+
+.id-grade-chip-wrap[data-grade='trig'] .id-grade-topic-wrap.has-subs::after,
+.id-grade-chip-wrap[data-grade='precalc'] .id-grade-topic-wrap.has-subs::after {
+  left: auto;
+  right: 100%;
+}
+
+.id-grade-chip-wrap[data-grade='trig'] .id-grade-topic-wrap:hover .id-grade-subpanel,
+.id-grade-chip-wrap[data-grade='trig'] .id-grade-topic-wrap.is-open .id-grade-subpanel,
+.id-grade-chip-wrap[data-grade='precalc'] .id-grade-topic-wrap:hover .id-grade-subpanel,
+.id-grade-chip-wrap[data-grade='precalc'] .id-grade-topic-wrap.is-open .id-grade-subpanel {
+  transform: translateX(0);
 }
 
 /* Hover bridge so the flyout doesn’t close in the gap */
