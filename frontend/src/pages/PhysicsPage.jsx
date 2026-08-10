@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import GravityControl from '../components/GravityControl'
 import { G0 } from '../utils/constants'
@@ -531,6 +531,11 @@ export default function PhysicsPage() {
   const [labH, setLabH] = useState(0.5) // m
   const [labT, setLabT] = useState(0.8) // s
 
+  // Motion demo: integrate s,v along the degree of freedom (m / m·s⁻¹)
+  const [playing, setPlaying] = useState(false)
+  const [motionS, setMotionS] = useState(0)
+  const motionRef = useRef({ s: 0, v: 0 })
+
   const ink = isLight ? '#0f172a' : '#e8eaf0'
   const muted = isLight ? '#64748b' : '#8b92a5'
   const grid = isLight ? 'rgba(15,23,42,0.12)' : 'rgba(255,255,255,0.1)'
@@ -567,6 +572,63 @@ export default function PhysicsPage() {
       m2,
     }
   }, [mode, m1, m2, theta, muS1, muK1, Fapp, g, frictionOn])
+
+  const canAnimate = !solution.static && Math.abs(solution.a) > 1e-6
+
+  const resetMotion = useCallback(() => {
+    motionRef.current = { s: 0, v: 0 }
+    setMotionS(0)
+  }, [])
+
+  // Reset pose when the problem changes
+  useEffect(() => {
+    resetMotion()
+    setPlaying(false)
+  }, [mode, m1, m2, theta, muS1, muK1, Fapp, g, frictionOn, resetMotion])
+
+  // Integrate kinematics while playing (visual scale only — not a lab integrator)
+  useEffect(() => {
+    if (!playing || !canAnimate) return undefined
+    let raf = 0
+    let last = performance.now()
+    const MAX_S = 0.85 // meters of DOF travel before soft bounce
+    const tick = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000)
+      last = now
+      const a = solution.a
+      let { s, v } = motionRef.current
+      v += a * dt
+      s += v * dt
+      if (s > MAX_S) {
+        s = MAX_S
+        v = -Math.abs(v) * 0.35
+      } else if (s < -MAX_S) {
+        s = -MAX_S
+        v = Math.abs(v) * 0.35
+      }
+      // Soft damping so bounces settle
+      v *= 1 - Math.min(0.12, dt * 0.15)
+      motionRef.current = { s, v }
+      setMotionS(s)
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [playing, canAnimate, solution.a])
+
+  // Space = play/pause (skip when typing)
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.code !== 'Space' && e.key !== ' ') return
+      const tag = (e.target?.tagName || '').toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return
+      e.preventDefault()
+      if (!canAnimate) return
+      setPlaying((p) => !p)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [canAnimate])
 
   const aExp = useMemo(() => kinematicA(labH, labT), [labH, labT])
   const aTheory = mode === 'atwood' ? Math.abs(solution.a) : null
@@ -869,29 +931,35 @@ export default function PhysicsPage() {
   // True geometric centers of mass — all force components for a body share this origin
   const BOX_H = 34
   const HANG_H = 36
+  /** Visual metres → SVG pixels for the motion demo */
+  const MOTION_PX = 70
   const bodyCenters = useMemo(() => {
+    const sPx = motionS * MOTION_PX
     if (layout.kind === 'atwood') {
+      // +s: m₁ down, m₂ up (matches +a = m₁ descending)
       return {
-        m1: { x: layout.mass1.x, y: layout.mass1.y },
-        m2: { x: layout.mass2.x, y: layout.mass2.y },
+        m1: { x: layout.mass1.x, y: layout.mass1.y + sPx },
+        m2: { x: layout.mass2.x, y: layout.mass2.y - sPx },
       }
     }
     const lift = BOX_H / 2
+    const { ux, uy } = layout.basis
+    // +s: up the ramp (matches +a = up the ramp / hang down)
     const c1 = {
-      x: layout.box1.x + layout.basis.nx * lift,
-      y: layout.box1.y + layout.basis.ny * lift,
+      x: layout.box1.x + layout.basis.nx * lift + ux * sPx,
+      y: layout.box1.y + layout.basis.ny * lift + uy * sPx,
     }
     if (layout.kind === 'hang') {
       return {
         box1: c1,
         hang: {
           x: layout.hangBob.x,
-          y: layout.hangBob.y - HANG_H / 2,
+          y: layout.hangBob.y - HANG_H / 2 + sPx,
         },
       }
     }
     return { box1: c1 }
-  }, [layout, BOX_H, HANG_H])
+  }, [layout, BOX_H, HANG_H, motionS, MOTION_PX])
 
   /** Stable label side per force kind so multi-arrow FBDs stay legible */
   const labelSideFor = (kind, index) => {
@@ -1020,6 +1088,8 @@ export default function PhysicsPage() {
     setM2(3)
     setLabH(0.5)
     setLabT(0.8)
+    setPlaying(false)
+    resetMotion()
   }
 
   const statusLine = (() => {
@@ -1074,8 +1144,8 @@ export default function PhysicsPage() {
             <span className="panel-title">Diagram</span>
             <span className="panel-hint">
               {mode === 'atwood'
-                ? 'Two fixed pulleys · a = g(m₁−m₂)/(m₁+m₂) · T = 2m₁m₂g/(m₁+m₂)'
-                : 'CoM origin · dashed triangle closes mg = mg sinθ + mg cosθ · |F| → length'}
+                ? 'Two fixed pulleys · a = g(m₁−m₂)/(m₁+m₂) · Space = play/pause'
+                : 'CoM origin · forces from rest · Space = play/pause motion'}
             </span>
           </div>
 
@@ -1143,8 +1213,8 @@ export default function PhysicsPage() {
                   ))}
                   {/* String: m1 ↑ left pulley → horizontal → right pulley ↓ m2 */}
                   <line
-                    x1={layout.mass1.x}
-                    y1={layout.mass1.y - layout.blockH / 2}
+                    x1={bodyCenters.m1.x}
+                    y1={bodyCenters.m1.y - layout.blockH / 2}
                     x2={layout.pulley1.x}
                     y2={layout.pulley1.y + layout.pulleyR * 0.2}
                     stroke={fc('tension')}
@@ -1163,16 +1233,16 @@ export default function PhysicsPage() {
                   <line
                     x1={layout.pulley2.x}
                     y1={layout.pulley2.y + layout.pulleyR * 0.2}
-                    x2={layout.mass2.x}
-                    y2={layout.mass2.y - layout.blockH / 2}
+                    x2={bodyCenters.m2.x}
+                    y2={bodyCenters.m2.y - layout.blockH / 2}
                     stroke={fc('tension')}
                     strokeWidth="2"
                     strokeOpacity="0.85"
                   />
-                  {/* Masses */}
+                  {/* Masses (motion demo offsets bodyCenters) */}
                   <BoxShape
-                    cx={layout.mass1.x}
-                    cy={layout.mass1.y}
+                    cx={bodyCenters.m1.x}
+                    cy={bodyCenters.m1.y}
                     w={layout.blockW}
                     h={layout.blockH}
                     angle={0}
@@ -1182,8 +1252,8 @@ export default function PhysicsPage() {
                     labelColor={isLight ? '#0f172a' : '#f8fafc'}
                   />
                   <BoxShape
-                    cx={layout.mass2.x}
-                    cy={layout.mass2.y}
+                    cx={bodyCenters.m2.x}
+                    cy={bodyCenters.m2.y}
                     w={layout.blockW}
                     h={layout.blockH}
                     angle={0}
@@ -1482,6 +1552,35 @@ export default function PhysicsPage() {
 
           <div className="waves-controls physics-controls">
             <div className="wave-toolbar">
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={!canAnimate}
+                title={
+                  canAnimate
+                    ? playing
+                      ? 'Pause motion (Space)'
+                      : 'Play motion from rest (Space)'
+                    : 'Static equilibrium — nothing to animate'
+                }
+                onClick={() => {
+                  if (!canAnimate) return
+                  setPlaying((p) => !p)
+                }}
+              >
+                {playing ? 'Pause' : 'Play'}
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                title="Reset masses to the rest pose"
+                onClick={() => {
+                  setPlaying(false)
+                  resetMotion()
+                }}
+              >
+                Rewind
+              </button>
               <button type="button" className="btn-primary" onClick={downloadPng}>
                 Save PNG
               </button>

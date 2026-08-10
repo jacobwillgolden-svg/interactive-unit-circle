@@ -103,7 +103,8 @@ export default function EulerSpiral3D() {
     const sideBlend = Math.max(0, Math.min(1, 1 - score / SIDE_ENTER))
 
     ctx.clearRect(0, 0, w, h)
-    ctx.fillStyle = isLight ? 'rgba(255,255,255,0.55)' : 'rgba(10,12,18,0.35)'
+    // Match card surface (avoid dark canvas blotch on light theme)
+    ctx.fillStyle = isLight ? '#ffffff' : 'rgba(10,12,18,0.45)'
     ctx.fillRect(0, 0, w, h)
 
     // t maps to world-z in [-1.6, 1.6]; Re/Im in [-1,1]

@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import EulerSpiral3D from '../components/EulerSpiral3D'
@@ -307,6 +308,14 @@ function RightTriangle() {
  * Step 2: drag the circle to roll a half turn (distance πr, rotation s/r).
  */
 function ThalesDiagram() {
+  const { theme } = useOutletContext() ?? { theme: 'dark' }
+  const isLight = theme === 'light'
+  // Palette: purple accent + ink tuned for dark (default) or light cards
+  const accent = isLight ? '#6d28d9' : '#c4b5fd'
+  const accentSoft = isLight ? 'rgba(109,40,217,0.12)' : 'rgba(196,181,253,0.15)'
+  const accentFill = isLight ? 'rgba(109,40,217,0.12)' : 'rgba(167,139,250,0.2)'
+  const accentFillStrong = isLight ? 'rgba(109,40,217,0.22)' : 'rgba(167,139,250,0.35)'
+  const ink = isLight ? '#0f172a' : '#f1f5f9'
   const r = 100
   const piR = Math.PI * r
   const x = Math.sqrt(piR * r)
@@ -602,31 +611,31 @@ function ThalesDiagram() {
           orient="auto"
           markerUnits="userSpaceOnUse"
         >
-          <path d="M1,1 L16,7 L1,13 Z" fill="#c4b5fd" opacity="0.9" />
+          <path d="M1,1 L16,7 L1,13 Z" fill={accent} opacity="0.9" />
         </marker>
       </defs>
 
       {/* Step 1 — purple to match steps 2–4 */}
       <g transform={`translate(${col1 + 8}, ${pad + 8})`}>
-        <circle cx="18" cy="18" r="18" fill="rgba(196,181,253,0.15)" stroke="#c4b5fd" strokeWidth="2.5" />
-        <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#c4b5fd" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
+        <circle cx="18" cy="18" r="18" fill={accentSoft} stroke={accent} strokeWidth="2.5" />
+        <text x="18" y="24" textAnchor="middle" fontSize="22" fill={accent} fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
           1
         </text>
       </g>
-      <circle cx={c1x} cy={c1y} r={r} fill="rgba(167,139,250,0.2)" stroke="#c4b5fd" strokeWidth="4.5" />
-      <line x1={c1x} y1={c1y} x2={c1x + r} y2={c1y} stroke="#c4b5fd" strokeWidth="4" />
-      <circle cx={c1x} cy={c1y} r={5} fill="#c4b5fd" />
-      <text x={c1x + r / 2} y={c1y - 20} fontSize="36" fill="#c4b5fd" textAnchor="middle" fontWeight="700">
+      <circle cx={c1x} cy={c1y} r={r} fill={accentFill} stroke={accent} strokeWidth="4.5" />
+      <line x1={c1x} y1={c1y} x2={c1x + r} y2={c1y} stroke={accent} strokeWidth="4" />
+      <circle cx={c1x} cy={c1y} r={5} fill={accent} />
+      <text x={c1x + r / 2} y={c1y - 20} fontSize="36" fill={accent} textAnchor="middle" fontWeight="700">
         r
       </text>
-      <text x={c1x} y={c1y + r + 48} fontSize="34" fill="#c4b5fd" textAnchor="middle" fontWeight="600">
+      <text x={c1x} y={c1y + r + 48} fontSize="34" fill={accent} textAnchor="middle" fontWeight="600">
         A○ = πr²
       </text>
 
       {/* Roll — interactive: drag circle back and forth a half turn (πr) */}
       <g transform={`translate(${col2 + 8}, ${pad + 8})`}>
-        <circle cx="18" cy="18" r="18" fill="rgba(196,181,253,0.15)" stroke="#c4b5fd" strokeWidth="2.5" />
-        <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#c4b5fd" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
+        <circle cx="18" cy="18" r="18" fill={accentSoft} stroke={accent} strokeWidth="2.5" />
+        <text x="18" y="24" textAnchor="middle" fontSize="22" fill={accent} fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
           2
         </text>
       </g>
@@ -646,7 +655,7 @@ function ThalesDiagram() {
         y1={trackY}
         x2={trackX0 + piR}
         y2={trackY}
-        stroke="#c4b5fd"
+        stroke={accent}
         strokeWidth="5"
         strokeLinecap="round"
         opacity="0.28"
@@ -658,7 +667,7 @@ function ThalesDiagram() {
           y1={trackY}
           x2={trackX0 + rollS}
           y2={trackY}
-          stroke="#c4b5fd"
+          stroke={accent}
           strokeWidth="5"
           strokeLinecap="round"
         />
@@ -671,7 +680,7 @@ function ThalesDiagram() {
         y2={trackY}
         stroke={
           radiusDrag && isOverDropZone(radiusDrag.x, radiusDrag.y)
-            ? '#f1f5f9'
+            ? ink
             : 'currentColor'
         }
         strokeWidth="5"
@@ -690,19 +699,19 @@ function ThalesDiagram() {
           y1={trackY}
           x2={trackX0 + piR + r}
           y2={trackY}
-          stroke="#f1f5f9"
+          stroke={ink}
           strokeWidth="5"
           strokeLinecap="round"
         />
       )}
       {/* End ticks: 0, πr, and πr+r */}
-      <line x1={trackX0} y1={trackY - 10} x2={trackX0} y2={trackY + 10} stroke="#c4b5fd" strokeWidth="2.5" opacity="0.7" />
+      <line x1={trackX0} y1={trackY - 10} x2={trackX0} y2={trackY + 10} stroke={accent} strokeWidth="2.5" opacity="0.7" />
       <line
         x1={trackX0 + piR}
         y1={trackY - 10}
         x2={trackX0 + piR}
         y2={trackY + 10}
-        stroke={halfDone ? '#f1f5f9' : '#c4b5fd'}
+        stroke={halfDone ? ink : accent}
         strokeWidth="2.5"
         opacity="0.7"
       />
@@ -711,7 +720,7 @@ function ThalesDiagram() {
         y1={trackY - 10}
         x2={trackX0 + piR + r}
         y2={trackY + 10}
-        stroke="#f1f5f9"
+        stroke={ink}
         strokeWidth="2.5"
         opacity={rDone ? 0.85 : 0.35}
       />
@@ -719,7 +728,7 @@ function ThalesDiagram() {
         x={trackX0 + piR / 2}
         y={trackY + 48}
         fontSize="34"
-        fill="#c4b5fd"
+        fill={accent}
         textAnchor="middle"
         fontWeight="700"
       >
@@ -730,7 +739,7 @@ function ThalesDiagram() {
           x={trackX0 + piR + r / 2}
           y={trackY + 48}
           fontSize="34"
-          fill="#f1f5f9"
+          fill={ink}
           textAnchor="middle"
           fontWeight="700"
         >
@@ -743,7 +752,7 @@ function ThalesDiagram() {
         cy={trackY - r}
         r={r}
         fill="none"
-        stroke="#c4b5fd"
+        stroke={accent}
         strokeWidth="3.5"
         strokeDasharray="10 7"
         opacity="0.35"
@@ -754,7 +763,7 @@ function ThalesDiagram() {
         cy={trackY - r}
         r={r}
         fill="none"
-        stroke="#c4b5fd"
+        stroke={accent}
         strokeWidth="2.5"
         strokeDasharray="8 8"
         opacity="0.22"
@@ -798,7 +807,7 @@ function ThalesDiagram() {
         {/* Large hit ring for touch */}
         <circle cx={0} cy={0} r={r + 36} fill="transparent" />
         {/* Outline only: full rim white; the half that will roll is pre-painted purple */}
-        <circle cx={0} cy={0} r={r} fill="none" stroke="#f1f5f9" strokeWidth="4.5" />
+        <circle cx={0} cy={0} r={r} fill="none" stroke={ink} strokeWidth="4.5" />
         {(() => {
           const a0 = markLocalDeg // 90° bottom (first contact)
           const a1 = markLocalDeg - 180 // −90° top (after half turn)
@@ -811,7 +820,7 @@ function ThalesDiagram() {
             <path
               d={`M ${x0} ${y0} A ${r} ${r} 0 0 0 ${x1} ${y1}`}
               fill="none"
-              stroke="#c4b5fd"
+              stroke={accent}
               strokeWidth="5.5"
               strokeLinecap="round"
             />
@@ -823,7 +832,7 @@ function ThalesDiagram() {
           y1={0}
           x2={r * Math.cos((rad1LocalDeg * Math.PI) / 180)}
           y2={r * Math.sin((rad1LocalDeg * Math.PI) / 180)}
-          stroke="#f1f5f9"
+          stroke={ink}
           strokeWidth="3"
           opacity="0.85"
         />
@@ -859,7 +868,7 @@ function ThalesDiagram() {
               y1={0}
               x2={r * Math.cos(rad2LocalRad)}
               y2={r * Math.sin(rad2LocalRad)}
-              stroke="#f1f5f9"
+              stroke={ink}
               strokeWidth="3.5"
               pointerEvents="none"
             />
@@ -870,7 +879,7 @@ function ThalesDiagram() {
                     ${18 * Math.sin((rad1LocalDeg * Math.PI) / 180) + 18 * Math.sin(rad2LocalRad)}
                   L ${18 * Math.cos(rad2LocalRad)} ${18 * Math.sin(rad2LocalRad)}`}
               fill="none"
-              stroke="#f1f5f9"
+              stroke={ink}
               strokeWidth="2"
               opacity="0.75"
               pointerEvents="none"
@@ -879,21 +888,21 @@ function ThalesDiagram() {
               cx={r * Math.cos(rad2LocalRad)}
               cy={r * Math.sin(rad2LocalRad)}
               r={11}
-              fill="#f1f5f9"
-              stroke="#c4b5fd"
+              fill={ink}
+              stroke={accent}
               strokeWidth="2"
               pointerEvents="none"
             />
           </g>
         )}
-        <circle cx={0} cy={0} r={4.5} fill="#f1f5f9" pointerEvents="none" />
+        <circle cx={0} cy={0} r={4.5} fill={ink} pointerEvents="none" />
         {/* Endpoints of the purple half-circumference */}
         <circle
           cx={r * Math.cos((markLocalDeg * Math.PI) / 180)}
           cy={r * Math.sin((markLocalDeg * Math.PI) / 180)}
           r={5}
-          fill="#c4b5fd"
-          stroke="#f1f5f9"
+          fill={accent}
+          stroke={ink}
           strokeWidth="1.5"
           pointerEvents="none"
         />
@@ -901,8 +910,8 @@ function ThalesDiagram() {
           cx={r * Math.cos(((markLocalDeg - 180) * Math.PI) / 180)}
           cy={r * Math.sin(((markLocalDeg - 180) * Math.PI) / 180)}
           r={5.5}
-          fill="#c4b5fd"
-          stroke="#f1f5f9"
+          fill={accent}
+          stroke={ink}
           strokeWidth="1.5"
           pointerEvents="none"
         />
@@ -916,13 +925,13 @@ function ThalesDiagram() {
             y1={radiusDrag.y}
             x2={radiusDrag.x}
             y2={radiusDrag.y}
-            stroke="#f1f5f9"
+            stroke={ink}
             strokeWidth="5"
             strokeLinecap="round"
             opacity={isOverDropZone(radiusDrag.x, radiusDrag.y) ? 1 : 0.85}
           />
-          <circle cx={radiusDrag.x - r} cy={radiusDrag.y} r={6} fill="#f1f5f9" />
-          <circle cx={radiusDrag.x} cy={radiusDrag.y} r={8} fill="#f1f5f9" stroke="#c4b5fd" strokeWidth="2" />
+          <circle cx={radiusDrag.x - r} cy={radiusDrag.y} r={6} fill={ink} />
+          <circle cx={radiusDrag.x} cy={radiusDrag.y} r={8} fill={ink} stroke={accent} strokeWidth="2" />
         </g>
       )}
 
@@ -930,7 +939,7 @@ function ThalesDiagram() {
         x={rollCx}
         y={rollCy - r - 28}
         fontSize="26"
-        fill="#c4b5fd"
+        fill={accent}
         textAnchor="middle"
         fontWeight="600"
         opacity="0.9"
@@ -952,7 +961,7 @@ function ThalesDiagram() {
           x={trackX0 + rollS / 2}
           y={trackY - 22}
           fontSize="24"
-          fill="#c4b5fd"
+          fill={accent}
           textAnchor="middle"
           fontWeight="600"
           opacity="0.85"
@@ -964,8 +973,8 @@ function ThalesDiagram() {
 
       {/* Geometric mean — colors match step 2: purple πr, white r */}
       <g transform={`translate(${col3 + 8}, ${pad + 8})`}>
-        <circle cx="18" cy="18" r="18" fill="rgba(196,181,253,0.15)" stroke="#c4b5fd" strokeWidth="2.5" />
-        <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#c4b5fd" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
+        <circle cx="18" cy="18" r="18" fill={accentSoft} stroke={accent} strokeWidth="2.5" />
+        <text x="18" y="24" textAnchor="middle" fontSize="22" fill={accent} fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
           3
         </text>
       </g>
@@ -979,13 +988,13 @@ function ThalesDiagram() {
         fill="rgba(56, 189, 248, 0.16)"
       />
       {/* Diameter: πr (purple) + r (white) */}
-      <line x1={A3} y1={diamY3} x2={D3} y2={diamY3} stroke="#c4b5fd" strokeWidth="5" strokeLinecap="round" />
-      <line x1={D3} y1={diamY3} x2={B3} y2={diamY3} stroke="#f1f5f9" strokeWidth="5" strokeLinecap="round" />
-      <line x1={D3} y1={diamY3 - 16} x2={D3} y2={diamY3 + 16} stroke="#f1f5f9" strokeWidth="3.5" />
+      <line x1={A3} y1={diamY3} x2={D3} y2={diamY3} stroke={accent} strokeWidth="5" strokeLinecap="round" />
+      <line x1={D3} y1={diamY3} x2={B3} y2={diamY3} stroke={ink} strokeWidth="5" strokeLinecap="round" />
+      <line x1={D3} y1={diamY3 - 16} x2={D3} y2={diamY3 + 16} stroke={ink} strokeWidth="3.5" />
       <path
         d={`M ${A3} ${diamY3} A ${semiR} ${semiR} 0 0 0 ${B3} ${diamY3}`}
         fill="none"
-        stroke="#f1f5f9"
+        stroke={ink}
         strokeOpacity="0.55"
         strokeWidth="4"
       />
@@ -994,7 +1003,7 @@ function ThalesDiagram() {
         y1={diamY3}
         x2={C3x}
         y2={C3y}
-        stroke="#f1f5f9"
+        stroke={ink}
         strokeOpacity="0.4"
         strokeWidth="3"
         strokeDasharray="12 8"
@@ -1004,33 +1013,33 @@ function ThalesDiagram() {
         y1={diamY3}
         x2={C3x}
         y2={C3y}
-        stroke="#f1f5f9"
+        stroke={ink}
         strokeOpacity="0.4"
         strokeWidth="3"
         strokeDasharray="12 8"
       />
-      <line x1={D3} y1={diamY3} x2={C3x} y2={C3y} stroke="#f1f5f9" strokeWidth="4.5" />
-      <text x={D3 - 22} y={(diamY3 + C3y) / 2 + 12} fontSize="38" fill="#f1f5f9" fontWeight="700" textAnchor="end">
+      <line x1={D3} y1={diamY3} x2={C3x} y2={C3y} stroke={ink} strokeWidth="4.5" />
+      <text x={D3 - 22} y={(diamY3 + C3y) / 2 + 12} fontSize="38" fill={ink} fontWeight="700" textAnchor="end">
         x
       </text>
-      <text x={(A3 + D3) / 2} y={diamY3 - 22} fontSize="36" fill="#c4b5fd" textAnchor="middle" fontWeight="700">
+      <text x={(A3 + D3) / 2} y={diamY3 - 22} fontSize="36" fill={accent} textAnchor="middle" fontWeight="700">
         πr
       </text>
-      <text x={(D3 + B3) / 2} y={diamY3 - 22} fontSize="36" fill="#f1f5f9" textAnchor="middle" fontWeight="700">
+      <text x={(D3 + B3) / 2} y={diamY3 - 22} fontSize="36" fill={ink} textAnchor="middle" fontWeight="700">
         r
       </text>
       {rightAngle(A3, diamY3, B3, diamY3, C3x, C3y)}
-      <circle cx={A3} cy={diamY3} r={6} fill="#c4b5fd" />
-      <circle cx={D3} cy={diamY3} r={5.5} fill="#f1f5f9" />
-      <circle cx={B3} cy={diamY3} r={6} fill="#f1f5f9" />
-      <circle cx={C3x} cy={C3y} r={6.5} fill="#f1f5f9" />
-      <text x={A3 - 12} y={diamY3 - 24} fontSize="26" fill="#c4b5fd" fontWeight="600">
+      <circle cx={A3} cy={diamY3} r={6} fill={accent} />
+      <circle cx={D3} cy={diamY3} r={5.5} fill={ink} />
+      <circle cx={B3} cy={diamY3} r={6} fill={ink} />
+      <circle cx={C3x} cy={C3y} r={6.5} fill={ink} />
+      <text x={A3 - 12} y={diamY3 - 24} fontSize="26" fill={accent} fontWeight="600">
         A
       </text>
-      <text x={B3 + 14} y={diamY3 - 24} fontSize="26" fill="#f1f5f9" fontWeight="600">
+      <text x={B3 + 14} y={diamY3 - 24} fontSize="26" fill={ink} fontWeight="600">
         B
       </text>
-      <text x={C3x + 18} y={C3y + 12} fontSize="26" fill="#f1f5f9" fontWeight="600">
+      <text x={C3x + 18} y={C3y + 12} fontSize="26" fill={ink} fontWeight="600">
         C · 90°
       </text>
       {/* Vertical fractions: πr/x = x/r ⇒ x² = (πr)·r */}
@@ -1065,7 +1074,7 @@ function ThalesDiagram() {
               x
             </text>
             {/* = */}
-            <text x={eqX} y={midY + 8} textAnchor="middle" fill="#f1f5f9" fontSize={fs + 4}>
+            <text x={eqX} y={midY + 8} textAnchor="middle" fill={ink} fontSize={fs + 4}>
               =
             </text>
             {/* blue x / r */}
@@ -1084,10 +1093,10 @@ function ThalesDiagram() {
               r
             </text>
             {/* ⇒ x² = (πr)·r */}
-            <text x={arrX} y={midY + 8} fill="#f1f5f9">
+            <text x={arrX} y={midY + 8} fill={ink}>
               <tspan>⇒  x² = (</tspan>
               <tspan fill="#fef08a">πr</tspan>
-              <tspan fill="#f1f5f9">)·</tspan>
+              <tspan fill={ink}>)·</tspan>
               <tspan fill="#38bdf8">r</tspan>
             </text>
           </g>
@@ -1096,16 +1105,16 @@ function ThalesDiagram() {
 
       {/* Combined — same diagram; colors only: purple πr / white r (match steps 2–3) */}
       <g transform={`translate(${col4 + 8}, ${pad + 8})`}>
-        <circle cx="18" cy="18" r="18" fill="rgba(196,181,253,0.15)" stroke="#c4b5fd" strokeWidth="2.5" />
-        <text x="18" y="24" textAnchor="middle" fontSize="22" fill="#c4b5fd" fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
+        <circle cx="18" cy="18" r="18" fill={accentSoft} stroke={accent} strokeWidth="2.5" />
+        <text x="18" y="24" textAnchor="middle" fontSize="22" fill={accent} fontWeight="700" fontFamily="Outfit, system-ui, sans-serif">
           4
         </text>
       </g>
 
       {/* Diameter: πr purple + r white (colors only; full figure) */}
-      <line x1={A4} y1={diamY4} x2={D4} y2={diamY4} stroke="#c4b5fd" strokeWidth="4.5" />
-      <line x1={D4} y1={diamY4} x2={B4} y2={diamY4} stroke="#f1f5f9" strokeWidth="4.5" />
-      <line x1={B4} y1={diamY4} x2={sqX + sqSide} y2={diamY4} stroke="#f1f5f9" strokeWidth="4.5" />
+      <line x1={A4} y1={diamY4} x2={D4} y2={diamY4} stroke={accent} strokeWidth="4.5" />
+      <line x1={D4} y1={diamY4} x2={B4} y2={diamY4} stroke={ink} strokeWidth="4.5" />
+      <line x1={B4} y1={diamY4} x2={sqX + sqSide} y2={diamY4} stroke={ink} strokeWidth="4.5" />
 
       {/* Square + circle: shaded fill (was teal; now purple) */}
       <rect
@@ -1113,15 +1122,15 @@ function ThalesDiagram() {
         y={sqY}
         width={sqSide}
         height={sqSide}
-        fill="rgba(167,139,250,0.35)"
-        stroke="#c4b5fd"
+        fill={accentFillStrong}
+        stroke={accent}
         strokeWidth="4"
       />
 
       <path
         d={`M ${A4} ${diamY4} A ${semiR4} ${semiR4} 0 0 0 ${B4} ${diamY4}`}
         fill="none"
-        stroke="#f1f5f9"
+        stroke={ink}
         strokeWidth="4"
       />
 
@@ -1130,7 +1139,7 @@ function ThalesDiagram() {
         y1={diamY4}
         x2={C4x}
         y2={C4y}
-        stroke="#f1f5f9"
+        stroke={ink}
         strokeWidth="3.5"
         strokeDasharray="12 8"
         strokeOpacity="0.9"
@@ -1140,29 +1149,29 @@ function ThalesDiagram() {
         y1={diamY4}
         x2={C4x}
         y2={C4y}
-        stroke="#f1f5f9"
+        stroke={ink}
         strokeWidth="3.5"
         strokeDasharray="12 8"
         strokeOpacity="0.75"
       />
-      <line x1={D4} y1={diamY4} x2={C4x} y2={C4y} stroke="#f1f5f9" strokeWidth="4.5" />
+      <line x1={D4} y1={diamY4} x2={C4x} y2={C4y} stroke={ink} strokeWidth="4.5" />
 
       {/* Circle fixed at D — original location */}
       <circle
         cx={combCx}
         cy={combCy}
         r={r4}
-        fill="rgba(167,139,250,0.35)"
-        stroke="#c4b5fd"
+        fill={accentFillStrong}
+        stroke={accent}
         strokeWidth="3.5"
       />
-      <line x1={combCx} y1={combCy} x2={D4} y2={diamY4} stroke="#f1f5f9" strokeWidth="4" />
+      <line x1={combCx} y1={combCy} x2={D4} y2={diamY4} stroke={ink} strokeWidth="4" />
 
       <text
         x={(A4 + D4) / 2}
         y={diamY4 - 24}
         fontSize="34"
-        fill="#c4b5fd"
+        fill={accent}
         textAnchor="middle"
         fontStyle="italic"
         fontWeight="600"
@@ -1173,7 +1182,7 @@ function ThalesDiagram() {
         x={D4 - 20}
         y={(diamY4 + C4y) / 2 + 12}
         fontSize="38"
-        fill="#f1f5f9"
+        fill={ink}
         textAnchor="end"
         fontStyle="italic"
         fontWeight="700"
@@ -1181,9 +1190,9 @@ function ThalesDiagram() {
         x
       </text>
 
-      <circle cx={A4} cy={diamY4} r={6} fill="#c4b5fd" />
-      <circle cx={D4} cy={diamY4} r={5} fill="#f1f5f9" />
-      <circle cx={C4x} cy={C4y} r={6} fill="#f1f5f9" />
+      <circle cx={A4} cy={diamY4} r={6} fill={accent} />
+      <circle cx={D4} cy={diamY4} r={5} fill={ink} />
+      <circle cx={C4x} cy={C4y} r={6} fill={ink} />
 
       {rightAngle(A4, diamY4, B4, diamY4, C4x, C4y, 24)}
 
@@ -1191,7 +1200,7 @@ function ThalesDiagram() {
         x={A4}
         y={diamY4 + sqSide + 88}
         fontSize="28"
-        fill="#c4b5fd"
+        fill={accent}
         fontFamily="JetBrains Mono, monospace"
         fontWeight="600"
       >
