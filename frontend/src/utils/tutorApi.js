@@ -6,6 +6,7 @@
 
 const SESSION_KEY = 'radian-tutor-session'
 const API_BASE_KEY = 'radian-api-base'
+const RAILWAY_API = 'https://back-end-production-89a9.up.railway.app'
 
 export function getApiBase() {
   if (typeof window !== 'undefined') {
@@ -15,17 +16,16 @@ export function getApiBase() {
     } catch {
       /* */
     }
-  }
-  const env = String(import.meta.env.VITE_API_BASE || '').trim()
-  if (env) return env.replace(/\/$/, '')
-  if (typeof window !== 'undefined') {
     const host = window.location.hostname
-    // Common Railway names: frontend-… / backend-…
-    if (/\.up\.railway\.app$/i.test(host) && /frontend/i.test(host)) {
-      return `${window.location.protocol}//${host.replace(/frontend/gi, 'backend')}`
-    }
+    if (host === 'localhost' || host === '127.0.0.1') return ''
   }
-  return ''
+  const env = String(
+    import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || '',
+  )
+    .trim()
+    .replace(/\/$/, '')
+  if (env) return env
+  return RAILWAY_API
 }
 
 export function setApiBase(url) {
@@ -66,15 +66,11 @@ export async function fetchStatus() {
     const first = await readStatus(getApiBase())
     if (first.provider || first.configured) return first
 
-    if (typeof window !== 'undefined') {
-      const host = window.location.hostname
-      if (/\.up\.railway\.app$/i.test(host) && /frontend/i.test(host)) {
-        const guessed = `${window.location.protocol}//${host.replace(/frontend/gi, 'backend')}`
-        const second = await readStatus(guessed)
-        if (second.provider || second.configured) {
-          setApiBase(guessed)
-          return second
-        }
+    if (getApiBase() !== RAILWAY_API) {
+      const second = await readStatus(RAILWAY_API)
+      if (second.provider || second.configured) {
+        setApiBase(RAILWAY_API)
+        return second
       }
     }
     return first
