@@ -1,8 +1,9 @@
 """
 RADIANT API — Gemini tutor brain + Gemini Flash TTS.
 
-GEMINI_TUTOR / GEMINI_API_KEY / GOOGLE_API_KEY stay server-side.
-Never expose them to the Vite bundle.
+GEMINI_TUTOR is the tutor brain. TTS uses Railway var
+PyTrayPadPlus-Jacob-PC (also accepts PyTrapPadPlus-Jacob-PC).
+Never expose keys to the Vite bundle.
 """
 
 from __future__ import annotations
@@ -78,40 +79,82 @@ app.add_middleware(
 SESSIONS: dict[str, dict[str, Any]] = {}
 
 
-def gemini_key() -> Optional[str]:
-    for name in ("GEMINI_TUTOR", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+TUTOR_KEY_NAMES = ("GEMINI_TUTOR", "GEMINI_API_KEY", "GOOGLE_API_KEY")
+TTS_KEY_NAMES = (
+    "PyTrayPadPlus-Jacob-PC",
+    "PyTrapPadPlus-Jacob-PC",
+    "GEMINI_TTS",
+    "GEMINI_TTS_KEY",
+)
+
+
+def _first_env(names: tuple[str, ...]) -> Optional[str]:
+    for name in names:
         val = (os.environ.get(name) or "").strip()
         if val:
             return val
     return None
 
 
-def require_key() -> str:
-    key = gemini_key()
-    if not key:
-        raise HTTPException(
-            status_code=503,
-            detail="Local API has no Gemini key (keys stay on Railway). Deploy this beta branch or start the API with `railway run`.",
-        )
+def tutor_key() -> Optional[str]:
+    return _first_env(TUTOR_KEY_NAMES)
+
+
+def tts_key() -> Optional[str]:
+    return _first_env(TTS_KEY_NAMES)
+
+
+def require_sdk() -> None:
     if genai is None:
         raise HTTPException(
             status_code=500,
             detail="google-genai is not installed. Run: pip install google-genai",
         )
+
+
+def require_tutor_key() -> str:
+    require_sdk()
+    key = tutor_key()
+    if not key:
+        raise HTTPException(
+            status_code=503,
+            detail="Tutor key missing. Set GEMINI_TUTOR on the Railway backend.",
+        )
     return key
 
 
-_CLIENT = None
+def require_tts_key() -> str:
+    require_sdk()
+    key = tts_key()
+    if not key:
+        raise HTTPException(
+            status_code=503,
+            detail="TTS key missing. Set PyTrayPadPlus-Jacob-PC on the Railway backend.",
+        )
+    return key
 
 
-def client():
-    global _CLIENT
-    if _CLIENT is None:
-        # Force AI Studio API-key auth. A local gcloud/ADC login would
-        # otherwise send an OAuth token and Gemini returns 401.
-        os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "false"
-        _CLIENT = genai.Client(api_key=require_key(), vertexai=False)
-    return _CLIENT
+_TUTOR_CLIENT = None
+_TTS_CLIENT = None
+
+
+def _make_client(api_key: str):
+    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "false"
+    return genai.Client(api_key=api_key, vertexai=False)
+
+
+def tutor_client():
+    global _TUTOR_CLIENT
+    if _TUTOR_CLIENT is None:
+        _TUTOR_CLIENT = _make_client(require_tutor_key())
+    return _TUTOR_CLIENT
+
+
+def tts_client():
+    global _TTS_CLIENT
+    if _TTS_CLIENT is None:
+        _TTS_CLIENT = _make_client(require_tts_key())
+    return _TTS_CLIENT
 
 
 IDENTITY_IDS = [
@@ -453,9 +496,9 @@ def hello():
 
 @app.get("/api/status")
 def status():
-    key = gemini_key()
     return {
-        "configured": bool(key) and genai is not None,
+        "configured": bool(tutor_key()) and genai is not None,
+        "tts_configured": bool(tts_key()) and genai is not None,
         "model": GEMINI_MODEL,
         "tts_model": TTS_MODEL,
         "image_model": IMAGE_MODEL,
@@ -578,7 +621,7 @@ def iter_tutor(req: TutorRequest) -> Iterator[str]:
     emitted_calls: set[str] = set()
 
     try:
-        cli = client()
+        cli = tutor_client()
         try:
             cfg = generate_config(effort)
         except Exception:
@@ -645,7 +688,7 @@ def iter_tutor(req: TutorRequest) -> Iterator[str]:
 
 @app.post("/api/tutor")
 def tutor(req: TutorRequest):
-    require_key()
+    require_tutor_key()
     return StreamingResponse(
         iter_tutor(req),
         media_type="text/event-stream",
@@ -687,7 +730,7 @@ def tts(req: TtsRequest):
         text = text[: MAX_TTS_CHARS - 1].rsplit(" ", 1)[0] + "…"
 
     voice = req.voice if req.voice in ALLOWED_TTS_VOICES else DEFAULT_TTS_VOICE
-    cli = client()
+    cli = tts_client()
     prompt = tutor_prompt(text)
     last_err: Optional[Exception] = None
 
@@ -752,7 +795,7 @@ def imagine(req: ImagineRequest):
             f"oil on linen, soft north light, restrained academic palette, no text, no watermark. {style}"
         )
     try:
-        resp = client().models.generate_content(
+        resp = tutor_client().models.generate_content(
             model=IMAGE_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
