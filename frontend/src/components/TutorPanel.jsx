@@ -54,19 +54,7 @@ export default function TutorPanel() {
   const recRef = useRef(null)
   const fileRef = useRef(null)
   const panelRef = useRef(null)
-  const [size, setSize] = useState(() => {
-    if (typeof window === 'undefined') return { w: null, h: null }
-    try {
-      const w = Number(localStorage.getItem('radian-tutor-w'))
-      const h = Number(localStorage.getItem('radian-tutor-h'))
-      return {
-        w: Number.isFinite(w) && w >= 260 ? w : null,
-        h: Number.isFinite(h) && h >= 260 ? h : null,
-      }
-    } catch {
-      return { w: null, h: null }
-    }
-  })
+  const [size, setSize] = useState({ w: null, h: null })
   const support = speechSupported()
 
   const startResize = useCallback((e, edges) => {
@@ -99,19 +87,17 @@ export default function TutorPanel() {
     window.addEventListener('pointerup', onUp)
   }, [])
 
-  useEffect(() => {
-    if (!size.w || !size.h) return
-    try {
-      localStorage.setItem('radian-tutor-w', String(Math.round(size.w)))
-      localStorage.setItem('radian-tutor-h', String(Math.round(size.h)))
-    } catch {
-      /* */
-    }
-  }, [size])
+
 
   useEffect(() => {
     refreshStatus()
     warmBrowserVoices()
+    try {
+      localStorage.removeItem('radian-tutor-w')
+      localStorage.removeItem('radian-tutor-h')
+    } catch {
+      /* */
+    }
   }, [refreshStatus])
 
   useEffect(() => {
