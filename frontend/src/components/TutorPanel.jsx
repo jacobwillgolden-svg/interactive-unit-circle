@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTutor } from '../context/TutorContext'
 import { fileToDataUrl } from '../utils/frameCapture'
 import { tutorToHtml } from '../utils/tutorFormat'
@@ -53,7 +53,61 @@ export default function TutorPanel() {
   const listRef = useRef(null)
   const recRef = useRef(null)
   const fileRef = useRef(null)
+  const panelRef = useRef(null)
+  const [size, setSize] = useState(() => {
+    if (typeof window === 'undefined') return { w: null, h: null }
+    try {
+      const w = Number(localStorage.getItem('radian-tutor-w'))
+      const h = Number(localStorage.getItem('radian-tutor-h'))
+      return {
+        w: Number.isFinite(w) && w >= 260 ? w : null,
+        h: Number.isFinite(h) && h >= 260 ? h : null,
+      }
+    } catch {
+      return { w: null, h: null }
+    }
+  })
   const support = speechSupported()
+
+  const startResize = useCallback((e, edges) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const panel = panelRef.current
+    if (!panel) return
+    const startX = e.clientX
+    const startY = e.clientY
+    const rect = panel.getBoundingClientRect()
+    const startW = rect.width
+    const startH = rect.height
+    const onMove = (ev) => {
+      const maxW = Math.max(280, window.innerWidth - 24)
+      const maxH = Math.max(260, window.innerHeight - 72)
+      let w = startW
+      let h = startH
+      if (edges.includes('e')) w = startW + (ev.clientX - startX)
+      if (edges.includes('n')) h = startH - (ev.clientY - startY)
+      setSize({
+        w: Math.min(maxW, Math.max(280, w)),
+        h: Math.min(maxH, Math.max(280, h)),
+      })
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }, [])
+
+  useEffect(() => {
+    if (!size.w || !size.h) return
+    try {
+      localStorage.setItem('radian-tutor-w', String(Math.round(size.w)))
+      localStorage.setItem('radian-tutor-h', String(Math.round(size.h)))
+    } catch {
+      /* */
+    }
+  }, [size])
 
   useEffect(() => {
     refreshStatus()
@@ -164,7 +218,33 @@ export default function TutorPanel() {
       </button>
 
       {open && (
-        <section className="tutor-panel" aria-label="Studio tutor">
+        <section
+          ref={panelRef}
+          className="tutor-panel"
+          aria-label="Studio tutor"
+          style={{
+            width: size.w ? `${size.w}px` : undefined,
+            height: size.h ? `${size.h}px` : undefined,
+          }}
+        >
+          <button
+            type="button"
+            className="tutor-resize tutor-resize--n"
+            aria-label="Resize tutor height"
+            onPointerDown={(e) => startResize(e, 'n')}
+          />
+          <button
+            type="button"
+            className="tutor-resize tutor-resize--e"
+            aria-label="Resize tutor width"
+            onPointerDown={(e) => startResize(e, 'e')}
+          />
+          <button
+            type="button"
+            className="tutor-resize tutor-resize--ne"
+            aria-label="Resize tutor"
+            onPointerDown={(e) => startResize(e, 'ne')}
+          />
           <header className="tutor-head">
             <div>
               <p className="tutor-kicker">Beta · Tutor</p>
