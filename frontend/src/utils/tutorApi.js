@@ -56,7 +56,7 @@ async function readStatus(base) {
   const res = await fetch(`${root}/api/status`)
   const ctype = res.headers.get('content-type') || ''
   if (!res.ok || !ctype.includes('json')) {
-    return { configured: false, error: `status ${res.status}`, model: 'gemini-2.5-flash' }
+    return { configured: false, error: `status ${res.status}`, model: 'gemini-3.5-flash' }
   }
   return await res.json()
 }
@@ -78,7 +78,7 @@ export async function fetchStatus() {
     return {
       configured: false,
       error: err?.message || 'backend unreachable',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash',
     }
   }
 }

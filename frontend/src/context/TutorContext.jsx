@@ -51,7 +51,7 @@ export function TutorProvider({ children }) {
   const abortRef = useRef(null)
   const busyRef = useRef(false)
 
-  const [status, setStatus] = useState({ configured: null, model: 'gemini-2.5-flash' })
+  const [status, setStatus] = useState({ configured: null, model: 'gemini-3.5-flash' })
   const [busy, setBusy] = useState(false)
   const [messages, setMessages] = useState(() => [
     {

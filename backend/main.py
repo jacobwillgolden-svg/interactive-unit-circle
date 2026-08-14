@@ -32,12 +32,22 @@ except ImportError:  # pragma: no cover
     genai = None
     types = None
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+TUTOR_MODELS = [
+    GEMINI_MODEL,
+    "gemini-3.6-flash",
+    "gemini-3.7-flash",
+    "gemini-3-flash-preview",
+]
+# unique, keep order
+_seen = set()
+TUTOR_MODELS = [m for m in TUTOR_MODELS if m and not (m in _seen or _seen.add(m))]
+
 TTS_MODEL = os.environ.get("GEMINI_TTS_MODEL", "gemini-3.1-flash-tts-preview")
 TTS_MODEL_FALLBACK = os.environ.get(
-    "GEMINI_TTS_MODEL_FALLBACK", "gemini-2.5-flash-preview-tts"
+    "GEMINI_TTS_MODEL_FALLBACK", "gemini-3.1-flash-tts-preview"
 )
-IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
 
 DEFAULT_TTS_VOICE = "Charon"
 ALLOWED_TTS_VOICES = {
@@ -582,7 +592,8 @@ def generate_config(effort: Effort):
 
 def iter_tutor(req: TutorRequest) -> Iterator[str]:
     effort = infer_effort(req.message or "", req.effort if req.effort != "auto" else None)
-    yield _sse({"type": "meta", "effort": effort, "model": GEMINI_MODEL})
+    active_model = GEMINI_MODEL
+    yield _sse({"type": "meta", "effort": effort, "model": active_model})
 
     bucket = session_bucket(req.session_id)
     contents: list[Any] = bucket["contents"]
@@ -630,23 +641,61 @@ def iter_tutor(req: TutorRequest) -> Iterator[str]:
                 tools=gemini_tools(),
                 temperature=0.4,
             )
-        try:
-            stream = cli.models.generate_content_stream(
-                model=GEMINI_MODEL,
-                contents=contents,
-                config=cfg,
-            )
-        except Exception:
-            stream = cli.models.generate_content_stream(
-                model=GEMINI_MODEL,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTIONS,
-                    tools=gemini_tools(),
-                    temperature=0.4,
-                ),
-            )
-        for chunk in stream:
+        stream = None
+        chunks_head: list[Any] = []
+        last_model_err: Optional[Exception] = None
+        simple_cfg = types.GenerateContentConfig(
+            system_instruction=SYSTEM_INSTRUCTIONS,
+            tools=gemini_tools(),
+            temperature=0.4,
+        )
+        for model_id in TUTOR_MODELS:
+            try:
+                stream = cli.models.generate_content_stream(
+                    model=model_id,
+                    contents=contents,
+                    config=cfg,
+                )
+                # Touch the iterator so a 404 surfaces here, not mid-yield
+                stream = iter(stream)
+                first = next(stream, None)
+                active_model = model_id
+                yield _sse({"type": "meta", "effort": effort, "model": active_model})
+                if first is not None:
+                    chunks_head = [first]
+                else:
+                    chunks_head = []
+                break
+            except Exception as exc:
+                last_model_err = exc
+                msg = str(exc).lower()
+                if "404" in msg or "not_found" in msg or "no longer available" in msg:
+                    try:
+                        stream = cli.models.generate_content_stream(
+                            model=model_id,
+                            contents=contents,
+                            config=simple_cfg,
+                        )
+                        stream = iter(stream)
+                        first = next(stream, None)
+                        active_model = model_id
+                        yield _sse({"type": "meta", "effort": effort, "model": active_model})
+                        chunks_head = [first] if first is not None else []
+                        break
+                    except Exception as exc2:
+                        last_model_err = exc2
+                        continue
+                raise
+        else:
+            raise last_model_err or RuntimeError("No Gemini tutor model available")
+
+        def _walk_chunks():
+            for ch in chunks_head:
+                yield ch
+            for ch in stream:
+                yield ch
+
+        for chunk in _walk_chunks():
             cands = getattr(chunk, "candidates", None) or []
             if not cands:
                 continue

@@ -175,7 +175,7 @@ export default function TutorPanel() {
             </div>
             <div className="tutor-head-meta">
               <span className={`tutor-dot${status.configured ? ' is-on' : ''}`} />
-              {status.model || 'gemini-2.5-flash'}
+              {status.model || 'gemini-3.5-flash'}
             </div>
           </header>
 
