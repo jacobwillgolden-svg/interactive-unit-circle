@@ -1,8 +1,45 @@
 /**
- * Client for the Radiant FastAPI tutor proxy (Grok 4.6 / Imagine / TTS).
+ * Client for the Radiant FastAPI tutor (Gemini brain + TTS).
+ * In production the frontend and API are different Railway services,
+ * so every call must go to the backend origin — not the static host.
  */
 
 const SESSION_KEY = 'radian-tutor-session'
+const API_BASE_KEY = 'radian-api-base'
+
+export function getApiBase() {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(API_BASE_KEY)
+      if (stored) return String(stored).replace(/\/$/, '')
+    } catch {
+      /* */
+    }
+  }
+  const env = String(import.meta.env.VITE_API_BASE || '').trim()
+  if (env) return env.replace(/\/$/, '')
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    // Common Railway names: frontend-… / backend-…
+    if (/\.up\.railway\.app$/i.test(host) && /frontend/i.test(host)) {
+      return `${window.location.protocol}//${host.replace(/frontend/gi, 'backend')}`
+    }
+  }
+  return ''
+}
+
+export function setApiBase(url) {
+  if (typeof window === 'undefined') return
+  const clean = String(url || '').trim().replace(/\/$/, '')
+  if (clean) localStorage.setItem(API_BASE_KEY, clean)
+  else localStorage.removeItem(API_BASE_KEY)
+}
+
+export function apiUrl(path) {
+  const base = getApiBase()
+  const p = path.startsWith('/') ? path : `/${path}`
+  return `${base}${p}`
+}
 
 export function getSessionId() {
   if (typeof window === 'undefined') return 'server'
@@ -14,13 +51,39 @@ export function getSessionId() {
   return id
 }
 
+async function readStatus(base) {
+  const root = String(base || '').replace(/\/$/, '')
+  const res = await fetch(`${root}/api/status`)
+  const ctype = res.headers.get('content-type') || ''
+  if (!res.ok || !ctype.includes('json')) {
+    return { configured: false, error: `status ${res.status}`, model: 'gemini-2.5-flash' }
+  }
+  return await res.json()
+}
+
 export async function fetchStatus() {
   try {
-    const res = await fetch('/api/status')
-    if (!res.ok) return { configured: false, error: `status ${res.status}` }
-    return await res.json()
+    const first = await readStatus(getApiBase())
+    if (first.provider || first.configured) return first
+
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname
+      if (/\.up\.railway\.app$/i.test(host) && /frontend/i.test(host)) {
+        const guessed = `${window.location.protocol}//${host.replace(/frontend/gi, 'backend')}`
+        const second = await readStatus(guessed)
+        if (second.provider || second.configured) {
+          setApiBase(guessed)
+          return second
+        }
+      }
+    }
+    return first
   } catch (err) {
-    return { configured: false, error: err?.message || 'backend unreachable' }
+    return {
+      configured: false,
+      error: err?.message || 'backend unreachable',
+      model: 'gemini-2.5-flash',
+    }
   }
 }
 
@@ -29,7 +92,7 @@ export async function fetchStatus() {
  * Resolves with { responseId, toolCalls, text, error }.
  */
 export async function streamTutor(body, { onEvent, signal } = {}) {
-  const res = await fetch('/api/tutor', {
+  const res = await fetch(apiUrl('/api/tutor'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -93,7 +156,7 @@ export async function streamTutor(body, { onEvent, signal } = {}) {
 }
 
 export async function speakOnServer(text, voice = 'Charon') {
-  const res = await fetch('/api/tts', {
+  const res = await fetch(apiUrl('/api/tts'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, voice }),
@@ -106,7 +169,7 @@ export async function speakOnServer(text, voice = 'Charon') {
 }
 
 export async function generatePortrait({ figure, prompt, aspect_ratio = '3:4' }) {
-  const res = await fetch('/api/imagine', {
+  const res = await fetch(apiUrl('/api/imagine'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ figure, prompt, aspect_ratio }),
@@ -116,7 +179,7 @@ export async function generatePortrait({ figure, prompt, aspect_ratio = '3:4' })
 }
 
 export async function startVideo({ prompt, duration = 6, image, aspect_ratio = '16:9' }) {
-  const res = await fetch('/api/video', {
+  const res = await fetch(apiUrl('/api/video'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, duration, image, aspect_ratio }),
@@ -126,7 +189,7 @@ export async function startVideo({ prompt, duration = 6, image, aspect_ratio = '
 }
 
 export async function pollVideo(requestId) {
-  const res = await fetch(`/api/video/${encodeURIComponent(requestId)}`)
+  const res = await fetch(apiUrl(`/api/video/${encodeURIComponent(requestId)}`))
   if (!res.ok) throw new Error((await res.text()).slice(0, 400))
   return res.json()
 }

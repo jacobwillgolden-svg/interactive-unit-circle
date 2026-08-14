@@ -77,14 +77,19 @@ export default function TutorPanel() {
   useEffect(() => {
     if (!speakOn) return
     const last = [...messages].reverse().find((m) => m.role === 'assistant' && m.text && !m.streaming)
-    if (!last || last.text === lastSpoken.current) return
-    lastSpoken.current = last.text
-    speakText(last.text, { enabled: true }).then((r) => {
-      if (!r) return
-      if (r.reason === 'gemini-error') setTtsNote(`Gemini TTS failed — browser voice. ${r.error || ''}`)
-      else if (r.engine === 'gemini') setTtsNote('Spoke with Gemini TTS')
-      else if (r.engine === 'browser') setTtsNote('Spoke with browser voice')
-    })
+    if (!last || lastSpoken.current === last.id) return
+    lastSpoken.current = last.id
+    speakText(last.text, { enabled: true })
+      .then((r) => {
+        if (!r) return
+        if (r.reason === 'gemini-error') {
+          setTtsNote(`Gemini TTS failed — browser voice. ${r.error || ''}`)
+        } else if (r.engine === 'gemini') setTtsNote('Spoke with Gemini TTS')
+        else if (r.engine === 'browser') setTtsNote('Spoke with browser voice')
+      })
+      .catch((err) => {
+        setTtsNote(`Speech failed: ${err?.message || err}`)
+      })
   }, [messages, speakOn])
 
   const submit = (text, extra = {}) => {
@@ -170,11 +175,7 @@ export default function TutorPanel() {
             </div>
             <div className="tutor-head-meta">
               <span className={`tutor-dot${status.configured ? ' is-on' : ''}`} />
-              {status.configured === false
-                ? 'Key on Railway only'
-                : status.configured
-                  ? status.model || 'gemini'
-                  : 'Checking…'}
+              {status.model || 'gemini-2.5-flash'}
             </div>
           </header>
 

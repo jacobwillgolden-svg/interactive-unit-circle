@@ -49,8 +49,9 @@ export function TutorProvider({ children }) {
   const mediaHandlersRef = useRef({})
   const responseIdRef = useRef(null)
   const abortRef = useRef(null)
+  const busyRef = useRef(false)
 
-  const [status, setStatus] = useState({ configured: null })
+  const [status, setStatus] = useState({ configured: null, model: 'gemini-2.5-flash' })
   const [busy, setBusy] = useState(false)
   const [messages, setMessages] = useState(() => [
     {
@@ -178,13 +179,14 @@ export function TutorProvider({ children }) {
 
   const send = useCallback(
     async ({ text = '', image = null, intent = 'chat', effort = 'auto' } = {}) => {
-      if (busy) return
+      if (busyRef.current) return
       const trimmed = (text || '').trim()
       if (!trimmed && !image) return
 
       abortRef.current?.abort()
       const ac = new AbortController()
       abortRef.current = ac
+      busyRef.current = true
       setBusy(true)
 
       pushMessage({
@@ -304,14 +306,16 @@ export function TutorProvider({ children }) {
           }))
         }
       } finally {
+        busyRef.current = false
         setBusy(false)
       }
     },
-    [applyTool, busy, collectState, patchMessage, pushMessage],
+    [applyTool, collectState, patchMessage, pushMessage],
   )
 
   const stop = useCallback(() => {
     abortRef.current?.abort()
+    busyRef.current = false
     setBusy(false)
   }, [])
 

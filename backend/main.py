@@ -64,7 +64,7 @@ PCM_RATE = 24000
 
 Effort = Literal["low", "medium", "high", "xhigh"]
 
-app = FastAPI(title="Radiant API", version="0.4.0-beta")
+app = FastAPI(title="Radiant API", version="0.4.0-beta", redirect_slashes=False)
 
 app.add_middleware(
     CORSMiddleware,
