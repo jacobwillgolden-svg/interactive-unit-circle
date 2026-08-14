@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTutor } from '../context/TutorContext'
 import { fileToDataUrl } from '../utils/frameCapture'
+import { tutorToHtml } from '../utils/tutorFormat'
 import {
   GEMINI_VOICES,
   createRecognizer,
@@ -251,7 +252,14 @@ export default function TutorPanel() {
                 {m.image && (
                   <img className="tutor-thumb" src={m.image} alt="" />
                 )}
-                {m.text && <p>{m.text}</p>}
+                {m.text && m.role === 'assistant' ? (
+                  <div
+                    className="tutor-rich"
+                    dangerouslySetInnerHTML={{ __html: tutorToHtml(m.text) }}
+                  />
+                ) : (
+                  m.text && <p>{m.text}</p>
+                )}
                 {m.status && <p className="tutor-status">{m.status}</p>}
                 {m.error && <p className="tutor-error">{m.error}</p>}
                 {m.streaming && !m.text && !m.error && (

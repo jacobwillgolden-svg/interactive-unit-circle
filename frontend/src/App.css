@@ -5393,6 +5393,62 @@ html[data-theme='light'] .tutor-compose textarea {
   margin: 0.25rem 0 0;
 }
 
+.tutor-rich {
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.tutor-rich p {
+  margin: 0.45rem 0 0;
+}
+
+.tutor-rich p:first-child,
+.tutor-rich .tutor-h:first-child,
+.tutor-rich ul:first-child,
+.tutor-rich .tutor-tex--display:first-child {
+  margin-top: 0;
+}
+
+.tutor-rich .tutor-h {
+  margin: 0.7rem 0 0.2rem;
+  font-family: var(--font-serif);
+  font-size: 0.98rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.tutor-rich ul {
+  margin: 0.4rem 0 0;
+  padding: 0 0 0 1.1rem;
+}
+
+.tutor-rich li {
+  margin: 0.22rem 0;
+}
+
+.tutor-rich strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tutor-rich em {
+  font-style: italic;
+}
+
+.tutor-rich .tutor-tex {
+  font-size: 1em;
+}
+
+.tutor-rich .tutor-tex--display {
+  margin: 0.55rem 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.tutor-rich .katex-display {
+  margin: 0.35rem 0;
+}
+
 .tutor-msg--user p {
   color: var(--accent);
 }
