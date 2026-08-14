@@ -5375,6 +5375,31 @@ html[data-theme='light'] .tutor-compose textarea {
   padding-bottom: 0.15rem;
 }
 
+.tutor-speak {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  padding: 0 0 0.15rem;
+  cursor: pointer;
+}
+
+.tutor-speak.is-on {
+  color: var(--text);
+}
+
+.tutor-speak.is-on .switch {
+  background: var(--accent);
+}
+
+.tutor-speak.is-on .switch::after {
+  transform: translateX(0.85rem);
+}
+
 .tutor-log {
   flex: 1;
   overflow: auto;

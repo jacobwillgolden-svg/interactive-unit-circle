@@ -9,17 +9,17 @@ import {
   getGeminiVoice,
   setTtsEngine,
   setGeminiVoice,
-  speakText,
+  feedAssistantSpeech,
   speechSupported,
   stopSpeech,
   warmBrowserVoices,
 } from '../utils/tts'
 
 const EFFORTS = [
-  { id: 'auto', label: 'Auto' },
-  { id: 'low', label: 'Low' },
-  { id: 'high', label: 'High' },
-  { id: 'xhigh', label: 'xHigh' },
+  { id: 'auto', label: 'Auto — low to move, high to explain' },
+  { id: 'low', label: 'Low — fast, just move the figure' },
+  { id: 'high', label: 'High — slower, fuller explanation' },
+  { id: 'xhigh', label: 'xHigh — deepest (proofs)' },
 ]
 
 function toolLabel(t) {
@@ -53,7 +53,6 @@ export default function TutorPanel() {
   const listRef = useRef(null)
   const recRef = useRef(null)
   const fileRef = useRef(null)
-  const lastSpoken = useRef('')
   const support = speechSupported()
 
   useEffect(() => {
@@ -76,21 +75,18 @@ export default function TutorPanel() {
   }, [speakOn])
 
   useEffect(() => {
-    if (!speakOn) return
-    const last = [...messages].reverse().find((m) => m.role === 'assistant' && m.text && !m.streaming)
-    if (!last || lastSpoken.current === last.id) return
-    lastSpoken.current = last.id
-    speakText(last.text, { enabled: true })
-      .then((r) => {
-        if (!r) return
-        if (r.reason === 'gemini-error') {
-          setTtsNote(`Gemini TTS failed — browser voice. ${r.error || ''}`)
-        } else if (r.engine === 'gemini') setTtsNote('Spoke with Gemini TTS')
-        else if (r.engine === 'browser') setTtsNote('Spoke with browser voice')
-      })
-      .catch((err) => {
-        setTtsNote(`Speech failed: ${err?.message || err}`)
-      })
+    if (!speakOn) {
+      stopSpeech()
+      return
+    }
+    const last = [...messages]
+      .reverse()
+      .find((m) => m.role === 'assistant' && m.text && m.id !== 'hello')
+    if (!last) return
+    feedAssistantSpeech(last.id, last.text, {
+      final: !last.streaming,
+      enabled: true,
+    })
   }, [messages, speakOn])
 
   const submit = (text, extra = {}) => {
@@ -191,18 +187,21 @@ export default function TutorPanel() {
                 ))}
               </select>
             </label>
-            <label className="tutor-check">
-              <input
-                type="checkbox"
-                checked={speakOn}
-                onChange={(e) => {
-                  const on = e.target.checked
-                  setSpeakOn(on)
-                  if (!on) stopSpeech()
-                }}
-              />
-              Speak
-            </label>
+            <button
+              type="button"
+              className={`tutor-speak${speakOn ? ' is-on' : ''}`}
+              aria-pressed={speakOn}
+              title={speakOn ? 'Narration on' : 'Narration off'}
+              onClick={() => {
+                setSpeakOn((on) => {
+                  if (on) stopSpeech()
+                  return !on
+                })
+              }}
+            >
+              <span>Speak</span>
+              <span className="switch" aria-hidden="true" />
+            </button>
             <label className="tutor-field tutor-field--grow">
               Voice
               <select

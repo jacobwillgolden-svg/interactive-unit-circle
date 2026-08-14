@@ -110,6 +110,11 @@ export function cleanForSpeech(text) {
 
 export function stopSpeech() {
   speakToken += 1
+  speakSession = null
+  speakBuf = ''
+  spokenRawLen = 0
+  audioJobs = []
+  playRunning = false
   if (currentAudio) {
     try {
       currentAudio.pause()
@@ -146,6 +151,102 @@ function speakBrowser(text) {
     window.speechSynthesis.cancel()
     window.speechSynthesis.speak(u)
   })
+}
+
+let speakSession = null
+let speakBuf = ''
+let spokenRawLen = 0
+let audioJobs = []
+let playRunning = false
+
+function takeSentences(buffer, final) {
+  const chunks = []
+  const re = /[\s\S]*?(?:[.!?]|\n\n)(?=\s|$)/g
+  let last = 0
+  let m
+  while ((m = re.exec(buffer))) {
+    const piece = m[0].trim()
+    if (piece) chunks.push(piece)
+    last = re.lastIndex
+  }
+  let rest = buffer.slice(last)
+  if (final && rest.trim()) {
+    chunks.push(rest.trim())
+    rest = ''
+  }
+  return { chunks, rest }
+}
+
+async function playBlob(blob, token) {
+  if (token !== speakToken) return
+  const url = URL.createObjectURL(blob)
+  const audio = new Audio(url)
+  currentAudio = audio
+  try {
+    await audio.play()
+    await new Promise((resolve) => {
+      audio.onended = resolve
+      audio.onerror = resolve
+    })
+  } catch {
+    /* autoplay / abort */
+  }
+  URL.revokeObjectURL(url)
+  if (currentAudio === audio) currentAudio = null
+}
+
+async function pumpSpeakQueue() {
+  if (playRunning) return
+  playRunning = true
+  while (audioJobs.length) {
+    const job = audioJobs.shift()
+    let item
+    try {
+      item = await job
+    } catch {
+      continue
+    }
+    if (!item || item.token !== speakToken) continue
+    if (item.blob) await playBlob(item.blob, item.token)
+    else if (item.browser) await speakBrowser(item.browser)
+  }
+  playRunning = false
+}
+
+function enqueueLine(line) {
+  const spoken = cleanForSpeech(line)
+  if (!spoken || spoken.length < 2) return
+  const token = speakToken
+  const want = getTtsEngine()
+  const job = (async () => {
+    if (want === 'browser') return { browser: spoken, token }
+    try {
+      const blob = await speakOnServer(spoken, getGeminiVoice())
+      return { blob, token }
+    } catch (err) {
+      return { browser: spoken, token, error: err?.message }
+    }
+  })()
+  audioJobs.push(job)
+  pumpSpeakQueue()
+}
+
+/** Speak complete sentences as they arrive. Skips the canned welcome. */
+export function feedAssistantSpeech(msgId, rawText, { final = false, enabled = true } = {}) {
+  if (!enabled || !msgId || msgId === 'hello') return
+  if (speakSession !== msgId) {
+    stopSpeech()
+    speakSession = msgId
+    speakBuf = ''
+    spokenRawLen = 0
+  }
+  const next = String(rawText || '')
+  if (next.length < spokenRawLen) return
+  speakBuf += next.slice(spokenRawLen)
+  spokenRawLen = next.length
+  const { chunks, rest } = takeSentences(speakBuf, final)
+  speakBuf = rest
+  chunks.forEach(enqueueLine)
 }
 
 export async function speakText(text, { enabled = true, engine } = {}) {
