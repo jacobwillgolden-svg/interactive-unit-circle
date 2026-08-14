@@ -1,0 +1,23 @@
+# secrets
+.env
+.env.local
+backend/.env
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+backend/.venv/
+
+# node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# os / editor
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import GravityControl from '../components/GravityControl'
+import { useTutor } from '../context/TutorContext'
+import { captureFirst } from '../utils/frameCapture'
 import { G0 } from '../utils/constants'
 
 /**
@@ -208,6 +210,7 @@ const MAX_TRAIL = 1800
 
 export default function PendulumPage() {
   const { theme } = useOutletContext()
+  const { registerPage } = useTutor()
   const isLight = theme === 'light'
   const colors = isLight ? BOB_COLORS_LIGHT : BOB_COLORS
 
@@ -229,6 +232,7 @@ export default function PendulumPage() {
   const [frame, setFrame] = useState(0)
   const [simTime, setSimTime] = useState(0)
   const timeRef = useRef(0)
+  const svgRef = useRef(null)
 
   const ink = isLight ? '#0f172a' : '#e8eaf0'
   const muted = isLight ? '#64748b' : '#8b92a5'
@@ -309,6 +313,32 @@ export default function PendulumPage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  useEffect(() => {
+    return registerPage({
+      getState: () => ({
+        nLinks,
+        g,
+        damping,
+        playing,
+        trailOn,
+        lengths: lengths.slice(0, nLinks),
+        masses: masses.slice(0, nLinks),
+      }),
+      apply: (name, args = {}) => {
+        if (name !== 'set_pendulum') return { ok: false, error: `pendulum ignores ${name}` }
+        const n = Number(args.nLinks)
+        if (n === 1 || n === 2 || n === 3) setNLinks(n)
+        if (Number.isFinite(args.g)) setG(args.g)
+        if (Number.isFinite(args.damping)) setDamping(args.damping)
+        if ('playing' in args) setPlaying(Boolean(args.playing))
+        if ('trailOn' in args) setTrailOn(Boolean(args.trailOn))
+        if (args.reset) reset()
+        return { ok: true }
+      },
+      capture: () => captureFirst(['[data-tutor-stage="pendulum"]']),
+    })
+  }, [damping, g, lengths, masses, nLinks, playing, registerPage, reset, trailOn])
 
   // Sync live state for render
   void frame
@@ -464,6 +494,8 @@ export default function PendulumPage() {
 
           <div className="pendulum-viz">
             <svg
+              ref={svgRef}
+              data-tutor-stage="pendulum"
               viewBox={`0 0 ${W} ${H}`}
               className="pendulum-svg"
               role="img"

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTutor } from '../context/TutorContext'
+import { captureNode } from '../utils/frameCapture'
 
 /**
  * Parametric helix r(t) = (cos t, sin t, t)
@@ -8,6 +10,7 @@ import { useOutletContext } from 'react-router-dom'
  */
 export default function HelixPage() {
   const { theme } = useOutletContext()
+  const { registerPage } = useTutor()
   const canvasRef = useRef(null)
   const [t, setT] = useState(2.2)
   const [showTangent, setShowTangent] = useState(true)
@@ -242,6 +245,21 @@ export default function HelixPage() {
     }
   }, [])
 
+  useEffect(() => {
+    return registerPage({
+      getState: () => ({ t, showTangent, showDerivative, autoSpin }),
+      apply: (name, args = {}) => {
+        if (name !== 'set_helix') return { ok: false, error: `helix ignores ${name}` }
+        if (Number.isFinite(args.t)) setT(args.t)
+        if ('showTangent' in args) setShowTangent(Boolean(args.showTangent))
+        if ('showDerivative' in args) setShowDerivative(Boolean(args.showDerivative))
+        if ('autoSpin' in args) setAutoSpin(Boolean(args.autoSpin))
+        return { ok: true }
+      },
+      capture: () => captureNode(canvasRef.current),
+    })
+  }, [autoSpin, registerPage, showDerivative, showTangent, t])
+
   const u = t
   const rx = Math.cos(u)
   const ry = Math.sin(u)
@@ -276,7 +294,7 @@ export default function HelixPage() {
             <span className="panel-title">3D helix · drag to rotate</span>
             <span className="panel-hint">r(t) = (cos t, sin t, t)</span>
           </div>
-          <canvas ref={canvasRef} className="helix-canvas" />
+          <canvas ref={canvasRef} className="helix-canvas" data-tutor-stage="helix" />
         </section>
 
         <aside className="panel controls">

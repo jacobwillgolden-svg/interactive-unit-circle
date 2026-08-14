@@ -2,10 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import UnitCircle from '../components/UnitCircle'
 import Controls from '../components/Controls'
+import { useTutor } from '../context/TutorContext'
+import { captureFirst } from '../utils/frameCapture'
 import { animateAngle, formatRadLabel, playSnapSound, snapCommonAngle } from '../utils/angles'
 
 export default function UnitCirclePage() {
   const { theme, soundOn } = useOutletContext()
+  const { registerPage } = useTutor()
   const [angle, setAngle] = useState(45)
   // Defaults match design: sin/cos on; tan & SOHCAHTOA off; all label options on
   const [showSin, setShowSin] = useState(true)
@@ -56,6 +59,54 @@ export default function UnitCirclePage() {
     },
     [triggerSnapFeedback]
   )
+
+  useEffect(() => {
+    return registerPage({
+      getState: () => ({
+        angle,
+        showSin,
+        showCos,
+        showTan,
+        showSohcahtoa,
+        showLabels,
+        labelsInRadians,
+        showCoords,
+        coordsInRadians,
+      }),
+      apply: (name, args = {}) => {
+        if (name === 'set_angle' && Number.isFinite(args.degrees)) {
+          const next = ((args.degrees % 360) + 360) % 360
+          handleAngleChange(next, { animate: args.animate !== false })
+          return { ok: true, degrees: next }
+        }
+        if (name === 'set_overlays') {
+          if ('showSin' in args) setShowSin(Boolean(args.showSin))
+          if ('showCos' in args) setShowCos(Boolean(args.showCos))
+          if ('showTan' in args) setShowTan(Boolean(args.showTan))
+          if ('showSohcahtoa' in args) setShowSohcahtoa(Boolean(args.showSohcahtoa))
+          if ('showLabels' in args) setShowLabels(Boolean(args.showLabels))
+          if ('labelsInRadians' in args) setLabelsInRadians(Boolean(args.labelsInRadians))
+          if ('showCoords' in args) setShowCoords(Boolean(args.showCoords))
+          if ('coordsInRadians' in args) setCoordsInRadians(Boolean(args.coordsInRadians))
+          return { ok: true }
+        }
+        return { ok: false, error: `unit circle ignores ${name}` }
+      },
+      capture: () => captureFirst(['[data-tutor-stage="unit-circle"]']),
+    })
+  }, [
+    angle,
+    coordsInRadians,
+    handleAngleChange,
+    labelsInRadians,
+    registerPage,
+    showCoords,
+    showCos,
+    showLabels,
+    showSin,
+    showSohcahtoa,
+    showTan,
+  ])
 
   const rad = (angle * Math.PI) / 180
   const radLabel = formatRadLabel(angle)

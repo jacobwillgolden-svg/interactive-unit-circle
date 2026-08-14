@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTutor } from '../context/TutorContext'
+import { captureNode } from '../utils/frameCapture'
 import { formatCoords, formatRadLabel, snapCommonAngle } from '../utils/angles'
 import GiantStepsScore from '../components/GiantStepsScore'
 import {
@@ -389,6 +391,7 @@ function buildClippedPath(
  */
 export default function WavesPage() {
   const { theme, soundOn } = useOutletContext()
+  const { registerPage } = useTutor()
   const [angle, setAngle] = useState(0)
   const [playing, setPlaying] = useState(true)
   /** Wave-tied kit (samples + pad) */
@@ -510,6 +513,89 @@ export default function WavesPage() {
   }, [])
 
   useEffect(() => () => disposeTrigMusic(), [])
+
+  useEffect(() => {
+    const fnSetters = {
+      sin: setShowSin,
+      cos: setShowCos,
+      tan: setShowTan,
+      csc: setShowCsc,
+      sec: setShowSec,
+      cot: setShowCot,
+      asin: setShowAsin,
+      acos: setShowAcos,
+      atan: setShowAtan,
+      acsc: setShowAcsc,
+      asec: setShowAsec,
+      acot: setShowAcot,
+    }
+    const currentOn = {
+      sin: showSin,
+      cos: showCos,
+      tan: showTan,
+      csc: showCsc,
+      sec: showSec,
+      cot: showCot,
+      asin: showAsin,
+      acos: showAcos,
+      atan: showAtan,
+      acsc: showAcsc,
+      asec: showAsec,
+      acot: showAcot,
+    }
+    return registerPage({
+      getState: () => ({
+        angle,
+        playing,
+        musicOn,
+        functions: Object.entries(currentOn)
+          .filter(([, on]) => on)
+          .map(([k]) => k),
+      }),
+      apply: (name, args = {}) => {
+        if (name === 'set_angle' && Number.isFinite(args.degrees)) {
+          const next = ((args.degrees % 360) + 360) % 360
+          setPlaying(false)
+          setAngle(next)
+          return { ok: true, degrees: next }
+        }
+        if (name === 'set_waves') {
+          if (Array.isArray(args.functions)) {
+            if (args.replace) {
+              Object.keys(fnSetters).forEach((k) => fnSetters[k](false))
+            }
+            args.functions.forEach((k) => fnSetters[k]?.(true))
+          }
+          if ('playing' in args) setPlaying(Boolean(args.playing))
+          if ('musicOn' in args) setMusicOn(Boolean(args.musicOn))
+          if (Number.isFinite(args.degrees)) {
+            setPlaying(false)
+            setAngle(((args.degrees % 360) + 360) % 360)
+          }
+          return { ok: true }
+        }
+        return { ok: false, error: `waves ignores ${name}` }
+      },
+      capture: () => captureNode(svgRef.current),
+    })
+  }, [
+    angle,
+    musicOn,
+    playing,
+    registerPage,
+    showAcos,
+    showAcot,
+    showAcsc,
+    showAsec,
+    showAsin,
+    showAtan,
+    showCos,
+    showCot,
+    showCsc,
+    showSec,
+    showSin,
+    showTan,
+  ])
 
   const isLight = theme === 'light'
   const ink = isLight ? '#0f172a' : '#e8eaf0'

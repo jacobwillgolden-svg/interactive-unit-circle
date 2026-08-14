@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTutor } from '../context/TutorContext'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import EulerSpiral3D from '../components/EulerSpiral3D'
@@ -1729,13 +1730,36 @@ function GradeBrowse() {
 }
 
 export default function IdentitiesPage() {
+  const { registerPage } = useTutor()
+
   // Deep-link flash when landing with a hash (e.g. /cheat-sheet#pendulums-fbd)
   useEffect(() => {
-    const raw = window.location.hash.replace(/^#/, '')
-    if (!raw) return
-    const t = window.setTimeout(() => jumpToSection(raw), 80)
-    return () => clearTimeout(t)
+    const jump = () => {
+      const raw = window.location.hash.replace(/^#/, '')
+      if (raw) jumpToSection(raw)
+    }
+    const t = window.setTimeout(jump, 80)
+    window.addEventListener('hashchange', jump)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('hashchange', jump)
+    }
   }, [])
+
+  useEffect(() => {
+    return registerPage({
+      getState: () => ({
+        hash: window.location.hash.replace(/^#/, '') || null,
+      }),
+      apply: (name, args = {}) => {
+        if (name === 'highlight_identity' && args.id) {
+          jumpToSection(args.id)
+          return { ok: true, id: args.id }
+        }
+        return { ok: false, error: `cheat sheet ignores ${name}` }
+      },
+    })
+  }, [registerPage])
 
   return (
     <>

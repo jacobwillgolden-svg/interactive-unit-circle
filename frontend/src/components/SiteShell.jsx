@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { TutorProvider } from '../context/TutorContext'
+import TutorPanel from './TutorPanel'
 
 export default function SiteShell() {
   const location = useLocation()
@@ -61,6 +63,7 @@ export default function SiteShell() {
   }
 
   return (
+    <TutorProvider>
     <div className="app">
       <div
         className="app-bg"
@@ -153,6 +156,9 @@ export default function SiteShell() {
           </div>
 
           <div className="nav-meta">
+            <span className="beta-chip" title="Grok 4.6 tutor is on the beta branch">
+              Beta
+            </span>
             <button
               type="button"
               className="nav-icon-btn"
@@ -175,6 +181,7 @@ export default function SiteShell() {
         </nav>
 
         <Outlet context={{ theme, soundOn }} />
+        <TutorPanel />
 
         <footer className="footer">
           <span>Designed for clarity</span>
@@ -194,5 +201,6 @@ export default function SiteShell() {
         </button>
       </div>
     </div>
+    </TutorProvider>
   )
 }

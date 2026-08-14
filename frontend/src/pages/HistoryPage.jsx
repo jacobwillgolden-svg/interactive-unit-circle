@@ -1,6 +1,8 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import { useTutor } from '../context/TutorContext'
+import { generatePortrait, startVideo, waitForVideo } from '../utils/tutorApi'
 
 /**
  * Horizontal history: one era per “page.”
@@ -223,15 +225,19 @@ function tickStyle(distance) {
   return { opacity: 0.38 }
 }
 
-function PortraitFace({ event, active }) {
+function PortraitFace({ event, active, overrideSrc }) {
   const [imgOk, setImgOk] = useState(true)
   const name = event.centralFigure || event.figure
+  const src = overrideSrc || event.portrait
+  useEffect(() => {
+    setImgOk(true)
+  }, [src])
   return (
     <div className={`hist-h-face${active ? ' is-active' : ''}`} aria-hidden={!active}>
-      {event.portrait && imgOk ? (
+      {src && imgOk ? (
         <img
           className={`hist-h-photo${event.portraitPullBack ? ' hist-h-photo--pull-back' : ''}`}
-          src={event.portrait}
+          src={src}
           alt=""
           referrerPolicy="no-referrer"
           loading={active ? 'eager' : 'lazy'}
@@ -263,7 +269,11 @@ function clampEra(i) {
  *  scrubbing    — user dragging odometer / portrait; index updates, cards catch up on release
  */
 export default function HistoryPage() {
+  const { registerPage, registerMedia } = useTutor()
   const [index, setIndex] = useState(0)
+  const [portraitOverrides, setPortraitOverrides] = useState({})
+  const [clip, setClip] = useState(null)
+  const [mediaNote, setMediaNote] = useState('')
   const [scrubbing, setScrubbing] = useState(false)
   const scrollerRef = useRef(null)
   const pageRefs = useRef([])
@@ -368,6 +378,104 @@ export default function HistoryPage() {
     },
     [setEraIndex, scrollCardsTo],
   )
+
+  const restylePortrait = useCallback(async (i = indexRef.current) => {
+    const event = EVENTS[i]
+    if (!event) return
+    const figure = event.centralFigure || event.figure
+    setMediaNote(`Painting ${figure}…`)
+    try {
+      const result = await generatePortrait({
+        figure,
+        prompt:
+          'Oil on linen, historically grounded likeness, academic atelier, soft north light, no text, no watermark, matching a cohesive museum series',
+      })
+      const src = result.url || (result.b64_json ? `data:image/png;base64,${result.b64_json}` : null)
+      if (src) {
+        setPortraitOverrides((prev) => ({ ...prev, [i]: src }))
+        setMediaNote(`Restyled ${figure}`)
+      } else {
+        setMediaNote('Imagine returned no image URL')
+      }
+    } catch (err) {
+      setMediaNote(err?.message || 'Imagine failed')
+    }
+  }, [])
+
+  const animateEra = useCallback(async (i = indexRef.current) => {
+    const event = EVENTS[i]
+    if (!event) return
+    setMediaNote('Starting Imagine Video…')
+    try {
+      const started = await startVideo({
+        prompt: `Short educational animation of ${event.title}. ${event.formulaNote}. Calm museum documentary style, historically grounded, no modern text overlays.`,
+        duration: 6,
+      })
+      if (!started.request_id) {
+        setMediaNote('Video start returned no request id')
+        return
+      }
+      const done = await waitForVideo(started.request_id, {
+        onTick: (d) => setMediaNote(`Video ${d.status || 'pending'}…`),
+      })
+      setClip(done.video?.url || null)
+      setMediaNote(done.video?.url ? 'Clip ready' : 'Video finished with no URL')
+    } catch (err) {
+      setMediaNote(err?.message || 'Video failed')
+    }
+  }, [])
+
+  useEffect(() => {
+    return registerPage({
+      getState: () => ({
+        eraIndex: indexRef.current,
+        figure: EVENTS[indexRef.current]?.centralFigure,
+        year: EVENTS[indexRef.current]?.year,
+      }),
+      apply: (name, args = {}) => {
+        if (name !== 'set_history_era') return { ok: false, error: `history ignores ${name}` }
+        if (typeof args.figure === 'string') {
+          const q = args.figure.toLowerCase()
+          const hit = EVENTS.findIndex(
+            (e) =>
+              (e.centralFigure || '').toLowerCase().includes(q) ||
+              (e.figure || '').toLowerCase().includes(q),
+          )
+          if (hit >= 0) {
+            goTo(hit)
+            return { ok: true, index: hit }
+          }
+        }
+        if (Number.isInteger(args.index)) {
+          goTo(args.index)
+          return { ok: true, index: args.index }
+        }
+        return { ok: false, error: 'no matching era' }
+      },
+    })
+  }, [goTo, registerPage])
+
+  useEffect(() => {
+    return registerMedia({
+      onPortrait: (result, args) => {
+        const src = result?.url || (result?.b64_json ? `data:image/png;base64,${result.b64_json}` : null)
+        if (!src) return
+        const q = (args?.figure || '').toLowerCase()
+        const hit = q
+          ? EVENTS.findIndex(
+              (e) =>
+                (e.centralFigure || '').toLowerCase().includes(q) ||
+                (e.figure || '').toLowerCase().includes(q),
+            )
+          : indexRef.current
+        const i = hit >= 0 ? hit : indexRef.current
+        setPortraitOverrides((prev) => ({ ...prev, [i]: src }))
+      },
+      onVideoDone: (done) => {
+        if (done?.video?.url) setClip(done.video.url)
+      },
+    })
+  }, [registerMedia])
 
   // Card strip → index only when user is free-scrolling (not while we drive / scrub)
   useEffect(() => {
@@ -662,10 +770,27 @@ export default function HistoryPage() {
         >
           <div className="hist-h-faces">
             {EVENTS.map((e, i) => (
-              <PortraitFace key={e.year + e.title} event={e} active={i === index} />
+              <PortraitFace
+                key={e.year + e.title}
+                event={e}
+                active={i === index}
+                overrideSrc={portraitOverrides[i]}
+              />
             ))}
           </div>
           <p className="hist-h-name">{ev.centralFigure || ev.figure}</p>
+          <div
+            className="hist-media-actions"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <button type="button" className="tutor-btn" onClick={() => restylePortrait(index)}>
+              Restyle portrait
+            </button>
+            <button type="button" className="tutor-btn" onClick={() => animateEra(index)}>
+              Animate era
+            </button>
+          </div>
+          {mediaNote && <p className="hist-media-note">{mediaNote}</p>}
           <div
             className="hist-h-katex"
             dangerouslySetInnerHTML={{ __html: renderLatex(ev.latex) }}
@@ -804,6 +929,15 @@ export default function HistoryPage() {
           <em>History of calculus</em> and <em>Leibniz–Newton calculus controversy</em>. Portraits
           via Wikimedia Commons and local archive.
         </p>
+
+        {clip && (
+          <div className="hist-clip-overlay">
+            <video className="hist-media-clip" src={clip} controls playsInline autoPlay />
+            <button type="button" className="tutor-btn" onClick={() => setClip(null)}>
+              Close clip
+            </button>
+          </div>
+        )}
       </main>
     </>
   )

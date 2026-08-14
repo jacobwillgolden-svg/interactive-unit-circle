@@ -147,6 +147,7 @@ export default function UnitCircle({
         <div className={`canvas-wrap${pulseOn ? ' is-pulse' : ''}${nearSnap ? ' is-near-snap' : ''}`}>
           <svg
             ref={svgRef}
+            data-tutor-stage="unit-circle"
             width={size}
             height={size}
             viewBox={`0 0 ${size} ${size}`}

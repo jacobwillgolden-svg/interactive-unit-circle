@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import GravityControl from '../components/GravityControl'
+import { useTutor } from '../context/TutorContext'
+import { captureNode } from '../utils/frameCapture'
 import { G0 } from '../utils/constants'
 
 /**
@@ -506,6 +508,7 @@ function BoxShape({ cx, cy, w, h, angle, fill, stroke, label, labelColor }) {
 
 export default function PhysicsPage() {
   const { theme } = useOutletContext()
+  const { registerPage } = useTutor()
   const isLight = theme === 'light'
   const svgRef = useRef(null)
 
@@ -572,6 +575,58 @@ export default function PhysicsPage() {
       m2,
     }
   }, [mode, m1, m2, theta, muS1, muK1, Fapp, g, frictionOn])
+
+  useEffect(() => {
+    return registerPage({
+      getState: () => ({
+        mode,
+        thetaDeg,
+        m1,
+        m2,
+        muS: muS1,
+        muK: muK1,
+        Fapp,
+        frictionOn,
+        g,
+        playing,
+        a: solution.a,
+        static: solution.static,
+      }),
+      apply: (name, args = {}) => {
+        if (name !== 'set_physics') return { ok: false, error: `physics ignores ${name}` }
+        if (args.mode === 'single' || args.mode === 'hang' || args.mode === 'atwood') {
+          setMode(args.mode)
+        }
+        if (Number.isFinite(args.thetaDeg)) setThetaDeg(args.thetaDeg)
+        if (Number.isFinite(args.m1)) setM1(args.m1)
+        if (Number.isFinite(args.m2)) setM2(args.m2)
+        if (Number.isFinite(args.muS)) setMuS1(args.muS)
+        if (Number.isFinite(args.muK)) setMuK1(args.muK)
+        if (Number.isFinite(args.Fapp)) setFapp(args.Fapp)
+        if (Number.isFinite(args.g)) setG(args.g)
+        if ('frictionOn' in args) setFrictionOn(Boolean(args.frictionOn))
+        if ('showComponents' in args) setShowComponents(Boolean(args.showComponents))
+        if ('showNet' in args) setShowNet(Boolean(args.showNet))
+        if ('playing' in args) setPlaying(Boolean(args.playing))
+        return { ok: true }
+      },
+      capture: () => captureNode(svgRef.current),
+    })
+  }, [
+    Fapp,
+    frictionOn,
+    g,
+    m1,
+    m2,
+    mode,
+    muK1,
+    muS1,
+    playing,
+    registerPage,
+    solution.a,
+    solution.static,
+    thetaDeg,
+  ])
 
   const canAnimate = !solution.static && Math.abs(solution.a) > 1e-6
 
@@ -1153,6 +1208,7 @@ export default function PhysicsPage() {
             <div className="physics-diagram-wrap">
             <svg
               ref={svgRef}
+              data-tutor-stage="physics"
               viewBox={`0 0 ${W} ${H}`}
               className="physics-svg"
               role="img"
