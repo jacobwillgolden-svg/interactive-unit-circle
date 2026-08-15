@@ -50,6 +50,9 @@ describe('validateUserInput', () => {
 
   it('blocks insults and junk so they never become a fake lesson', () => {
     assert.equal(validateUserInput('fuck you').ok, false)
+    assert.equal(validateUserInput('schlong').ok, false)
+    assert.equal(validateUserInput('shlong').ok, false)
+    assert.equal(validateUserInput('dingleberry').ok, false)
     assert.equal(validateUserInput('write me a poem').ok, false)
     assert.equal(validateUserInput('asdfghjkl').ok, false)
     assert.match(validateUserInput('hello').message, /Hi/)

@@ -70,6 +70,9 @@ class ClassifierTests(unittest.TestCase):
 
         code, _, _ = classify_user_text("send nudes")
         self.assertEqual(code, "inappropriate")
+        self.assertEqual(classify_user_text("schlong")[0], "inappropriate")
+        self.assertEqual(classify_user_text("shlong")[0], "inappropriate")
+        self.assertEqual(classify_user_text("dingleberry")[0], "inappropriate")
 
     def test_off_topic_and_greeting(self):
         self.assertEqual(classify_user_text("write me a poem")[0], "off_topic")

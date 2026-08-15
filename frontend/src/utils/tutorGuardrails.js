@@ -131,7 +131,7 @@ const GREETING =
   /^(?:hi|hey|hello|yo|sup|hiya|howdy|good\s+(?:morning|afternoon|evening)|what'?s\s+up)[\s!.]*$/i
 
 const HARD_INAPPROPRIATE =
-  /\b(porn(?:o|ographic)?|xxx|nudes?|naked|nsfw|hentai|onlyfans|sexual|sexy|horny|orgasm|masturbat\w*|blow\s*job|hand\s*job|vagina|penis|\bdick\b|\bcock\b|\bpussy\b|\bcunt\b|dildo|semen|\bcum\b|whore|slut|milf|boobs?|\btits?\b|rape(?:s|d|ing)?|incest|pedo(?:phile)?|nigg(?:er|a)s?|faggot|\bfag\b|kike|spic|chink|tranny|kill\s+your\s*self|\bkys\b|\bkms\b|suicide|self[-\s]?harm|kill\s+myself|want\s+to\s+die|i\s+will\s+kill|shoot\s+up)\b/i
+  /\b(porn(?:o|ographic)?|xxx|nudes?|naked|nsfw|hentai|onlyfans|sexual|sexy|horny|orgasm|masturbat\w*|blow\s*job|hand\s*job|vagina|penis|\bdick\b|\bcock\b|\bpussy\b|\bcunt\b|dildo|semen|\bcum\b|whore|slut|milf|boobs?|\btits?\b|titties|s[c]?hlongs?|dingleberr(?:y|ies)|dingle\s*berr(?:y|ies)|ball\s*sacks?|nutsacks?|boners?|hard-?ons?|jizz|wank(?:er|ing)?s?|jerk\s*off|jack\s*off|twat|cooch(?:ie)?|dong|wang|pecker|buttholes?|bungholes?|smegma|scrotums?|testicles?|bollocks|bellend|arseholes?|knobheads?|rape(?:s|d|ing)?|incest|pedo(?:phile)?|nigg(?:er|a)s?|faggot|\bfag\b|kike|spic|chink|tranny|kill\s+your\s*self|\bkys\b|\bkms\b|suicide|self[-\s]?harm|kill\s+myself|want\s+to\s+die|i\s+will\s+kill|shoot\s+up)\b/i
 
 const CASUAL_SWEAR =
   /\b(f+u+c+k(?:ing|ed|er|s)?|motherfucker|shit(?:ty|s)?|bullshit|damn(?:ed|it)?|dammit|bitch(?:es|y)?|\bass\b|asshole|crap|piss(?:ed)?|\bhell\b|bastard|dickhead|stfu|wtf|f+\*+c*k(?:ing)?|sh[i1!]t)\b/i
