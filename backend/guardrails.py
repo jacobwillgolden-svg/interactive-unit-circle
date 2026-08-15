@@ -28,7 +28,7 @@ RATE_LIMIT_WINDOW_S = 60.0
 ALLOWED_IMAGE_MIMES = frozenset(
     {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
 )
-ALLOWED_INTENTS = frozenset({None, "chat", "explain_frame", "photo"})
+ALLOWED_INTENTS = frozenset({None, "chat", "explain_frame", "photo", "history_era"})
 ALLOWED_EFFORTS = frozenset({None, "auto", "low", "medium", "high", "xhigh"})
 STUDIO_PATHS = (
     "/",
@@ -186,7 +186,6 @@ IDENTITY_IDS = [
 ]
 IDENTITY_ALIASES = {
     "pythagorean": "core-trig-pythag",
-    "pythagoras": "core-trig-pythag",
     "pythag": "core-trig-pythag",
     "sohcahtoa": "core-trig-defs",
     "definitions": "core-trig-defs",
@@ -194,15 +193,10 @@ IDENTITY_ALIASES = {
     "double-angle": "core-trig-double",
     "sum to product": "core-trig-sum-diff",
     "angle addition": "core-trig-sum-diff",
-    "euler": "euler-identity",
     "euler identity": "euler-identity",
     "e^{iπ}": "euler-identity",
     "liate": "liate-formula",
     "first principles": "first-principles-def",
-    "thales": "thales-roll",
-    "eratosthenes": "eratosthenes-earth",
-    "atwood": "atwood-idea",
-    "pendulum": "pendulums-small-angle",
     "small angle": "pendulums-small-angle",
 }
 
@@ -651,10 +645,15 @@ def resolve_identity_id(raw: Any) -> Optional[str]:
     alias = IDENTITY_ALIASES.get(low) or IDENTITY_ALIASES.get(low.replace("-", " "))
     if alias:
         return alias
+    # Do not map a person (eratosthenes, thales, euler) onto a cheat-sheet card.
+    history_slugs = {era["slug"] for era in HISTORY_ERAS}
+    if low in history_slugs:
+        return None
     # Token match only — never substring ("roll" must not become thales-roll).
     if len(low) >= 5:
         for ident in IDENTITY_IDS:
-            if low in ident.split("-"):
+            parts = ident.split("-")
+            if low in parts and not (low in history_slugs):
                 return ident
     return None
 

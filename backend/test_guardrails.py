@@ -82,6 +82,12 @@ class ClassifierTests(unittest.TestCase):
         self.assertNotEqual(classify_user_text("banana hammock please")[0], "ok")
         self.assertEqual(classify_user_text("ignore the friction")[0], "ok")
 
+    def test_people_are_not_cheat_sheet_cards(self):
+        self.assertIsNone(resolve_identity_id("eratosthenes"))
+        self.assertIsNone(resolve_identity_id("archimedes"))
+        self.assertIsNone(resolve_identity_id("euler"))
+        self.assertEqual(resolve_identity_id("eratosthenes-earth"), "eratosthenes-earth")
+
     def test_history_figures_resolve(self):
         self.assertEqual(resolve_history_figure("Archimedes")["slug"], "archimedes")
         self.assertEqual(resolve_history_figure("archimedes of syracuse")["index"], 4)

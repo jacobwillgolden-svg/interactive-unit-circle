@@ -87,16 +87,13 @@ const IDENTITY_SET = new Set(IDENTITY_IDS)
 
 const IDENTITY_ALIASES = {
   pythagorean: 'core-trig-pythag',
-  pythagoras: 'core-trig-pythag',
   pythag: 'core-trig-pythag',
   sohcahtoa: 'core-trig-defs',
   definitions: 'core-trig-defs',
-  euler: 'euler-identity',
+  'euler identity': 'euler-identity',
   liate: 'liate-formula',
-  thales: 'thales-roll',
-  eratosthenes: 'eratosthenes-earth',
-  atwood: 'atwood-idea',
-  pendulum: 'pendulums-small-angle',
+  'first principles': 'first-principles-def',
+  'small angle': 'pendulums-small-angle',
 }
 
 const TOOL_NAMES = new Set([
@@ -209,6 +206,7 @@ export function resolveIdentityId(raw) {
   if (IDENTITY_ALIASES[low] || IDENTITY_ALIASES[low.replace(/-/g, ' ')]) {
     return IDENTITY_ALIASES[low] || IDENTITY_ALIASES[low.replace(/-/g, ' ')]
   }
+  if (HISTORY_NAME_RE.test(low) || resolveHistoryFigure(low)) return null
   if (low.length >= 5) {
     return IDENTITY_IDS.find((id) => id.split('-').includes(low)) || null
   }

@@ -534,6 +534,13 @@ def user_parts(req: TutorRequest) -> list[Any]:
             "If you can read it, reconstruct it with studio tools then tutor through it. "
             "If you cannot read it, say so — do not invent the given values."
         )
+    elif req.intent == "history_era":
+        parts.append(
+            "The studio already jumped to the history era the student named. "
+            "Call set_history_era only if Current studio state.figure is still the wrong person. "
+            "Explain the live timeline card. Do not use highlight_identity for people. "
+            "Do not invent a different figure or a story."
+        )
     if req.message:
         parts.append(
             "Based on the studio state above, respond to the student.\n\n"

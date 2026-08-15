@@ -161,3 +161,29 @@ export function historyNamePattern() {
 }
 
 export const HISTORY_NAME_RE = historyNamePattern()
+
+const ERA_STORE = 'radian-history-era'
+
+export function rememberHistoryEra(slug) {
+  try {
+    if (slug) sessionStorage.setItem(ERA_STORE, String(slug))
+  } catch {
+    /* */
+  }
+}
+
+export function eraFromLocation() {
+  if (typeof window === 'undefined') return null
+  const raw = String(window.location.hash || '').replace(/^#/, '')
+  if (raw) {
+    const fromHash = resolveHistoryFigure(raw) || resolveHistoryFigure(null, Number(raw))
+    if (fromHash) return fromHash
+  }
+  try {
+    const stored = sessionStorage.getItem(ERA_STORE)
+    if (stored) return resolveHistoryFigure(stored)
+  } catch {
+    /* */
+  }
+  return null
+}

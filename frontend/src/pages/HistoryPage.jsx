@@ -3,7 +3,7 @@ import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import { useTutor } from '../context/TutorContext'
 import { generatePortrait, startVideo, waitForVideo } from '../utils/tutorApi'
-import { resolveHistoryFigure } from '../utils/historyFigures'
+import { eraFromLocation, resolveHistoryFigure } from '../utils/historyFigures'
 
 /**
  * Horizontal history: one era per “page.”
@@ -271,7 +271,7 @@ function clampEra(i) {
  */
 export default function HistoryPage() {
   const { registerPage, registerMedia } = useTutor()
-  const [index, setIndex] = useState(0)
+  const [index, setIndex] = useState(() => eraFromLocation()?.index ?? 0)
   const [portraitOverrides, setPortraitOverrides] = useState({})
   const [clip, setClip] = useState(null)
   const [mediaNote, setMediaNote] = useState('')
@@ -281,7 +281,7 @@ export default function HistoryPage() {
   const stripTrackRef = useRef(null)
   const odoWindowRef = useRef(null)
   const portraitRef = useRef(null)
-  const indexRef = useRef(0)
+  const indexRef = useRef(eraFromLocation()?.index ?? 0)
   const modeRef = useRef('idle') // 'idle' | 'driving' | 'scrubbing'
   const scrubRef = useRef(null)
   const suppressTickClickRef = useRef(false)
@@ -445,9 +445,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     const applyHash = () => {
-      const raw = String(window.location.hash || '').replace(/^#/, '')
-      if (!raw) return
-      const hit = resolveHistoryFigure(raw) || resolveHistoryFigure(null, Number(raw))
+      const hit = eraFromLocation()
       if (hit) goTo(hit.index, { smooth: false })
     }
     const t = window.setTimeout(applyHash, 80)
@@ -685,21 +683,22 @@ export default function HistoryPage() {
     return () => document.documentElement.classList.remove('hist-page')
   }, [])
 
-  // Initial layout — always land on Thales (index 0), after layout is measurable
+  // Initial layout — honor /history#archimedes (do not snap back to Thales)
   useEffect(() => {
     let cancelled = false
-    const settleAtThales = () => {
+    const settleAtEra = () => {
       if (cancelled) return
-      indexRef.current = 0
-      setIndex(0)
-      centerOdoTrack(0)
-      scrollCardsTo(0, { smooth: false, fromIndex: 0 })
+      const i = eraFromLocation()?.index ?? indexRef.current ?? 0
+      indexRef.current = i
+      setIndex(i)
+      centerOdoTrack(i)
+      scrollCardsTo(i, { smooth: false, fromIndex: i })
     }
 
     // Double rAF: wait for flex/viewport layout + fonts
     let raf2 = 0
     const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(settleAtThales)
+      raf2 = requestAnimationFrame(settleAtEra)
     })
 
     // Re-center odometer if the shell resizes (mobile URL bar, rotate, etc.)
@@ -717,7 +716,7 @@ export default function HistoryPage() {
     }
 
     // One more settle after images/fonts may shift layout
-    const t = window.setTimeout(settleAtThales, 120)
+    const t = window.setTimeout(settleAtEra, 120)
 
     return () => {
       cancelled = true

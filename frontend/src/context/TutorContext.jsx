@@ -10,7 +10,11 @@ import {
   waitForVideo,
 } from '../utils/tutorApi'
 import { sanitizeToolCall, validateUserInput } from '../utils/tutorGuardrails'
-import { HISTORY_FIGURE_NAMES, resolveHistoryFigure } from '../utils/historyFigures'
+import {
+  HISTORY_FIGURE_NAMES,
+  rememberHistoryEra,
+  resolveHistoryFigure,
+} from '../utils/historyFigures'
 
 const TutorContext = createContext(null)
 
@@ -115,8 +119,9 @@ export function TutorProvider({ children }) {
         const hit = resolveHistoryFigure(args.figure, args.index)
         if (!hit) return { ok: false, error: 'no matching era' }
         const hash = `#${hit.slug}`
+        rememberHistoryEra(hit.slug)
         if (location.pathname !== '/history') {
-          navigate(`/history${hash}`)
+          navigate({ pathname: '/history', hash })
         } else {
           try {
             history.replaceState(null, '', hash)
@@ -206,6 +211,11 @@ export function TutorProvider({ children }) {
         return
       }
       const trimmed = check.text
+      const named = resolveHistoryFigure(trimmed)
+      if (named) {
+        rememberHistoryEra(named.slug)
+        intent = 'history_era'
+      }
 
       abortRef.current?.abort()
       const ac = new AbortController()
@@ -224,9 +234,30 @@ export function TutorProvider({ children }) {
         role: 'assistant',
         text: '',
         reasoning: '',
-        tools: [],
+        tools: named
+          ? [{ name: 'set_history_era', arguments: named, status: 'running', call_id: 'local-era' }]
+          : [],
         streaming: true,
       })
+
+      if (named) {
+        try {
+          await applyTool('set_history_era', {
+            figure: named.name,
+            index: named.index,
+            slug: named.slug,
+          })
+          patchMessage(asstId, (m) => ({
+            ...m,
+            tools: (m.tools || []).map((t) =>
+              t.call_id === 'local-era' ? { ...t, status: 'done' } : t,
+            ),
+          }))
+        } catch {
+          /* still ask the model */
+        }
+        await new Promise((r) => setTimeout(r, 80))
+      }
 
       const session_id = getSessionId()
 
