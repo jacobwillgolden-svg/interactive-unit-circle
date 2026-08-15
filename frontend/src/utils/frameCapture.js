@@ -1,5 +1,5 @@
 /**
- * Capture an SVG or canvas node as a JPEG data URL for Grok 4.6 image input.
+ * Capture an SVG or canvas node as a JPEG data URL for Gemini tutor image input.
  */
 
 const MAX_EDGE = 1280

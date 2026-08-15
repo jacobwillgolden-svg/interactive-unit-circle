@@ -9,6 +9,7 @@ import {
   streamTutor,
   waitForVideo,
 } from '../utils/tutorApi'
+import { sanitizeToolCall, validateUserInput } from '../utils/tutorGuardrails'
 
 const TutorContext = createContext(null)
 
@@ -112,6 +113,12 @@ export function TutorProvider({ children }) {
 
   const applyTool = useCallback(
     async (name, args = {}) => {
+      const cleaned = sanitizeToolCall(name, args)
+      if (!cleaned.ok) {
+        return { ok: false, error: cleaned.error || `Rejected tool ${name}` }
+      }
+      name = cleaned.name
+      args = cleaned.arguments || {}
       if (name === 'navigate' && args.path) {
         navigate(args.path)
         return { ok: true, path: args.path }
@@ -180,8 +187,21 @@ export function TutorProvider({ children }) {
   const send = useCallback(
     async ({ text = '', image = null, intent = 'chat', effort = 'auto' } = {}) => {
       if (busyRef.current) return
-      const trimmed = (text || '').trim()
-      if (!trimmed && !image) return
+      const check = validateUserInput(text, { image })
+      if (!check.ok) {
+        pushMessage({
+          role: 'user',
+          text: (text || '').trim() || (image ? 'Look at this image.' : ''),
+          image: image && intent === 'photo' ? image : null,
+          intent,
+        })
+        pushMessage({
+          role: 'assistant',
+          text: check.message,
+        })
+        return
+      }
+      const trimmed = check.text
 
       abortRef.current?.abort()
       const ac = new AbortController()

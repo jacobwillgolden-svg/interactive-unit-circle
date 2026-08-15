@@ -23,6 +23,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from guardrails import (
+    IDENTITY_IDS,
+    SYSTEM_INSTRUCTIONS,
+    THINKING_LEVEL,
+    WAVE_FNS,
+    parse_data_url,
+    prune_sessions,
+    sanitize_tool_call,
+    validate_tutor_request,
+)
+
 load_dotenv()
 
 try:
@@ -70,7 +81,6 @@ ALLOWED_TTS_VOICES = {
     "Schedar",
 }
 MAX_TTS_CHARS = 1400
-MAX_IMAGE_CHARS = 2_400_000
 PCM_RATE = 24000
 
 Effort = Literal["low", "medium", "high", "xhigh"]
@@ -167,102 +177,15 @@ def tts_client():
     return _TTS_CLIENT
 
 
-IDENTITY_IDS = [
-    "core-trig-defs",
-    "core-trig-pythag",
-    "core-trig-ranges",
-    "core-trig-even-odd",
-    "core-trig-sum-diff",
-    "core-trig-double",
-    "core-trig-laws",
-    "thales-roll",
-    "thales-why",
-    "eratosthenes-earth",
-    "first-principles-def",
-    "first-principles-x2",
-    "liate-formula",
-    "liate-order",
-    "close-points-tests",
-    "close-points-check",
-    "close-points-indet",
-    "logs-bases",
-    "euler-formula",
-    "unit-circle-pi",
-    "euler-identity",
-    "calc-bridge-deriv",
-    "calc-bridge-integrals",
-    "calc-bridge-limits",
-    "inverse-trig-terms",
-    "inverse-trig-how",
-    "inverse-trig-three",
-    "inverse-trig-cycle",
-    "pendulums-isochronism",
-    "pendulums-fbd",
-    "pendulums-analogy",
-    "pendulums-small-angle",
-    "pendulums-multi",
-    "pendulums-toolkit",
-    "atwood-idea",
-    "atwood-newton",
-    "atwood-derive",
-    "atwood-lab",
-    "atwood-ladder",
-    "atwood-toolkit",
-    "number-types-map",
-    "constants-e",
-    "constants-pi",
-    "bonus-phi",
-    "bonus-angle",
-    "bonus-fib",
-]
-
-WAVE_FNS = [
-    "sin",
-    "cos",
-    "tan",
-    "csc",
-    "sec",
-    "cot",
-    "asin",
-    "acos",
-    "atan",
-    "acsc",
-    "asec",
-    "acot",
-]
-
-SYSTEM_INSTRUCTIONS = """You are the in-app tutor for RADIANT, an interactive trigonometry and calculus studio.
-
-You do not just talk. You drive the live visualizations with tools, then explain what the student is looking at.
-
-Studio routes:
-- / unit circle (drag θ; sin/cos/tan overlays; SOH-CAH-TOA)
-- /waves trig graphs + inverse functions + optional music
-- /pendulums single / double / triple Lagrangian RK4
-- /physics incline / ramp+pulley / Atwood free-body builder
-- /helix parametric helix r(t)=(cos t, sin t, t) and r'(t)
-- /history horizontal calculus timeline
-- /cheat-sheet identity cards (highlight by id)
-
-Identity card ids you may highlight:
-""" + ", ".join(IDENTITY_IDS) + """
-
-Wave function keys: """ + ", ".join(WAVE_FNS) + """
-
-Rules:
-1. For any request that can be shown, call tools first (navigate, set_angle, overlays, physics, pendulum, helix, waves, highlight_identity, set_history_era). Then explain against the live figure.
-2. Prefer short, precise language. Speak as if standing next to the diagram. Use radians and degrees together when it helps.
-3. Never invent an identity or a numeric result. Double-check arithmetic before teaching a number.
-4. If the student uploads a worksheet photo or a captured frame, reconstruct the problem with tools (set_physics / set_angle / etc.) then walk through it.
-5. Socratic on proofs: ask the student to predict the next rewrite before revealing it. Highlight the matching cheat-sheet card.
-6. Do not generate replacement unit-circle or wave diagrams — the SVG/canvas is already exact. Use generate_portrait only for history portraits.
-7. If a tool is not needed, do not call it.
-"""
+# Studio catalogs + SYSTEM_INSTRUCTIONS live in guardrails.py (Gemini 3.x prompt shape).
 
 CLIENT_TOOLS: list[dict[str, Any]] = [
     {
         "name": "navigate",
-        "description": "Open a studio page.",
+        "description": (
+            "Open a studio page. Invoke only when the student needs a different "
+            "route than Current studio state.route."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
@@ -284,11 +207,18 @@ CLIENT_TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "set_angle",
-        "description": "Set the unit-circle or waves angle in degrees, optionally animating.",
+        "description": (
+            "Set the unit-circle or waves angle. degrees is a finite number in "
+            "degrees (not radians). The studio wraps to [0, 360). "
+            "Invoke when the student names an angle or a worksheet gives θ."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
-                "degrees": {"type": "number"},
+                "degrees": {
+                    "type": "number",
+                    "description": "Angle in degrees. Finite. Wraps to [0, 360).",
+                },
                 "animate": {"type": "boolean"},
             },
             "required": ["degrees"],
@@ -335,8 +265,18 @@ CLIENT_TOOLS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "nLinks": {"type": "integer", "minimum": 1, "maximum": 3},
-                "g": {"type": "number"},
-                "damping": {"type": "number"},
+                "g": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 30,
+                    "description": "Gravity m/s². Safe range 0.1–30.",
+                },
+                "damping": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2,
+                    "description": "Linear damping. Safe range 0–2.",
+                },
                 "playing": {"type": "boolean"},
                 "trailOn": {"type": "boolean"},
                 "reset": {"type": "boolean"},
@@ -350,12 +290,33 @@ CLIENT_TOOLS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "mode": {"type": "string", "enum": ["single", "hang", "atwood"]},
-                "thetaDeg": {"type": "number"},
-                "m1": {"type": "number"},
-                "m2": {"type": "number"},
-                "muS": {"type": "number"},
-                "muK": {"type": "number"},
-                "Fapp": {"type": "number"},
+                "thetaDeg": {
+                    "type": "number",
+                    "minimum": 0.5,
+                    "maximum": 89.5,
+                    "description": "Ramp angle in degrees. Not 0 or 90 (those break the FBD).",
+                },
+                "m1": {
+                    "type": "number",
+                    "minimum": 0.05,
+                    "maximum": 100,
+                    "description": "Mass kg. Must be > 0.",
+                },
+                "m2": {
+                    "type": "number",
+                    "minimum": 0.05,
+                    "maximum": 100,
+                    "description": "Second mass kg. Must be > 0.",
+                },
+                "muS": {"type": "number", "minimum": 0, "maximum": 2},
+                "muK": {"type": "number", "minimum": 0, "maximum": 2},
+                "Fapp": {"type": "number", "minimum": -200, "maximum": 200},
+                "g": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 30,
+                    "description": "Gravity m/s². Safe range 0.1–30.",
+                },
                 "frictionOn": {"type": "boolean"},
                 "showComponents": {"type": "boolean"},
                 "showNet": {"type": "boolean"},
@@ -378,10 +339,20 @@ CLIENT_TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "highlight_identity",
-        "description": "Open the cheat sheet and flash a specific identity card.",
+        "description": (
+            "Open the cheat sheet and flash one identity card. "
+            "Invoke only with an id from the Identity card ids list. "
+            "Do not invent ids."
+        ),
         "parameters": {
             "type": "object",
-            "properties": {"id": {"type": "string"}},
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "enum": IDENTITY_IDS,
+                    "description": "Exact cheat-sheet card id.",
+                }
+            },
             "required": ["id"],
         },
     },
@@ -462,7 +433,8 @@ def infer_effort(text: str, requested: Optional[str]) -> Effort:
     return "high"
 
 
-THINKING_BUDGET = {"low": 0, "medium": 2048, "high": 8192, "xhigh": 24576}
+# Gemini 3.x: use thinking_level, not numeric thinking_budget.
+# Numeric budget + temperature < 1.0 both degrade math/reasoning on 3.5 Flash.
 
 
 class TutorRequest(BaseModel):
@@ -517,6 +489,8 @@ def status():
         "sdk": genai is not None,
         "provider": "gemini",
         "beta": True,
+        "thinking_levels": THINKING_LEVEL,
+        "guardrails": True,
     }
 
 
@@ -532,43 +506,55 @@ def session_bucket(session_id: str) -> dict[str, Any]:
     return bucket
 
 
-def parse_data_url(data_url: str) -> tuple[str, bytes]:
-    header, _, payload = data_url.partition(",")
-    mime = "image/jpeg"
-    if "image/png" in header:
-        mime = "image/png"
-    elif "image/webp" in header:
-        mime = "image/webp"
-    return mime, base64.b64decode(payload)
-
-
 def user_parts(req: TutorRequest) -> list[Any]:
+    # Gemini 3: large context first, the actual question last, then anchor.
     parts: list[str] = []
     if req.state:
-        parts.append("Current studio state (JSON):\n" + json.dumps(req.state, ensure_ascii=False)[:4000])
+        parts.append(
+            "Current studio state (JSON):\n"
+            + json.dumps(req.state, ensure_ascii=False)[:4000]
+        )
     if req.intent == "explain_frame":
         parts.append(
             "The attached image is a capture of the live visualization. "
-            "Explain what is on screen. Drive tools if a better angle or overlay would help."
+            "Explain what is on screen. Drive tools only if a better angle or overlay would help."
         )
     elif req.intent == "photo":
         parts.append(
             "The attached image is a student worksheet or textbook problem. "
-            "Reconstruct it with studio tools (especially set_physics / set_angle) then tutor through it."
+            "If you can read it, reconstruct it with studio tools then tutor through it. "
+            "If you cannot read it, say so — do not invent the given values."
         )
     if req.message:
-        parts.append("Student: " + req.message.strip())
-    text = "\n\n".join(parts) or "Continue."
+        parts.append(
+            "Based on the studio state above, respond to the student.\n\n"
+            "Student: " + req.message.strip()
+        )
+    text = "\n\n".join(parts) or "Continue from the last tool results."
 
     out = [types.Part.from_text(text=text)]
-    if req.image and req.image.startswith("data:image") and len(req.image) < MAX_IMAGE_CHARS:
-        mime, raw = parse_data_url(req.image)
-        out.insert(0, types.Part.from_bytes(data=raw, mime_type=mime))
+    if req.image and req.image.startswith("data:image"):
+        try:
+            mime, raw = parse_data_url(req.image)
+            if raw:
+                out.insert(0, types.Part.from_bytes(data=raw, mime_type=mime))
+        except Exception:
+            pass
     return out
 
 
 def thinking_config(effort: Effort):
-    budget = THINKING_BUDGET.get(effort, 8192)
+    """Gemini 3.5 Flash: thinking_level enum. Fall back to budget on older SDKs."""
+    level = THINKING_LEVEL.get(effort, "medium")
+    enum_cls = getattr(types, "ThinkingLevel", None)
+    level_val: Any = level
+    if enum_cls is not None:
+        level_val = getattr(enum_cls, level.upper(), level)
+    try:
+        return types.ThinkingConfig(include_thoughts=True, thinking_level=level_val)
+    except (TypeError, AttributeError, ValueError):
+        pass
+    budget = {"minimal": 0, "low": 1024, "medium": 8192, "high": 24576}.get(level, 8192)
     try:
         return types.ThinkingConfig(include_thoughts=True, thinking_budget=budget)
     except TypeError:
@@ -579,10 +565,11 @@ def thinking_config(effort: Effort):
 
 
 def generate_config(effort: Effort):
+    # Gemini 3.x: do not set temperature / top_p / top_k — default 1.0 is required
+    # for stable math reasoning. Lower values can loop or degrade proofs.
     kwargs: dict[str, Any] = {
         "system_instruction": SYSTEM_INSTRUCTIONS,
         "tools": gemini_tools(),
-        "temperature": 0.4,
     }
     think = thinking_config(effort)
     if think is not None:
@@ -591,10 +578,33 @@ def generate_config(effort: Effort):
 
 
 def iter_tutor(req: TutorRequest) -> Iterator[str]:
+    decision = validate_tutor_request(
+        session_id=req.session_id,
+        message=req.message,
+        image=req.image,
+        intent=req.intent,
+        effort=req.effort,
+        tool_outputs=req.tool_outputs,
+    )
+    if not decision.ok:
+        if decision.as_assistant:
+            yield _sse({"type": "text", "text": decision.message})
+        else:
+            yield _sse({"type": "error", "message": decision.message})
+        yield _sse({"type": "done", "response_id": req.session_id, "blocked": True, "code": decision.code})
+        return
+
+    req.message = decision.message_text
+    req.image = decision.image
+    req.intent = decision.intent
+    req.effort = decision.effort
+    req.tool_outputs = decision.tool_outputs
+
     effort = infer_effort(req.message or "", req.effort if req.effort != "auto" else None)
     active_model = GEMINI_MODEL
-    yield _sse({"type": "meta", "effort": effort, "model": active_model})
+    yield _sse({"type": "meta", "effort": effort, "model": active_model, "thinking_level": THINKING_LEVEL.get(effort, "medium")})
 
+    prune_sessions(SESSIONS)
     bucket = session_bucket(req.session_id)
     contents: list[Any] = bucket["contents"]
 
@@ -639,7 +649,6 @@ def iter_tutor(req: TutorRequest) -> Iterator[str]:
             cfg = types.GenerateContentConfig(
                 system_instruction=SYSTEM_INSTRUCTIONS,
                 tools=gemini_tools(),
-                temperature=0.4,
             )
         stream = None
         chunks_head: list[Any] = []
@@ -647,7 +656,6 @@ def iter_tutor(req: TutorRequest) -> Iterator[str]:
         simple_cfg = types.GenerateContentConfig(
             system_instruction=SYSTEM_INSTRUCTIONS,
             tools=gemini_tools(),
-            temperature=0.4,
         )
         for model_id in TUTOR_MODELS:
             try:
@@ -708,21 +716,31 @@ def iter_tutor(req: TutorRequest) -> Iterator[str]:
                     yield _sse({"type": "reasoning" if thought else "text", "text": text})
                 fc = getattr(part, "function_call", None)
                 if fc and getattr(fc, "name", None):
-                    call_id = f"{fc.name}:{uuid4().hex[:8]}"
-                    args = dict(getattr(fc, "args", None) or {})
-                    key = f"{fc.name}:{json.dumps(args, sort_keys=True)}"
+                    cleaned = sanitize_tool_call(fc.name, dict(getattr(fc, "args", None) or {}))
+                    if not cleaned.ok or not cleaned.name:
+                        yield _sse(
+                            {
+                                "type": "status",
+                                "message": cleaned.error or f"Dropped invalid tool {fc.name}",
+                            }
+                        )
+                        continue
+                    call_id = f"{cleaned.name}:{uuid4().hex[:8]}"
+                    args = cleaned.arguments
+                    key = f"{cleaned.name}:{json.dumps(args, sort_keys=True)}"
                     if key in emitted_calls:
                         continue
                     emitted_calls.add(key)
-                    pending[call_id] = fc.name
-                    yield _sse(
-                        {
-                            "type": "tool_call",
-                            "call_id": call_id,
-                            "name": fc.name,
-                            "arguments": args,
-                        }
-                    )
+                    pending[call_id] = cleaned.name
+                    payload: dict[str, Any] = {
+                        "type": "tool_call",
+                        "call_id": call_id,
+                        "name": cleaned.name,
+                        "arguments": args,
+                    }
+                    if cleaned.notes:
+                        payload["notes"] = cleaned.notes
+                    yield _sse(payload)
     except Exception as exc:
         yield _sse({"type": "error", "message": f"Gemini tutor failed: {exc}"[:800]})
         return

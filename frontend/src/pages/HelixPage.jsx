@@ -250,7 +250,7 @@ export default function HelixPage() {
       getState: () => ({ t, showTangent, showDerivative, autoSpin }),
       apply: (name, args = {}) => {
         if (name !== 'set_helix') return { ok: false, error: `helix ignores ${name}` }
-        if (Number.isFinite(args.t)) setT(args.t)
+        if (Number.isFinite(args.t)) setT(Math.max(-40, Math.min(40, args.t)))
         if ('showTangent' in args) setShowTangent(Boolean(args.showTangent))
         if ('showDerivative' in args) setShowDerivative(Boolean(args.showDerivative))
         if ('autoSpin' in args) setAutoSpin(Boolean(args.autoSpin))

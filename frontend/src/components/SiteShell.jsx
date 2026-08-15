@@ -156,7 +156,7 @@ export default function SiteShell() {
           </div>
 
           <div className="nav-meta">
-            <span className="beta-chip" title="Grok 4.6 tutor is on the beta branch">
+            <span className="beta-chip" title="Gemini 3.5 Flash studio tutor is on the beta branch">
               Beta
             </span>
             <button

@@ -329,8 +329,8 @@ export default function PendulumPage() {
         if (name !== 'set_pendulum') return { ok: false, error: `pendulum ignores ${name}` }
         const n = Number(args.nLinks)
         if (n === 1 || n === 2 || n === 3) setNLinks(n)
-        if (Number.isFinite(args.g)) setG(args.g)
-        if (Number.isFinite(args.damping)) setDamping(args.damping)
+        if (Number.isFinite(args.g)) setG(clamp(args.g, 0.1, 30))
+        if (Number.isFinite(args.damping)) setDamping(clamp(args.damping, 0, 2))
         if ('playing' in args) setPlaying(Boolean(args.playing))
         if ('trailOn' in args) setTrailOn(Boolean(args.trailOn))
         if (args.reset) reset()

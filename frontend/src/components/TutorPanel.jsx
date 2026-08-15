@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTutor } from '../context/TutorContext'
 import { fileToDataUrl } from '../utils/frameCapture'
 import { tutorToHtml } from '../utils/tutorFormat'
+import { MAX_MESSAGE_CHARS, validateImageFile, validateUserInput } from '../utils/tutorGuardrails'
 import {
   GEMINI_VOICES,
   createRecognizer,
@@ -131,9 +132,14 @@ export default function TutorPanel() {
 
   const submit = (text, extra = {}) => {
     const line = (text ?? draft).trim()
-    if (!line && !extra.image) return
+    const check = validateUserInput(line, extra)
+    if (!check.ok) {
+      setTtsNote(check.message)
+      return
+    }
+    setTtsNote('')
     setDraft('')
-    send({ text: line, effort, ...extra })
+    send({ text: check.text, effort, ...extra })
   }
 
   const onExplainFrame = async () => {
@@ -152,6 +158,11 @@ export default function TutorPanel() {
 
   const onPhoto = async (file) => {
     if (!file) return
+    const pre = validateImageFile(file)
+    if (!pre.ok) {
+      setTtsNote(pre.message)
+      return
+    }
     const image = await fileToDataUrl(file)
     send({
       text: 'Reconstruct this problem on the live diagram and tutor me through it.',
@@ -346,6 +357,7 @@ export default function TutorPanel() {
             <textarea
               rows={2}
               value={draft}
+              maxLength={MAX_MESSAGE_CHARS}
               placeholder="Set θ to 90° and explain tan…  or snap a worksheet"
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -355,6 +367,11 @@ export default function TutorPanel() {
                 }
               }}
             />
+            {draft.length > MAX_MESSAGE_CHARS - 400 && (
+              <p className="tutor-note">
+                {draft.length}/{MAX_MESSAGE_CHARS}
+              </p>
+            )}
             <div className="tutor-actions">
               <input
                 ref={fileRef}
