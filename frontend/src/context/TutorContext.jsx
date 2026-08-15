@@ -10,6 +10,7 @@ import {
   waitForVideo,
 } from '../utils/tutorApi'
 import { sanitizeToolCall, validateUserInput } from '../utils/tutorGuardrails'
+import { HISTORY_FIGURE_NAMES, resolveHistoryFigure } from '../utils/historyFigures'
 
 const TutorContext = createContext(null)
 
@@ -28,20 +29,7 @@ const WAVE_KEYS = [
   'acot',
 ]
 
-const HISTORY_FIGURES = [
-  'Thales',
-  'Pythagoras',
-  'Euclid',
-  'Eratosthenes',
-  'Archimedes',
-  'Kepler',
-  'Descartes',
-  'Fermat',
-  'Newton',
-  'Leibniz',
-  'Bernoulli',
-  'Euler',
-]
+const HISTORY_FIGURES = HISTORY_FIGURE_NAMES
 
 export function TutorProvider({ children }) {
   const navigate = useNavigate()
@@ -122,6 +110,22 @@ export function TutorProvider({ children }) {
       if (name === 'navigate' && args.path) {
         navigate(args.path)
         return { ok: true, path: args.path }
+      }
+      if (name === 'set_history_era') {
+        const hit = resolveHistoryFigure(args.figure, args.index)
+        if (!hit) return { ok: false, error: 'no matching era' }
+        const hash = `#${hit.slug}`
+        if (location.pathname !== '/history') {
+          navigate(`/history${hash}`)
+        } else {
+          try {
+            history.replaceState(null, '', hash)
+          } catch {
+            /* */
+          }
+          window.dispatchEvent(new Event('hashchange'))
+        }
+        return { ok: true, index: hit.index, figure: hit.name, slug: hit.slug }
       }
       if (name === 'highlight_identity' && args.id) {
         const hash = `#${args.id}`

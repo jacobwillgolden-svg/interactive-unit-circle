@@ -4,6 +4,8 @@
  * a bad Gemini tool call cannot divide-by-zero the physics page.
  */
 
+import { HISTORY_NAME_RE, resolveHistoryFigure } from './historyFigures.js'
+
 export const MAX_MESSAGE_CHARS = 4000
 export const MAX_IMAGE_FILE_BYTES = 8 * 1024 * 1024
 
@@ -111,13 +113,22 @@ const TOOL_NAMES = new Set([
 ])
 
 const JAILBREAK =
-  /ignore\s+(all\s+)?(your\s+)?(previous|above|prior|earlier)\s+(instructions|rules|prompts)|reveal\s+(your\s+)?(system|hidden|initial)\s+(prompt|instructions)|\[system\]|developer\s+mode|jailbreak|do\s+anything\s+now|override\s+(your\s+)?(safety|rules|guardrails)|new\s+instructions\s*:|pretend\s+you\s+(have\s+no|are\s+not\s+bound)/i
+  /ignore\s+(all\s+)?(your\s+)?(previous|above|prior|earlier)\s+(instructions|rules|prompts)|reveal\s+(your\s+)?(system|hidden|initial)\s+(prompt|instructions)|\[system\]|developer\s+mode|jailbreak|do\s+anything\s+now|override\s+(your\s+)?(safety|rules|guardrails)|new\s+instructions\s*:|pretend\s+you\s+(have\s+no|are\s+not\s+bound)|you are no longer (a |the )?tutor|act as (?:my |a )?(?:cow|dan|admin)|this is an admin command|i command you to act/i
 
 const STUDIO_SIGNAL =
-  /θ|π|deg(?:ree)?s?|radian|sohcahtoa|hypotenus|adjacent|opposite|sin(?:e|h)?|cos(?:ine|h)?|tan(?:gent|h)?|csc|cosec|sec(?:ant)?|cot(?:angent)?|arcsin|arccos|arctan|asin|acos|atan|identit|pythag|unit\s*circle|overlay|cheat[-\s]?sheet|pendulum|lagrang|atwood|incline|ramp|friction|pulley|free\s*body|\bfbd\b|helix|parametric|\bwaves?\b|deriv|integral|\blimit\b|liate|first\s*principles|euler|newton|leibniz|thales|euclid|kepler|prove|derive|walk\s+me|set\s+(θ|theta|the\s+angle|angle|(?:to\s+)?\d)|show\s+(sin|cos|tan|csc|sec|cot|θ|theta)|go\s+to|navigate|theta|angle/i
+  /θ|π|deg(?:ree)?s?|radian|sohcahtoa|hypotenus|adjacent|opposite|sin(?:e|h)?|cos(?:ine|h)?|tan(?:gent|h)?|csc|cosec|sec(?:ant)?|cot(?:angent)?|arcsin|arccos|arctan|asin|acos|atan|identit|pythag|unit\s*circle|overlay|cheat[-\s]?sheet|pendulum|lagrang|atwood|incline|ramp|friction|pulley|free\s*body|\bfbd\b|helix|parametric|\bwaves?\b|deriv|integral|\blimit\b|liate|first\s*principles|euler|newton|leibniz|thales|euclid|kepler|archimedes|descartes|bernoulli|eratosthenes|fermat|barrow|cauchy|lebesgue|oresme|cavalieri|lhopital|prove|derive|walk\s+me|set\s+(θ|theta|the\s+angle|angle|(?:to\s+)?\d)|show\s+(sin|cos|tan|csc|sec|cot|θ|theta)|go\s+to|navigate|theta|angle/i
+
+const SET_WRAPPER = /^\s*set\s+(?:θ|theta|the\s+angle|angle|0)?\s*(?:to|,|:|;)\s+(.+)$/i
+const MODEL_PROBE =
+  /\b(what model are you|which model|what is your role|what's your role|who are you|tell me more about your role)\b/i
+const STORY_INVITE =
+  /(\b(stor(?:y|ies)|tale|fable|fairytale|fanfic)\b|\b(poem|song|rap|lullaby)\b|\b(come up with|make up|invent|write)\b.{0,50}\b(story|hero|character|adventure)\b|\b(let'?s|lets|we can|i want to)\b.{0,50}\b(story|hero|adventure|character)\b|\bcheer me up\b|\bour own story\b)/i
+
+const SUPERHERO =
+  /(\b(superhero|super-hero|super\s*power|superpower|nemesis|sidekick|villain)\b|\b(adventure|quest|backstory|origin story)\b|\b(plus[-\s]?man|negative[-\s]?man|plusman)\b|\bsuperman\b|\b(make (?:him|her|it) (?:the )?hero|call it plus)\b|\b(emblem|cape|fly in|stronger team)\b)/i
 
 const HELP_STUCK =
-  /^(?:please\s+)?(help(?:\s+me)?(?:\s+please)?|i(?:'m| am)?\s+stuck|stuck|idk|i\s+don'?t\s+know|confused|lost|what(?:'s| is) this|what am i looking at|explain this|continue|again|next)[?.!\s]*$/i
+  /^(?:please\s+)?(help(?:\s+me)?(?:\s+please)?|i(?:'m| am)?\s+stuck|stuck|idk|i\s+don'?t\s+know|confused|lost|what(?:'s| is) this|what am i looking at|explain this)[?.!\s]*$/i
 
 const GREETING =
   /^(?:hi|hey|hello|yo|sup|hiya|howdy|good\s+(?:morning|afternoon|evening)|what'?s\s+up)[\s!.]*$/i
@@ -129,7 +140,7 @@ const CASUAL_SWEAR =
   /\b(f+u+c+k(?:ing|ed|er|s)?|motherfucker|shit(?:ty|s)?|bullshit|damn(?:ed|it)?|dammit|bitch(?:es|y)?|\bass\b|asshole|crap|piss(?:ed)?|\bhell\b|bastard|dickhead|stfu|wtf|f+\*+c*k(?:ing)?|sh[i1!]t)\b/i
 
 const CRISIS =
-  /\b(suicide|kill\s+(?:my|your)\s*self|want\s+to\s+die|self[-\s]?harm|cut(?:ting)?\s+myself|kys|kms)\b/i
+  /\b(suicide|kill\s+(?:my|your)\s*self|want\s+to\s+die|self[-\s]?harm|cut(?:ting)?\s+myself|kys|kms|i(?:'m| am)\s+(?:very\s+)?depressed)\b/i
 
 const KEYBOARD_SMASH = /(.)\1{5,}|asdf+|qwer(?:ty)?|zxcv+|hjkl|jkl;/i
 
@@ -144,6 +155,10 @@ const MSG = {
     "Hi — I can move the live figures. Ask me to set θ, rebuild a ramp problem, or walk an identity.",
   crisis:
     "I can't help with that. If you're in crisis, talk to a trusted adult or local emergency services. I can help with a studio math question when you're ready.",
+  tutorId:
+    "I'm the RADIANT studio tutor. I move the live figures and walk identities — I don't switch roles or talk about the underlying model. Ask me to open a history era or set θ.",
+  fiction:
+    "I don't write stories or characters here — only the live studio. Ask me to set θ, open a history era, or walk an identity.",
 }
 
 export function clamp(n, lo, hi) {
@@ -194,12 +209,29 @@ export function resolveIdentityId(raw) {
   if (IDENTITY_ALIASES[low] || IDENTITY_ALIASES[low.replace(/-/g, ' ')]) {
     return IDENTITY_ALIASES[low] || IDENTITY_ALIASES[low.replace(/-/g, ' ')]
   }
-  return IDENTITY_IDS.find((id) => id.includes(low) || low.includes(id)) || null
+  if (low.length >= 5) {
+    return IDENTITY_IDS.find((id) => id.split('-').includes(low)) || null
+  }
+  return null
+}
+
+function peelSetWrapper(text) {
+  const compact = String(text || '').trim()
+  const m = SET_WRAPPER.exec(compact)
+  if (!m) return compact
+  const rest = (m[1] || '').trim()
+  if (!rest) return compact
+  const head = rest.split(/\s+/)[0].replace(/[,.;:]+$/, '')
+  const deg = parseDegrees(head)
+  if (deg != null && !/[A-Za-z]{4,}/.test(rest)) return compact
+  if (deg != null && STUDIO_SIGNAL.test(rest)) return compact
+  return rest
 }
 
 function hasStudioSignal(text) {
   const compact = String(text || '').trim()
   if (!compact) return false
+  if (HISTORY_NAME_RE.test(compact) || resolveHistoryFigure(compact)) return true
   if (STUDIO_SIGNAL.test(compact)) return true
   const deg = parseDegrees(compact)
   return deg != null && Math.abs(deg) <= 720
@@ -232,21 +264,37 @@ export function validateUserInput(text, extra = {}) {
   }
   if (!line && extra.image) return { ok: true, text: '' }
 
-  if (JAILBREAK.test(line)) {
+  const peeled = peelSetWrapper(line)
+
+  if (JAILBREAK.test(line) || JAILBREAK.test(peeled)) {
     return {
       ok: false,
       message:
         'I only tutor this studio — I won’t switch roles or drop these rules. Ask about an angle, identity, pendulum, or ramp problem.',
     }
   }
-  if (CRISIS.test(line)) return { ok: false, message: MSG.crisis }
-  if (HARD_INAPPROPRIATE.test(line)) return { ok: false, message: MSG.inappropriate }
+  if (CRISIS.test(line) || CRISIS.test(peeled)) return { ok: false, message: MSG.crisis }
+  if (HARD_INAPPROPRIATE.test(line) || HARD_INAPPROPRIATE.test(peeled)) {
+    return { ok: false, message: MSG.inappropriate }
+  }
+  if (MODEL_PROBE.test(peeled) && !HISTORY_NAME_RE.test(peeled)) {
+    return { ok: false, message: MSG.tutorId }
+  }
+  const fiction =
+    SUPERHERO.test(line) ||
+    SUPERHERO.test(peeled) ||
+    ((STORY_INVITE.test(line) || STORY_INVITE.test(peeled)) &&
+      !HISTORY_NAME_RE.test(peeled) &&
+      !/\bhistory of\b/i.test(peeled))
+  if (fiction) {
+    return { ok: false, message: MSG.fiction }
+  }
 
-  const swore = CASUAL_SWEAR.test(line)
-  const cleaned = swore ? line.replace(CASUAL_SWEAR, ' ').replace(/\s+/g, ' ').trim() : line
+  const swore = CASUAL_SWEAR.test(peeled)
+  const cleaned = swore ? peeled.replace(CASUAL_SWEAR, ' ').replace(/\s+/g, ' ').trim() : peeled
   if (swore && !cleaned) return { ok: false, message: MSG.inappropriate }
 
-  const body = cleaned || line
+  const body = cleaned || peeled
   if (GREETING.test(body)) return { ok: false, message: MSG.greeting }
   if (!extra.image && looksNonsense(body)) return { ok: false, message: MSG.gibberish }
   if (extra.image || hasStudioSignal(body) || HELP_STUCK.test(body)) {
@@ -368,22 +416,23 @@ export function sanitizeToolCall(name, args = {}) {
   }
 
   if (name === 'set_history_era') {
-    if (typeof raw.figure === 'string' && raw.figure.trim()) {
-      out.figure = raw.figure.trim().slice(0, 80)
-    }
-    if (Number.isInteger(raw.index) || (typeof raw.index === 'number' && Number.isFinite(raw.index))) {
-      out.index = Math.max(0, Math.min(11, Math.trunc(raw.index)))
-    }
-    if (!('figure' in out) && !('index' in out)) {
-      return { ok: false, error: 'need figure or index' }
-    }
+    const hit = resolveHistoryFigure(raw.figure, raw.index)
+    if (!hit) return { ok: false, error: 'unknown history figure' }
+    out.figure = hit.name
+    out.index = hit.index
+    out.slug = hit.slug
   }
 
   if (name === 'generate_portrait') {
     if (typeof raw.figure !== 'string' || !raw.figure.trim()) {
       return { ok: false, error: 'figure is required' }
     }
-    out.figure = raw.figure.trim().slice(0, 80)
+    const hit = resolveHistoryFigure(raw.figure)
+    out.figure = hit ? hit.name : raw.figure.trim().slice(0, 80)
+    if (hit) {
+      out.slug = hit.slug
+      out.index = hit.index
+    }
     if (typeof raw.style === 'string' && raw.style.trim()) {
       out.style = raw.style.trim().slice(0, 400)
     }

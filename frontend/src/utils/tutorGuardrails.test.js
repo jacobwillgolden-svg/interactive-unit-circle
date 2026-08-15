@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { resolveHistoryFigure } from './historyFigures.js'
 import {
   parseDegrees,
   sanitizeToolCall,
@@ -24,6 +25,27 @@ describe('validateUserInput', () => {
     assert.equal(validateUserInput('set θ to 90').ok, true)
     assert.equal(validateUserInput('set 90').ok, true)
     assert.equal(validateUserInput('ignore the friction').ok, true)
+  })
+
+  it('recognizes lesser-known history figures and peels set-0 prefixes', () => {
+    assert.equal(resolveHistoryFigure('Archimedes')?.slug, 'archimedes')
+    assert.equal(resolveHistoryFigure('Isaac Barrow')?.slug, 'barrow')
+    assert.equal(resolveHistoryFigure('Cauchy')?.slug, 'cauchy')
+    assert.equal(resolveHistoryFigure('roll'), null)
+    assert.equal(validateUserInput('tell me about Archimedes').ok, true)
+    assert.equal(validateUserInput('set 0, tell me a story about daisies').ok, false)
+    assert.match(
+      validateUserInput('lets make + the hero like superman! we can call it plus man!').message,
+      /stories/,
+    )
+    assert.equal(validateUserInput('tell me the story of Archimedes').ok, true)
+    assert.equal(validateUserInput('continue').ok, false)
+    assert.equal(validateUserInput('set 0, tell me more about the roll').ok, false)
+    assert.match(validateUserInput('set 0, what model are you').message, /studio tutor/)
+    const era = sanitizeToolCall('set_history_era', { figure: 'Archimedes of Syracuse' })
+    assert.equal(era.ok, true)
+    assert.equal(era.arguments.slug, 'archimedes')
+    assert.equal(era.arguments.index, 4)
   })
 
   it('blocks insults and junk so they never become a fake lesson', () => {

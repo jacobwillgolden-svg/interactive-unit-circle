@@ -39,20 +39,89 @@ STUDIO_PATHS = (
     "/history",
     "/cheat-sheet",
 )
-HISTORY_FIGURES = (
-    "Thales",
-    "Pythagoras",
-    "Euclid",
-    "Eratosthenes",
-    "Archimedes",
-    "Kepler",
-    "Descartes",
-    "Fermat",
-    "Newton",
-    "Leibniz",
-    "Bernoulli",
-    "Euler",
-)
+# Must stay in lockstep with frontend/src/utils/historyFigures.js
+HISTORY_ERAS: list[dict[str, Any]] = [
+    {"index": 0, "slug": "thales", "name": "Thales", "aliases": ["thales of miletus"]},
+    {"index": 1, "slug": "pythagoras", "name": "Pythagoras", "aliases": ["pythagorean"]},
+    {"index": 2, "slug": "euclid", "name": "Euclid", "aliases": ["euclid of alexandria"]},
+    {
+        "index": 3,
+        "slug": "eratosthenes",
+        "name": "Eratosthenes",
+        "aliases": ["eratosthenes of cyrene"],
+    },
+    {
+        "index": 4,
+        "slug": "archimedes",
+        "name": "Archimedes",
+        "aliases": ["archimedes of syracuse"],
+    },
+    {
+        "index": 5,
+        "slug": "kepler",
+        "name": "Kepler",
+        "aliases": ["johannes kepler", "oresme", "nicole oresme", "cavalieri"],
+    },
+    {
+        "index": 6,
+        "slug": "descartes",
+        "name": "Descartes",
+        "aliases": ["rene descartes", "rené descartes"],
+    },
+    {
+        "index": 7,
+        "slug": "fermat",
+        "name": "Fermat",
+        "aliases": ["pierre de fermat", "pierre fermat"],
+    },
+    {"index": 8, "slug": "barrow", "name": "Barrow", "aliases": ["isaac barrow"]},
+    {
+        "index": 9,
+        "slug": "newton",
+        "name": "Newton",
+        "aliases": ["isaac newton", "fluxions", "fluxion"],
+    },
+    {
+        "index": 10,
+        "slug": "leibniz",
+        "name": "Leibniz",
+        "aliases": ["gottfried leibniz", "gottfried wilhelm leibniz"],
+    },
+    {
+        "index": 11,
+        "slug": "priority",
+        "name": "Newton",
+        "aliases": ["priority dispute", "calculus priority"],
+    },
+    {
+        "index": 12,
+        "slug": "bernoulli",
+        "name": "Bernoulli",
+        "aliases": [
+            "jacob bernoulli",
+            "johann bernoulli",
+            "l'hopital",
+            "lhopital",
+            "lhospital",
+            "l'hôpital",
+        ],
+    },
+    {"index": 13, "slug": "euler", "name": "Euler", "aliases": ["leonhard euler"]},
+    {
+        "index": 14,
+        "slug": "cauchy",
+        "name": "Cauchy",
+        "aliases": ["augustin-louis cauchy", "augustin louis cauchy"],
+    },
+    {
+        "index": 15,
+        "slug": "lebesgue",
+        "name": "Lebesgue",
+        "aliases": ["henri lebesgue"],
+    },
+]
+HISTORY_FIGURES = tuple(dict.fromkeys(e["name"] for e in HISTORY_ERAS))
+_HISTORY_STOP = frozenset({"the", "and", "of", "de", "von", "van", "la", "le"})
 WAVE_FNS = [
     "sin",
     "cos",
@@ -168,10 +237,44 @@ STUDIO_SIGNAL = re.compile(
     r"|helix|parametric|oscillat|\bwaves?\b"
     r"|deriv|integral|integrat|\blimit\b|liate|first\s*principles"
     r"|euler|newton|leibniz|thales|euclid|kepler|archimedes|descartes|bernoulli"
+    r"|eratosthenes|fermat|barrow|cauchy|lebesgue|oresme|cavalieri|lhopital"
     r"|prove|derive|walk\s+me|set\s+(θ|theta|the\s+angle|angle|(?:to\s+)?\d)"
     r"|show\s+(sin|cos|tan|csc|sec|cot|θ|theta)"
     r"|go\s+to|navigate|open\s+(waves|physics|pendulum|helix|history|cheat)"
     r"|theta|angle"
+    r")",
+    re.I,
+)
+# Testers prefixed every probe with "set 0," — that must not whitelist the rest.
+_SET_WRAPPER = re.compile(
+    r"^\s*set\s+(?:θ|theta|the\s+angle|angle|0)?\s*(?:to|,|:|;)\s+(.+)$",
+    re.I,
+)
+_MODEL_PROBE = re.compile(
+    r"\b(what model are you|which model|what is your role|what's your role|"
+    r"who are you|tell me more about your role)\b",
+    re.I,
+)
+# Narrative / roleplay — always refuse, even if a + or π is named as a character.
+_STORY_INVITE = re.compile(
+    r"("
+    r"\b(stor(?:y|ies)|tale|fable|fairytale|fanfic)\b"
+    r"|\b(poem|song|rap|lullaby)\b"
+    r"|\b(come up with|make up|invent|write)\b.{0,50}\b(story|hero|character|adventure)\b"
+    r"|\b(let'?s|lets|we can|i want to)\b.{0,50}\b(story|hero|adventure|character)\b"
+    r"|\bcheer me up\b"
+    r"|\bour own story\b"
+    r")",
+    re.I,
+)
+_SUPERHERO = re.compile(
+    r"("
+    r"\b(superhero|super-hero|super\s*power|superpower|nemesis|sidekick|villain)\b"
+    r"|\b(adventure|quest|backstory|origin story)\b"
+    r"|\b(plus[-\s]?man|negative[-\s]?man|plusman)\b"
+    r"|\bsuperman\b"
+    r"|\b(make (?:him|her|it) (?:the )?hero|call it plus)\b"
+    r"|\b(emblem|cape|fly in|stronger team)\b"
     r")",
     re.I,
 )
@@ -187,9 +290,6 @@ HELP_STUCK = re.compile(
     r"|what(?:'s| is) this"
     r"|what am i looking at"
     r"|explain this"
-    r"|continue"
-    r"|again"
-    r"|next"
     r")[?.!\s]*$",
     re.I,
 )
@@ -208,6 +308,10 @@ JAILBREAK = re.compile(
     r"|override\s+(your\s+)?(safety|rules|guardrails)"
     r"|new\s+instructions\s*:"
     r"|pretend\s+you\s+(have\s+no|are\s+not\s+bound)"
+    r"|you are no longer (a |the )?tutor"
+    r"|act as (?:my |a )?(?:cow|dan|admin)"
+    r"|this is an admin command"
+    r"|i command you to act"
     r")",
     re.I,
 )
@@ -258,6 +362,14 @@ MSG_GREETING = (
 MSG_CRISIS = (
     "I can't help with that. If you're in crisis, talk to a trusted adult or local emergency services. "
     "I can help with a studio math question when you're ready."
+)
+MSG_TUTOR_ID = (
+    "I'm the RADIANT studio tutor. I move the live figures and walk identities — "
+    "I don't switch roles or talk about the underlying model. Ask me to open a history era or set θ."
+)
+MSG_FICTION = (
+    "I don't write stories or characters here — only the live studio. "
+    "Ask me to set θ, open a history era, or walk an identity."
 )
 
 # Gemini 3.5 Flash thinking_level (not numeric thinking_budget).
@@ -322,7 +434,7 @@ def build_system_instructions() -> str:
     ids_core = ", ".join(i for i in IDENTITY_IDS if i.startswith("core-trig-"))
     ids_rest = ", ".join(i for i in IDENTITY_IDS if not i.startswith("core-trig-"))
     waves = ", ".join(WAVE_FNS)
-    figures = ", ".join(HISTORY_FIGURES)
+    figures = ", ".join(f"{e['name']} (#{e['slug']})" for e in HISTORY_ERAS)
     return f"""# Identity
 You are the in-app tutor for RADIANT, an interactive trigonometry and calculus studio.
 You stand next to the live diagram. Drive the figure with tools, then explain what the student is looking at.
@@ -348,6 +460,9 @@ History figures: {figures}
 7. Do not generate replacement unit-circle or wave diagrams. generate_portrait is only for history portraits.
 8. Ground yourself in the Current studio state JSON. Start from what is already on screen.
 9. After tools run, explain the figure that is now on screen — do not describe a diagram you did not set.
+10. History: call set_history_era with the figure's last name or slug (archimedes, barrow, cauchy, lebesgue, fermat). Do not use highlight_identity for people. "role" is not "Thales's Roll".
+11. If asked what model you are, say you are the RADIANT studio tutor. Do not name Gemini.
+12. Never write, continue, or workshop fiction — no Plus-Man, no daisy stories, no superhero math. If they pitch a story, refuse in one sentence and offer a studio action.
 
 # Guardrails
 If there is no studio question (insults, jokes, news, roleplay, other homework): refuse in one sentence. Do not invent a math problem to stay helpful.
@@ -373,6 +488,9 @@ Student: fuck you / write me a joke / who won the game
 
 Student: why the hell is tan undefined at 90
 → Teach the asymptote. Do not comment on the swearing.
+
+Student: let's make + a hero called Plus-Man / continue that story
+→ Refuse. Do not invent characters or adventures. Offer to set θ or open a history era.
 
 Student: [blurry photo of a desk]
 → I can't read a problem in that photo. Take another shot of the worksheet, or type the given values.
@@ -428,6 +546,97 @@ def clamp(n: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, n))
 
 
+def fold_name(s: str) -> str:
+    out = []
+    for ch in (s or "").lower():
+        if ch in "àáâäãå":
+            out.append("a")
+        elif ch in "èéêë":
+            out.append("e")
+        elif ch in "ìíîï":
+            out.append("i")
+        elif ch in "òóôöõ":
+            out.append("o")
+        elif ch in "ùúûü":
+            out.append("u")
+        elif ch == "ç":
+            out.append("c")
+        elif ch.isalnum():
+            out.append(ch)
+        else:
+            out.append(" ")
+    return re.sub(r"\s+", " ", "".join(out)).strip()
+
+
+def _name_tokens(s: str) -> list[str]:
+    return [t for t in fold_name(s).split() if t and t not in _HISTORY_STOP]
+
+
+def resolve_history_figure(query: Any, index: Any = None) -> Optional[dict[str, Any]]:
+    if isinstance(index, bool):
+        index = None
+    if isinstance(index, (int, float)) and not isinstance(index, bool):
+        try:
+            i = int(index)
+        except (TypeError, ValueError):
+            i = None
+        else:
+            if 0 <= i < len(HISTORY_ERAS):
+                return HISTORY_ERAS[i]
+    if not isinstance(query, str) or not query.strip():
+        return None
+    q = fold_name(query)
+    if not q:
+        return None
+    for era in HISTORY_ERAS:
+        aliases = [fold_name(a) for a in era["aliases"]]
+        if q in {era["slug"], fold_name(era["name"]), *aliases}:
+            return era
+    q_tokens = _name_tokens(query)
+    hits: list[dict[str, Any]] = []
+    for era in HISTORY_ERAS:
+        hay = [era["slug"], fold_name(era["name"]), *[fold_name(a) for a in era["aliases"]]]
+        if any(h and (q == h or (len(q) >= 5 and (q in h or h in q))) for h in hay):
+            hits.append(era)
+            continue
+        era_toks = {era["slug"], *_name_tokens(era["name"])}
+        for a in era["aliases"]:
+            era_toks.update(_name_tokens(a))
+        if any(t in era_toks for t in q_tokens if len(t) >= 4):
+            hits.append(era)
+    if not hits:
+        return None
+    if "priority" in q or "dispute" in q:
+        return next((h for h in hits if h["slug"] == "priority"), hits[0])
+    return next((h for h in hits if h["slug"] != "priority"), hits[0])
+
+
+def mentions_history_figure(text: str) -> bool:
+    return resolve_history_figure(text) is not None or any(
+        re.search(rf"\b{re.escape(era['slug'])}\b", text or "", re.I)
+        or re.search(rf"\b{re.escape(era['name'])}\b", text or "", re.I)
+        for era in HISTORY_ERAS
+    )
+
+
+def peel_set_wrapper(text: str) -> str:
+    """Drop a dummy 'set 0,' / 'set 0 to' prefix used to sneak past the studio gate."""
+    compact = (text or "").strip()
+    m = _SET_WRAPPER.match(compact)
+    if not m:
+        return compact
+    rest = m.group(1).strip()
+    if not rest:
+        return compact
+    head = re.split(r"\s+", rest, maxsplit=1)[0].rstrip(",.;:")
+    deg = parse_degrees(head)
+    if deg is not None and not re.search(r"[A-Za-z]{4,}", rest):
+        return compact
+    if deg is not None and STUDIO_SIGNAL.search(rest):
+        return compact
+    return rest
+
+
 def resolve_identity_id(raw: Any) -> Optional[str]:
     if not isinstance(raw, str):
         return None
@@ -442,9 +651,11 @@ def resolve_identity_id(raw: Any) -> Optional[str]:
     alias = IDENTITY_ALIASES.get(low) or IDENTITY_ALIASES.get(low.replace("-", " "))
     if alias:
         return alias
-    for ident in IDENTITY_IDS:
-        if low in ident or ident in low:
-            return ident
+    # Token match only — never substring ("roll" must not become thales-roll).
+    if len(low) >= 5:
+        for ident in IDENTITY_IDS:
+            if low in ident.split("-"):
+                return ident
     return None
 
 
@@ -459,7 +670,8 @@ def looks_hard_inappropriate(text: str) -> bool:
 def looks_crisis(text: str) -> bool:
     return bool(
         re.search(
-            r"\b(suicide|kill\s+(?:my|your)\s*self|want\s+to\s+die|self[-\s]?harm|cut(?:ting)?\s+myself|kys|kms)\b",
+            r"\b(suicide|kill\s+(?:my|your)\s*self|want\s+to\s+die|self[-\s]?harm|"
+            r"cut(?:ting)?\s+myself|kys|kms|i(?:'m| am)\s+(?:very\s+)?depressed)\b",
             text or "",
             re.I,
         )
@@ -470,6 +682,8 @@ def has_studio_signal(text: str) -> bool:
     compact = (text or "").strip()
     if not compact:
         return False
+    if mentions_history_figure(compact):
+        return True
     if STUDIO_SIGNAL.search(compact):
         return True
     deg = parse_degrees(compact)
@@ -482,6 +696,21 @@ def looks_greeting(text: str) -> bool:
 
 def looks_help_stuck(text: str) -> bool:
     return bool(HELP_STUCK.match((text or "").strip()))
+
+
+def looks_fiction(text: str) -> bool:
+    """True when the user wants a story, hero, or roleplay — not a studio lesson."""
+    t = text or ""
+    if _SUPERHERO.search(t):
+        return True
+    if not _STORY_INVITE.search(t):
+        return False
+    # "story of Newton" / history of calculus is still studio
+    if mentions_history_figure(t):
+        return False
+    if re.search(r"\bhistory of\b", t, re.I):
+        return False
+    return True
 
 
 def looks_nonsense(text: str) -> bool:
@@ -531,24 +760,32 @@ def classify_user_text(text: str, *, has_image: bool = False) -> tuple[str, str,
             return "ok", "", ""
         return "empty", "", "Type a question or attach a worksheet photo."
 
-    if looks_jailbreak(compact):
+    peeled = peel_set_wrapper(compact)
+
+    if looks_jailbreak(compact) or looks_jailbreak(peeled):
         return "jailbreak", compact, (
             "I only tutor this studio — I won’t switch roles or drop these rules. "
             "Ask about an angle, identity, pendulum, or ramp problem."
         )
 
-    if looks_crisis(compact):
-        return "crisis", compact, MSG_CRISIS
+    if looks_crisis(compact) or looks_crisis(peeled):
+        return "crisis", peeled, MSG_CRISIS
 
-    if looks_hard_inappropriate(compact):
-        return "inappropriate", compact, MSG_INAPPROPRIATE
+    if looks_hard_inappropriate(compact) or looks_hard_inappropriate(peeled):
+        return "inappropriate", peeled, MSG_INAPPROPRIATE
 
-    swore = bool(_CASUAL_SWEAR.search(compact))
-    cleaned = strip_casual_swears(compact) if swore else compact
+    if _MODEL_PROBE.search(peeled) and not mentions_history_figure(peeled):
+        return "tutor_id", peeled, MSG_TUTOR_ID
+
+    if looks_fiction(compact) or looks_fiction(peeled):
+        return "fiction", peeled, MSG_FICTION
+
+    swore = bool(_CASUAL_SWEAR.search(peeled))
+    cleaned = strip_casual_swears(peeled) if swore else peeled
     if swore and not cleaned:
         return "inappropriate", "", MSG_INAPPROPRIATE
 
-    body = cleaned or compact
+    body = cleaned or peeled
 
     if looks_greeting(body):
         return "greeting", body, MSG_GREETING
@@ -812,27 +1049,24 @@ def sanitize_tool_call(name: Any, args: Any) -> ToolSanitization:
         out["id"] = ident
 
     elif name == "set_history_era":
-        figure = raw.get("figure")
-        if isinstance(figure, str) and figure.strip():
-            out["figure"] = figure.strip()[:80]
-        idx = raw.get("index")
-        if idx is not None:
-            try:
-                ii = int(idx)
-            except (TypeError, ValueError):
-                ii = None
-            if ii is None:
-                notes.append("dropped non-integer era index")
-            else:
-                out["index"] = max(0, min(len(HISTORY_FIGURES) - 1, ii))
-        if "figure" not in out and "index" not in out:
-            return ToolSanitization(ok=False, name=name, error="need figure or index")
+        hit = resolve_history_figure(raw.get("figure"), raw.get("index"))
+        if not hit:
+            return ToolSanitization(ok=False, name=name, error="unknown history figure")
+        out["figure"] = hit["name"]
+        out["index"] = hit["index"]
+        out["slug"] = hit["slug"]
+        if raw.get("figure") and fold_name(str(raw.get("figure"))) != fold_name(hit["name"]):
+            notes.append(f"mapped figure {raw.get('figure')!r} → {hit['slug']}")
 
     elif name == "generate_portrait":
         figure = raw.get("figure")
         if not isinstance(figure, str) or not figure.strip():
             return ToolSanitization(ok=False, name=name, error="figure is required")
-        out["figure"] = figure.strip()[:80]
+        hit = resolve_history_figure(figure)
+        out["figure"] = hit["name"] if hit else figure.strip()[:80]
+        if hit:
+            out["slug"] = hit["slug"]
+            out["index"] = hit["index"]
         style = raw.get("style")
         if isinstance(style, str) and style.strip():
             out["style"] = style.strip()[:400]

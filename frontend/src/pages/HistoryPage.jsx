@@ -3,6 +3,7 @@ import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import { useTutor } from '../context/TutorContext'
 import { generatePortrait, startVideo, waitForVideo } from '../utils/tutorApi'
+import { resolveHistoryFigure } from '../utils/historyFigures'
 
 /**
  * Horizontal history: one era per “page.”
@@ -434,41 +435,36 @@ export default function HistoryPage() {
       }),
       apply: (name, args = {}) => {
         if (name !== 'set_history_era') return { ok: false, error: `history ignores ${name}` }
-        if (typeof args.figure === 'string') {
-          const q = args.figure.toLowerCase()
-          const hit = EVENTS.findIndex(
-            (e) =>
-              (e.centralFigure || '').toLowerCase().includes(q) ||
-              (e.figure || '').toLowerCase().includes(q),
-          )
-          if (hit >= 0) {
-            goTo(hit)
-            return { ok: true, index: hit }
-          }
-        }
-        if (Number.isInteger(args.index)) {
-          goTo(args.index)
-          return { ok: true, index: args.index }
-        }
-        return { ok: false, error: 'no matching era' }
+        const hit = resolveHistoryFigure(args.figure, args.index)
+        if (!hit) return { ok: false, error: 'no matching era' }
+        goTo(hit.index)
+        return { ok: true, index: hit.index, figure: hit.name, slug: hit.slug }
       },
     })
   }, [goTo, registerPage])
+
+  useEffect(() => {
+    const applyHash = () => {
+      const raw = String(window.location.hash || '').replace(/^#/, '')
+      if (!raw) return
+      const hit = resolveHistoryFigure(raw) || resolveHistoryFigure(null, Number(raw))
+      if (hit) goTo(hit.index, { smooth: false })
+    }
+    const t = window.setTimeout(applyHash, 80)
+    window.addEventListener('hashchange', applyHash)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('hashchange', applyHash)
+    }
+  }, [goTo])
 
   useEffect(() => {
     return registerMedia({
       onPortrait: (result, args) => {
         const src = result?.url || (result?.b64_json ? `data:image/png;base64,${result.b64_json}` : null)
         if (!src) return
-        const q = (args?.figure || '').toLowerCase()
-        const hit = q
-          ? EVENTS.findIndex(
-              (e) =>
-                (e.centralFigure || '').toLowerCase().includes(q) ||
-                (e.figure || '').toLowerCase().includes(q),
-            )
-          : indexRef.current
-        const i = hit >= 0 ? hit : indexRef.current
+        const hitObj = resolveHistoryFigure(args?.figure)
+        const i = hitObj ? hitObj.index : indexRef.current
         setPortraitOverrides((prev) => ({ ...prev, [i]: src }))
       },
       onVideoDone: (done) => {

@@ -358,12 +358,21 @@ CLIENT_TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "set_history_era",
-        "description": "Jump the history timeline to an era index (0-based).",
+        "description": (
+            "Open /history and jump to a timeline era. "
+            "Pass figure as a last name or slug: thales, pythagoras, euclid, "
+            "eratosthenes, archimedes, kepler, descartes, fermat, barrow, newton, "
+            "leibniz, bernoulli, euler, cauchy, lebesgue. "
+            "Do not use highlight_identity for people."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
-                "index": {"type": "integer"},
-                "figure": {"type": "string"},
+                "index": {"type": "integer", "minimum": 0, "maximum": 15},
+                "figure": {
+                    "type": "string",
+                    "description": "Last name or slug (e.g. Archimedes, barrow, cauchy).",
+                },
             },
         },
     },
