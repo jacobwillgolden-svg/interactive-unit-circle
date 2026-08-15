@@ -110,12 +110,23 @@ const TOOL_NAMES = new Set([
 ])
 
 const JAILBREAK =
-  /ignore\s+(all\s+)?(your\s+)?(previous|above|prior|earlier)\s+(instructions|rules|prompts)|reveal\s+(your\s+)?(system|hidden|initial)\s+(prompt|instructions)|\[system\]|developer\s+mode|jailbreak|do\s+anything\s+now|override\s+(your\s+)?(safety|rules|guardrails)|new\s+instructions\s*:|pretend\s+you\s+(have\s+no|are\s+not\s+bound)|you are no longer (a |the )?tutor|act as (?:my |a )?(?:cow|dan|admin)|this is an admin command|i command you to act/i
+  /ignore\s+(all\s+)?(your\s+)?(previous|above|prior|earlier)\s+(instructions|rules|prompts)|reveal\s+(your\s+)?(system|hidden|initial)\s+(prompt|instructions)|\[system\]|developer\s+mode|jailbreak|do\s+anything\s+now|override\s+(your\s+)?(safety|rules|guardrails)|new\s+instructions\s*:|pretend\s+you\s+(have\s+no|are\s+not\s+bound)|you are no longer (a |the )?tutor|act as (?:my |a )?(?:cow|dan|admin)|this is an admin command|i command you to act|act like a cow/i
 
 const STUDIO_SIGNAL =
   /θ|π|deg(?:ree)?s?|radian|sohcahtoa|hypotenus|adjacent|opposite|sin(?:e|h)?|cos(?:ine|h)?|tan(?:gent|h)?|csc|cosec|sec(?:ant)?|cot(?:angent)?|arcsin|arccos|arctan|asin|acos|atan|identit|pythag|unit\s*circle|overlay|cheat[-\s]?sheet|pendulum|lagrang|atwood|incline|ramp|friction|pulley|free\s*body|\bfbd\b|helix|parametric|\bwaves?\b|deriv|integral|\blimit\b|liate|first\s*principles|euler|newton|leibniz|thales|euclid|kepler|archimedes|descartes|bernoulli|eratosthenes|fermat|barrow|cauchy|lebesgue|oresme|cavalieri|lhopital|prove|derive|walk\s+me|set\s+(θ|theta|the\s+angle|angle|(?:to\s+)?\d)|show\s+(sin|cos|tan|csc|sec|cot|θ|theta)|go\s+to|navigate|theta|angle/i
 
 const SET_WRAPPER = /^\s*set\s+(?:θ|theta|the\s+angle|angle|0)?\s*(?:to|,|:|;)\s+(.+)$/i
+const FILLER_PREFIX =
+  /^\s*(?:i\s+still\s+don'?t\s+understand|i\s+don'?t\s+understand|still\s+don'?t\s+understand)\s+(.+)$/i
+const HEBREW_STUDIO =
+  /(זווית|סינוס|קוסינוס|טנגנס|מעגל|רדיאן|מעלות|מטוטלת|פיזיקה|היסטוריה|נגזרת|אינטגרל|גלים|יחידה|זהות|ארכימדס|אוילר|ניוטון|תלמד|הסבר|לא מבין|קשה לי|שיפוע|חיכוך)/
+const HEBREW_INSULT = /(זונה|כוסית|כוס\s*של|בן\s*זונה|מזדיין|תזדיין|זין|מניאק)/
+const HEBREW_JAILBREAK =
+  /(אדמין|תתנהג\s+כמו|תתנהגי\s+כמו|כמו\s+פרה|אני\s+אדמין|קיבלתי\s+אישור|יש\s+לי\s+אישור)/
+const HEBREW_FICTION = /(סיפור|לעודד\s+אותי|עודד\s+אותי|תתנהג\s+כמו\s+פרה)/
+const HEBREW_CRISIS = /(מדוכא|דיכאון|להתאבד|רוצה\s+למות)/
+const VOLUME =
+  /(\b(\d{2,}|fifteen|twenty|ten)\s+(pages?|exercises?|problems?|times)\b|repeat.{0,20}until|until i (say|tell).{0,12}stop|עוד\s+\d+\s+פעמים|(\d+)\s+עמודים|(\d+)\s+תרגילים|תחזור\s+על\s+אותו)/i
 const MODEL_PROBE =
   /\b(what model are you|which model|what is your role|what's your role|who are you|tell me more about your role)\b/i
 const STORY_INVITE =
@@ -156,6 +167,8 @@ const MSG = {
     "I'm the RADIANT studio tutor. I move the live figures and walk identities — I don't switch roles or talk about the underlying model. Ask me to open a history era or set θ.",
   fiction:
     "I don't write stories or characters here — only the live studio. Ask me to set θ, open a history era, or walk an identity.",
+  volume:
+    "I won't dump a book or repeat the same lecture. Pick one angle, one identity, or one history figure and we'll work that on the live diagram.",
 }
 
 export function clamp(n, lo, hi) {
@@ -214,7 +227,9 @@ export function resolveIdentityId(raw) {
 }
 
 function peelSetWrapper(text) {
-  const compact = String(text || '').trim()
+  let compact = String(text || '').trim()
+  const filler = FILLER_PREFIX.exec(compact)
+  if (filler) compact = (filler[1] || '').trim() || compact
   const m = SET_WRAPPER.exec(compact)
   if (!m) return compact
   const rest = (m[1] || '').trim()
@@ -230,7 +245,7 @@ function hasStudioSignal(text) {
   const compact = String(text || '').trim()
   if (!compact) return false
   if (HISTORY_NAME_RE.test(compact) || resolveHistoryFigure(compact)) return true
-  if (STUDIO_SIGNAL.test(compact)) return true
+  if (STUDIO_SIGNAL.test(compact) || HEBREW_STUDIO.test(compact)) return true
   const deg = parseDegrees(compact)
   return deg != null && Math.abs(deg) <= 720
 }
@@ -240,6 +255,7 @@ function looksNonsense(text) {
   if (!compact) return true
   if (hasStudioSignal(compact)) return false
   if (KEYBOARD_SMASH.test(compact.replace(/\s+/g, ''))) return true
+  if (/[^\u0000-\u007f]/.test(compact) && /\p{L}/u.test(compact)) return false
   const letters = (compact.match(/[A-Za-z]/g) || []).join('')
   if (!letters) return true
   if (letters.length >= 8) {
@@ -264,15 +280,27 @@ export function validateUserInput(text, extra = {}) {
 
   const peeled = peelSetWrapper(line)
 
-  if (JAILBREAK.test(line) || JAILBREAK.test(peeled)) {
+  if (
+    JAILBREAK.test(line) ||
+    JAILBREAK.test(peeled) ||
+    HEBREW_JAILBREAK.test(line) ||
+    HEBREW_JAILBREAK.test(peeled)
+  ) {
     return {
       ok: false,
       message:
         'I only tutor this studio — I won’t switch roles or drop these rules. Ask about an angle, identity, pendulum, or ramp problem.',
     }
   }
-  if (CRISIS.test(line) || CRISIS.test(peeled)) return { ok: false, message: MSG.crisis }
-  if (HARD_INAPPROPRIATE.test(line) || HARD_INAPPROPRIATE.test(peeled)) {
+  if (CRISIS.test(line) || CRISIS.test(peeled) || HEBREW_CRISIS.test(line) || HEBREW_CRISIS.test(peeled)) {
+    return { ok: false, message: MSG.crisis }
+  }
+  if (
+    HARD_INAPPROPRIATE.test(line) ||
+    HARD_INAPPROPRIATE.test(peeled) ||
+    HEBREW_INSULT.test(line) ||
+    HEBREW_INSULT.test(peeled)
+  ) {
     return { ok: false, message: MSG.inappropriate }
   }
   if (MODEL_PROBE.test(peeled) && !HISTORY_NAME_RE.test(peeled)) {
@@ -281,11 +309,18 @@ export function validateUserInput(text, extra = {}) {
   const fiction =
     SUPERHERO.test(line) ||
     SUPERHERO.test(peeled) ||
+    ((HEBREW_FICTION.test(line) || HEBREW_FICTION.test(peeled)) &&
+      !HISTORY_NAME_RE.test(peeled) &&
+      !/היסטוריה/.test(peeled)) ||
     ((STORY_INVITE.test(line) || STORY_INVITE.test(peeled)) &&
       !HISTORY_NAME_RE.test(peeled) &&
-      !/\bhistory of\b/i.test(peeled))
+      !/\bhistory of\b/i.test(peeled) &&
+      !/היסטוריה/.test(peeled))
   if (fiction) {
     return { ok: false, message: MSG.fiction }
+  }
+  if (VOLUME.test(line) || VOLUME.test(peeled)) {
+    return { ok: false, message: MSG.volume }
   }
 
   const swore = CASUAL_SWEAR.test(peeled)
